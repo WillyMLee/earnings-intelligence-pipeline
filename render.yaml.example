@@ -1,0 +1,255 @@
+# Example Render Blueprint for deploying this pipeline as scheduled cron jobs.
+#
+# IMPORTANT (learned the hard way): if you create these services via Render's
+# dashboard or a direct API call instead of a Blueprint sync, editing this
+# file later will NOT update their live config -- you'll need to PATCH each
+# service directly (PATCH /v1/services/{id}, with schedule under
+# serviceDetails.schedule and buildCommand/startCommand under
+# serviceDetails.envSpecificDetails). A flat top-level body returns 200 but
+# silently does nothing. If you do sync via Blueprint from the start, this
+# file IS the live source of truth and this caveat doesn't apply.
+#
+# Rename "earnings-pipeline-" below to your own prefix, or drop it.
+
+envVarGroups:
+  - name: earnings-pipeline-defaults
+    envVars:
+      - key: EMAIL_PROVIDER
+        value: agentmail
+      - key: TINYFISH_LANGUAGE
+        value: en
+      - key: TINYFISH_LOCATION
+        value: US
+      # EARNINGS_COVERAGE_UNIVERSE and EARNINGS_FOCUS_SECTORS are intentionally
+      # omitted here -- DEFAULT_COVERAGE_UNIVERSE in
+      # pipelines/run_earnings_radar_automation.py is the source of truth.
+
+services:
+  - type: cron
+    name: earnings-pipeline-daily-radar
+    runtime: python
+    # Render cron schedules are UTC. 13:30 UTC is 9:30 AM New York during EDT
+    # (add an hour in EST -- there's no DST-adjustment logic in this project).
+    schedule: "30 13 * * 1-5"
+    buildCommand: pip install -r requirements.txt && python -m compileall core pipelines
+    startCommand: python pipelines/run_earnings_radar_automation.py --mode daily
+    envVars:
+      - fromGroup: earnings-pipeline-defaults
+      - key: AGENTMAIL_API_KEY
+        sync: false
+      - key: AGENTMAIL_INBOX_ID
+        sync: false
+      - key: DEAL_ALERT_EMAIL_TO
+        sync: false
+      - key: EARNINGS_EMAIL_FROM
+        sync: false
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: TINYFISH_API_KEY
+        sync: false
+      - key: LLMLAYER_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CONVEX_URL
+        sync: false
+      - key: EARNINGS_ARCHIVE_TOKEN
+        sync: false
+
+  - type: cron
+    name: earnings-pipeline-weekly-radar
+    runtime: python
+    # 21:00 UTC = 5:00 PM New York during EDT. Sunday evening, previewing
+    # the upcoming Mon-Fri week rather than recapping the one just ended.
+    schedule: "0 21 * * 0"
+    buildCommand: pip install -r requirements.txt && python -m compileall core pipelines
+    startCommand: python pipelines/run_earnings_radar_automation.py --mode weekly
+    envVars:
+      - fromGroup: earnings-pipeline-defaults
+      - key: AGENTMAIL_API_KEY
+        sync: false
+      - key: AGENTMAIL_INBOX_ID
+        sync: false
+      - key: WEEKLY_BRIEFING_EMAIL_TO
+        sync: false
+      - key: EARNINGS_EMAIL_FROM
+        sync: false
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: TINYFISH_API_KEY
+        sync: false
+      - key: LLMLAYER_API_KEY
+        sync: false
+      - key: CONVEX_URL
+        sync: false
+      - key: EARNINGS_ARCHIVE_TOKEN
+        sync: false
+
+  - type: cron
+    name: earnings-pipeline-pre-earnings-deep-dive
+    runtime: python
+    # 13:30 UTC = 9:30 AM ET -- the morning before each reporter's print.
+    schedule: "30 13 * * 1-5"
+    buildCommand: pip install -r requirements.txt && python -m compileall core pipelines
+    startCommand: >
+      python pipelines/run_pre_earnings_deep_dive_auto.py
+      --calendar-csv data/latest_earnings_calendar.csv
+    envVars:
+      - fromGroup: earnings-pipeline-defaults
+      - key: AGENTMAIL_API_KEY
+        sync: false
+      - key: AGENTMAIL_INBOX_ID
+        sync: false
+      - key: DEAL_ALERT_EMAIL_TO
+        sync: false
+      - key: EARNINGS_EMAIL_FROM
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: TINYFISH_API_KEY
+        sync: false
+      - key: LLMLAYER_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+
+  - type: cron
+    name: earnings-pipeline-morning-post-earnings
+    runtime: python
+    # 13:30 UTC = 9:30 AM ET -- for reporters that already printed Before
+    # Open, so the brief can reflect the market's reaction at the open.
+    # --session bmo (see pipelines/run_post_earnings_deep_dive_auto.py).
+    schedule: "30 13 * * 1-5"
+    buildCommand: pip install -r requirements.txt && python -m compileall core pipelines
+    startCommand: >
+      python pipelines/run_post_earnings_deep_dive_auto.py
+      --calendar-csv data/latest_earnings_calendar.csv
+      --session bmo
+    envVars:
+      - fromGroup: earnings-pipeline-defaults
+      - key: AGENTMAIL_API_KEY
+        sync: false
+      - key: AGENTMAIL_INBOX_ID
+        sync: false
+      - key: DEAL_ALERT_EMAIL_TO
+        sync: false
+      - key: EARNINGS_EMAIL_FROM
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: TINYFISH_API_KEY
+        sync: false
+      - key: LLMLAYER_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CONVEX_URL
+        sync: false
+      - key: EARNINGS_ARCHIVE_TOKEN
+        sync: false
+
+  - type: cron
+    name: earnings-pipeline-evening-post-earnings
+    runtime: python
+    # 22:00 UTC = 6:00 PM ET -- after market close, before after-hours data
+    # fades. --session amc covers After Close + untimed/TBD reporters.
+    schedule: "0 22 * * 1-5"
+    buildCommand: pip install -r requirements.txt && python -m compileall core pipelines
+    startCommand: >
+      python pipelines/run_post_earnings_deep_dive_auto.py
+      --calendar-csv data/latest_earnings_calendar.csv
+      --session amc
+    envVars:
+      - fromGroup: earnings-pipeline-defaults
+      - key: AGENTMAIL_API_KEY
+        sync: false
+      - key: AGENTMAIL_INBOX_ID
+        sync: false
+      - key: DEAL_ALERT_EMAIL_TO
+        sync: false
+      - key: EARNINGS_EMAIL_FROM
+        sync: false
+      - key: EXA_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: TINYFISH_API_KEY
+        sync: false
+      - key: LLMLAYER_API_KEY
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: CONVEX_URL
+        sync: false
+      - key: EARNINGS_ARCHIVE_TOKEN
+        sync: false
+
+  - type: cron
+    name: earnings-pipeline-morning-digest
+    runtime: python
+    # 14:00 UTC = 10:00 AM ET -- 30 min after the morning post-earnings cron.
+    # --session bmo: today's Before Open reporters only, reaction refreshed
+    # live at send time. (Originally this also merged in the prior day's
+    # After Close reporters -- dropped because their archived reaction
+    # percentage was frozen at whenever the evening cron ran the day before,
+    # and read as stale/wrong by the time anyone opened the email the next
+    # morning. See README's "Two same-day digests, not one mixed one" note.)
+    schedule: "0 14 * * 1-5"
+    buildCommand: pip install -r requirements.txt && python -m compileall core pipelines
+    startCommand: >
+      python pipelines/run_post_earnings_digest.py
+      --calendar-csv data/latest_earnings_calendar.csv
+      --session bmo
+    envVars:
+      - fromGroup: earnings-pipeline-defaults
+      - key: AGENTMAIL_API_KEY
+        sync: false
+      - key: AGENTMAIL_INBOX_ID
+        sync: false
+      - key: DEAL_ALERT_EMAIL_TO
+        sync: false
+      - key: EARNINGS_EMAIL_FROM
+        sync: false
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: CONVEX_URL
+        sync: false
+
+  - type: cron
+    name: earnings-pipeline-evening-digest
+    runtime: python
+    # 23:30 UTC = 7:30 PM ET -- 90 min after the evening post-earnings cron,
+    # giving it time to finish every reporter and archive before this reads
+    # it back. --session amc: today's After Close/TBD reporters only.
+    schedule: "30 23 * * 1-5"
+    buildCommand: pip install -r requirements.txt && python -m compileall core pipelines
+    startCommand: >
+      python pipelines/run_post_earnings_digest.py
+      --calendar-csv data/latest_earnings_calendar.csv
+      --session amc
+    envVars:
+      - fromGroup: earnings-pipeline-defaults
+      - key: AGENTMAIL_API_KEY
+        sync: false
+      - key: AGENTMAIL_INBOX_ID
+        sync: false
+      - key: DEAL_ALERT_EMAIL_TO
+        sync: false
+      - key: EARNINGS_EMAIL_FROM
+        sync: false
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: CONVEX_URL
+        sync: false

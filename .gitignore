@@ -1,0 +1,17 @@
+# Secrets -- never commit real values
+.env
+.env.*
+!.env.example
+
+# Generated at runtime, not source
+outputs/
+data/*.csv
+_tmp_*/
+tmp/
+
+# Python / Node housekeeping
+**/__pycache__/
+**/*.pyc
+**/.pytest_cache/
+**/node_modules/
+convex/_generated/
