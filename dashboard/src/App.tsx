@@ -3,6 +3,7 @@ import { listRecentEarnings, listSectors, listCompanies, type PostEarningsSummar
 import { EarningsCard } from "./components/EarningsCard";
 import { Sidebar } from "./components/Sidebar";
 import { CompanyProfile } from "./pages/CompanyProfile";
+import { Dashboard } from "./pages/Dashboard";
 import { useRoute } from "./lib/router";
 
 type LoadState = "loading" | "ready" | "error";
@@ -24,13 +25,17 @@ export default function App() {
       <Sidebar
         companies={companies}
         activeTicker={route.name === "company" ? route.ticker : null}
+        route={route}
         onSelect={(ticker) => setRoute({ name: "company", ticker })}
+        onNav={(name) => setRoute({ name })}
       />
       <main className="flex-1 overflow-y-auto">
         {route.name === "company" ? (
-          <CompanyProfile ticker={route.ticker} onBack={() => setRoute({ name: "feed" })} />
-        ) : (
+          <CompanyProfile ticker={route.ticker} onBack={() => setRoute({ name: "dashboard" })} />
+        ) : route.name === "feed" ? (
           <Feed onOpenCompany={(ticker) => setRoute({ name: "company", ticker })} />
+        ) : (
+          <Dashboard onOpenCompany={(ticker) => setRoute({ name: "company", ticker })} />
         )}
       </main>
     </div>

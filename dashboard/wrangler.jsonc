@@ -2,6 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "earnings-intelligence-pipeline",
   "compatibility_date": "2025-01-01",
+  // worker/index.js handles /api/* (currently just /api/indices, a
+  // same-origin proxy for Yahoo Finance's intraday chart endpoint) and
+  // falls through to the assets binding for everything else -- same static
+  // file serving as before, just routed through the Worker script instead
+  // of assets being the sole entrypoint.
+  "main": "worker/index.js",
   // Cloudflare's current Workers-with-static-assets model: without this
   // block, a Workers deployment has no idea the built dist/ files are
   // static assets to serve as-is -- it needs this to set correct
@@ -10,6 +16,7 @@
   // which browsers refuse to execute as a module script per spec.
   "assets": {
     "directory": "./dist",
+    "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   }
 }

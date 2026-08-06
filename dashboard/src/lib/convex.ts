@@ -8,6 +8,7 @@ const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string;
 export type Bullet = { text: string; children?: string[] };
 export type Section = { heading: string; bullets: Bullet[] };
 export type OfficialLinks = { press_release?: string; investor_deck?: string; transcript?: string };
+export type QaHighlight = { analystQuestion: string; answerSummary: string };
 
 export type PostEarningsSummary = {
   _id: string;
@@ -40,6 +41,7 @@ export type PostEarningsSummary = {
   financialHighlights?: Bullet[] | null;
   sections?: Section[] | null;
   officialLinks?: OfficialLinks | null;
+  qaHighlights?: QaHighlight[] | null;
   updatedAt: string;
 };
 

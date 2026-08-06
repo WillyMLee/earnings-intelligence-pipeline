@@ -1,11 +1,11 @@
 import { useEffect, useState } from "react";
 
-// Deliberately dependency-free: this app has exactly two views (feed,
+// Deliberately dependency-free: this app has three views (dashboard, feed,
 // company profile), so a small hash-based router covers it without pulling
 // in react-router. Hash routing also means the Workers static-asset SPA
 // fallback (wrangler.jsonc's not_found_handling) never has to deal with
 // nested real paths at all -- every route is the same index.html.
-export type Route = { name: "feed" } | { name: "company"; ticker: string };
+export type Route = { name: "dashboard" } | { name: "feed" } | { name: "company"; ticker: string };
 
 function parseHash(hash: string): Route {
   const path = hash.replace(/^#\/?/, "");
@@ -13,7 +13,8 @@ function parseHash(hash: string): Route {
   if (segment === "company" && ticker) {
     return { name: "company", ticker: ticker.toUpperCase() };
   }
-  return { name: "feed" };
+  if (segment === "feed") return { name: "feed" };
+  return { name: "dashboard" };
 }
 
 export function useRoute(): [Route, (route: Route) => void] {
@@ -26,7 +27,9 @@ export function useRoute(): [Route, (route: Route) => void] {
   }, []);
 
   const setRoute = (next: Route) => {
-    window.location.hash = next.name === "company" ? `/company/${next.ticker}` : "/";
+    if (next.name === "company") window.location.hash = `/company/${next.ticker}`;
+    else if (next.name === "feed") window.location.hash = "/feed";
+    else window.location.hash = "/";
   };
 
   return [route, setRoute];
