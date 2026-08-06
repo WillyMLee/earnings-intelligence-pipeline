@@ -1,10 +1,43 @@
 import { useEffect, useMemo, useState } from "react";
-import { listRecentEarnings, listSectors, type PostEarningsSummary } from "./lib/convex";
+import { listRecentEarnings, listSectors, listCompanies, type PostEarningsSummary, type CompanyListing } from "./lib/convex";
 import { EarningsCard } from "./components/EarningsCard";
+import { Sidebar } from "./components/Sidebar";
+import { CompanyProfile } from "./pages/CompanyProfile";
+import { useRoute } from "./lib/router";
 
 type LoadState = "loading" | "ready" | "error";
 
 export default function App() {
+  const [route, setRoute] = useRoute();
+  const [companies, setCompanies] = useState<CompanyListing[]>([]);
+
+  useEffect(() => {
+    listCompanies()
+      .then(setCompanies)
+      .catch(() => {
+        /* sidebar just stays empty on failure -- non-fatal */
+      });
+  }, []);
+
+  return (
+    <div className="flex h-screen">
+      <Sidebar
+        companies={companies}
+        activeTicker={route.name === "company" ? route.ticker : null}
+        onSelect={(ticker) => setRoute({ name: "company", ticker })}
+      />
+      <main className="flex-1 overflow-y-auto">
+        {route.name === "company" ? (
+          <CompanyProfile ticker={route.ticker} onBack={() => setRoute({ name: "feed" })} />
+        ) : (
+          <Feed onOpenCompany={(ticker) => setRoute({ name: "company", ticker })} />
+        )}
+      </main>
+    </div>
+  );
+}
+
+function Feed({ onOpenCompany }: { onOpenCompany: (ticker: string) => void }) {
   const [summaries, setSummaries] = useState<PostEarningsSummary[]>([]);
   const [sectors, setSectors] = useState<string[]>([]);
   const [activeSector, setActiveSector] = useState<string | null>(null);
@@ -75,9 +108,7 @@ export default function App() {
       )}
 
       {state === "loading" && <EmptyState message="Loading recent earnings…" />}
-      {state === "error" && (
-        <EmptyState message={`Couldn't load earnings data: ${error}`} tone="error" />
-      )}
+      {state === "error" && <EmptyState message={`Couldn't load earnings data: ${error}`} tone="error" />}
       {state === "ready" && groupedByDate.length === 0 && (
         <EmptyState message="No earnings recorded for this sector yet." />
       )}
@@ -95,7 +126,7 @@ export default function App() {
               </h2>
               <div className="flex flex-col gap-3">
                 {items.map((summary) => (
-                  <EarningsCard key={summary._id} summary={summary} />
+                  <EarningsCard key={summary._id} summary={summary} onOpenCompany={onOpenCompany} />
                 ))}
               </div>
             </section>

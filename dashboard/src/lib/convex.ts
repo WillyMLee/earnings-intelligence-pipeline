@@ -5,6 +5,10 @@
 // guide) -- the schema/query shapes are documented in convex/schema.js.
 const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string;
 
+export type Bullet = { text: string; children?: string[] };
+export type Section = { heading: string; bullets: Bullet[] };
+export type OfficialLinks = { press_release?: string; investor_deck?: string; transcript?: string };
+
 export type PostEarningsSummary = {
   _id: string;
   ticker: string;
@@ -23,7 +27,27 @@ export type PostEarningsSummary = {
   epsActual: number | null;
   epsConsensus: number | null;
   epsSurprisePct: number | null;
+  capexActualUsd?: number | null;
+  capexGuidancePriorUsd?: number | null;
+  capexGuidanceUpdatedUsd?: number | null;
+  cashAndEquivalentsUsd?: number | null;
+  shortTermInvestmentsUsd?: number | null;
+  shortTermDebtUsd?: number | null;
+  longTermDebtUsd?: number | null;
+  priceUsd?: number | null;
+  marketCapUsd?: number | null;
+  intro?: string | null;
+  financialHighlights?: Bullet[] | null;
+  sections?: Section[] | null;
+  officialLinks?: OfficialLinks | null;
   updatedAt: string;
+};
+
+export type CompanyListing = {
+  ticker: string;
+  company: string;
+  sector: string | null;
+  reportDate: string;
 };
 
 async function convexQuery<T>(path: string, args: Record<string, unknown>): Promise<T> {
@@ -56,6 +80,10 @@ export function listRecentEarnings(limit = 50, sector?: string) {
 
 export function listSectors() {
   return convexQuery<string[]>("postEarningsSummaries:listSectors", {});
+}
+
+export function listCompanies() {
+  return convexQuery<CompanyListing[]>("postEarningsSummaries:listCompanies", {});
 }
 
 export function listByTicker(ticker: string, limit = 20) {
