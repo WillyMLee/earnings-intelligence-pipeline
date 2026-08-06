@@ -1,0 +1,15 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "earnings-intelligence-pipeline",
+  "compatibility_date": "2025-01-01",
+  // Cloudflare's current Workers-with-static-assets model: without this
+  // block, a Workers deployment has no idea the built dist/ files are
+  // static assets to serve as-is -- it needs this to set correct
+  // Content-Type headers (esp. `application/javascript` for the module
+  // script entrypoint) instead of serving them with an empty MIME type,
+  // which browsers refuse to execute as a module script per spec.
+  "assets": {
+    "directory": "./dist",
+    "not_found_handling": "single-page-application"
+  }
+}
