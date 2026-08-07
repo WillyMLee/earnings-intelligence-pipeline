@@ -264,7 +264,7 @@ def fetch_post_earnings_summaries_by_ticker(ticker: str, limit: int = 20) -> Lis
 _UNSET = object()
 
 
-def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = None, eps_consensus: Any = _UNSET) -> Dict[str, Any]:
+def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = None, eps_consensus: Any = _UNSET, consensus_source: str = "", captured_at: str = "") -> Dict[str, Any]:
     """Persist period-matched consensus before the provider rolls to the next quarter."""
     convex_url = os.environ.get("CONVEX_URL", "").strip()
     archive_token = os.environ.get("EARNINGS_ARCHIVE_TOKEN", "").strip() or os.environ.get("ADMIN_TOKEN", "").strip()
@@ -280,6 +280,8 @@ def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = 
         })
     if eps_consensus is not _UNSET:
         args["epsConsensus"] = eps_consensus
+    if consensus_source: args["consensusSource"] = consensus_source
+    if captured_at: args["capturedAt"] = captured_at
     result = _convex_request(convex_url=convex_url, kind="mutation", path="preEarningsSnapshots:upsertSnapshot", args=args)
     return {"status": "archived", "result": result}
 

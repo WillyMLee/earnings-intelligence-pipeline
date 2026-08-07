@@ -253,6 +253,12 @@ function FinancialsTab({ latest, history }: { latest: PostEarningsSummary; histo
           <StatCell label="Cash & ST Investments" value={fmtUsdCompact((latest.cashAndEquivalentsUsd ?? 0) + (latest.shortTermInvestmentsUsd ?? 0) || null)} />
           <StatCell label="Total Debt" value={fmtUsdCompact((latest.shortTermDebtUsd ?? 0) + (latest.longTermDebtUsd ?? 0) || null)} />
         </div>
+        {(latest.consensusSource || latest.consensusCapturedAt) && (
+          <div className="mt-4 border-t border-black/[0.05] pt-3 text-[11px] text-[#9a9ea8] dark:border-white/[0.06]">
+            Consensus{latest.consensusCapturedAt ? ` captured ${fmtDate(latest.consensusCapturedAt.slice(0, 10))}` : ""}
+            {latest.consensusSource ? ` · ${latest.consensusSource}` : ""}
+          </div>
+        )}
       </Card>
 
       <Card>
@@ -397,14 +403,14 @@ function CallHighlightsTab({
             </div>
           )}
 
-          {stepGroups.length > 0 && (
-            <Card><ConnectedStepGroups groups={stepGroups} /></Card>
-          )}
-
           {(report.qaHighlights?.length ?? 0) > 0 && (
             <Card>
-              <div className="mb-3 text-[10px] font-semibold uppercase tracking-wide text-[#8b8f99]">
-                Q&amp;A highlights
+              <div className="mb-3 flex items-center justify-between gap-3">
+                <div className="text-[10px] font-semibold uppercase tracking-wide text-[#8b8f99]">Q&amp;A highlights</div>
+                <div className="flex items-center gap-3 text-[11px] text-[#9a9ea8]">
+                  <span>{report.qaHighlights!.length} exchanges</span>
+                  {report.officialLinks?.transcript && <a href={report.officialLinks.transcript} target="_blank" rel="noreferrer" className="text-accent hover:underline">Transcript</a>}
+                </div>
               </div>
               <div className="flex flex-col gap-4">
                 {report.qaHighlights!.map((qa, i) => (
@@ -421,6 +427,10 @@ function CallHighlightsTab({
                 ))}
               </div>
             </Card>
+          )}
+
+          {stepGroups.length > 0 && (
+            <Card><ConnectedStepGroups groups={stepGroups} /></Card>
           )}
 
           {allSources.length > 0 && (

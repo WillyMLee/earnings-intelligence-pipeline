@@ -23,9 +23,9 @@ from typing import Dict
 _SECTOR_GROUPS: Dict[str, str] = {
     "AI Infrastructure & Semis": (
         "NVDA,AMD,AVGO,MRVL,INTC,QCOM,SMCI,DELL,HPE,ANET,CSCO,ORCL,IBM,MSFT,AMZN,GOOGL,META,"
-        "TSM,ASML,ARM,AMAT,LRCX,KLAC,MU,WDC,STX,VRT,ETN,CRWV,NBIS,IREN,CORZ"
+        "TSM,ASML,ARM,AMAT,LRCX,KLAC,MU,WDC,STX,SNDK,VRT,ETN,CRWV,NBIS,IREN,CORZ"
     ),
-    "Vertical SaaS & Cybersecurity": "VEEV,AXON,APP,SHOP,ADBE,CRM,NOW,SNOW,PANW,CRWD,DDOG,NET,TEAM,INTU",
+    "Vertical SaaS & Cybersecurity": "VEEV,AXON,APP,SHOP,ADBE,CRM,NOW,SNOW,PANW,CRWD,DDOG,NET,TEAM,INTU,FTNT,S",
     "SaaS Expansion": "ZS,OKTA,HUBS,GTLB,WDAY,TOST,BILL,MNDY,TTD",
     "Data Platforms": "MDB,CFLT,PLTR,ESTC",
     "Banks & Financials": "JPM,BAC,WFC,C,GS,MS,USB,AXP",
@@ -76,3 +76,13 @@ def sector_for(ticker: str) -> str:
 
 def is_portco(ticker: str) -> bool:
     return ticker.strip().upper() in PORTCO_TICKERS
+
+
+DASHBOARD_THEME_TICKERS = frozenset({
+    "MSFT", "AMZN", "GOOGL", "META", "ORCL", "AAPL", "NVDA", "TSLA",
+    "AMD", "AVGO", "ANET", "ARM", "MU", "LRCX", "KLAC", "WDC", "STX", "SNDK", "DELL",
+    "CRM", "NOW", "SNOW", "ADBE", "TEAM", "HUBS", "WDAY", "GTLB", "MNDY", "BILL", "SHOP", "TOST",
+    "PANW", "CRWD", "ZS", "FTNT", "OKTA", "NET", "S",
+    "PLTR", "DDOG", "MDB", "CFLT", "ESTC", "APP", "TTD",
+    "VST", "CEG", "ETN", "NRG", "OKLO", "GEV",
+})

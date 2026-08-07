@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -400,6 +401,26 @@ def _extract_focused_excerpts(text: str, max_total: int = 8000, window: int = 12
     return "\n[...]\n".join(pieces)
 
 
+_QA_SECTION_RE = re.compile(
+    r"(?:question[\s-]*(?:and|&)[\s-]*answer(?:[\s-]+session)?|questions[\s-]*(?:and|&)[\s-]*answers|analyst\s+q\s*&\s*a)",
+    re.IGNORECASE,
+)
+
+
+def _extract_transcript_sections(text: str, max_total: int = 8000) -> Dict[str, str]:
+    """Keep prepared remarks and analyst Q&A inside separate prompt budgets."""
+    normalized = text.replace("\r\n", "\n")
+    match = _QA_SECTION_RE.search(normalized)
+    if not match:
+        excerpt = _extract_focused_excerpts(normalized, max_total=max_total)
+        return {"text": excerpt, "prepared_text": excerpt, "qa_text": ""}
+    prepared_budget = max(1200, int(max_total * 0.42))
+    qa_budget = max(1600, max_total - prepared_budget - 60)
+    prepared = _extract_focused_excerpts(normalized[:match.start()], max_total=prepared_budget)
+    qa = _extract_focused_excerpts(normalized[match.start():], max_total=qa_budget)
+    return {"text": f"[PREPARED REMARKS]\n{prepared}\n\n[ANALYST Q&A]\n{qa}"[:max_total], "prepared_text": prepared, "qa_text": qa}
+
+
 def _convex_artifact_request(kind: str, path: str, args: Dict[str, Any]) -> Any:
     convex_url = os.environ.get("CONVEX_URL", "").strip()
     if not convex_url:
@@ -414,13 +435,14 @@ def _load_cached_transcript(ticker: str, report_date: str, max_chars: int) -> Di
     if not report_date:
         return {}
     try:
-        cached = _convex_artifact_request("query", "researchArtifacts:getArtifact", {"kind": "transcript_excerpt", "ticker": ticker.upper(), "reportDate": report_date})
+        cached = _convex_artifact_request("query", "researchArtifacts:getArtifact", {"kind": "transcript_excerpt_v2", "ticker": ticker.upper(), "reportDate": report_date})
+        cached_qa = _convex_artifact_request("query", "researchArtifacts:getArtifact", {"kind": "transcript_qa_excerpt_v2", "ticker": ticker.upper(), "reportDate": report_date})
     except Exception as exc:
         print(f"[research] Transcript cache read failed for {ticker} (non-fatal): {exc}", flush=True)
         return {}
     if not isinstance(cached, dict) or not cached.get("text"):
         return {}
-    return {"url": str(cached.get("url") or ""), "title": str(cached.get("title") or ""), "text": str(cached.get("text") or "")[:max_chars], "provider": str(cached.get("provider") or "cache"), "cache_hit": "true"}
+    return {"url": str(cached.get("url") or ""), "title": str(cached.get("title") or ""), "text": str(cached.get("text") or "")[:max_chars], "qa_text": str(cached_qa.get("text") or "") if isinstance(cached_qa, dict) else "", "provider": str(cached.get("provider") or "cache"), "cache_hit": "true"}
 
 
 def _store_cached_transcript(ticker: str, report_date: str, artifact: Dict[str, str]) -> None:
@@ -428,7 +450,9 @@ def _store_cached_transcript(ticker: str, report_date: str, artifact: Dict[str, 
     if not report_date or not token or not artifact.get("text"):
         return
     try:
-        _convex_artifact_request("mutation", "researchArtifacts:upsertArtifact", {"adminToken": token, "kind": "transcript_excerpt", "ticker": ticker.upper(), "reportDate": report_date, "url": artifact.get("url", ""), "title": artifact.get("title", ""), "text": artifact["text"], "provider": artifact.get("provider", "")})
+        _convex_artifact_request("mutation", "researchArtifacts:upsertArtifact", {"adminToken": token, "kind": "transcript_excerpt_v2", "ticker": ticker.upper(), "reportDate": report_date, "url": artifact.get("url", ""), "title": artifact.get("title", ""), "text": artifact["text"], "provider": artifact.get("provider", "")})
+        if artifact.get("qa_text"):
+            _convex_artifact_request("mutation", "researchArtifacts:upsertArtifact", {"adminToken": token, "kind": "transcript_qa_excerpt_v2", "ticker": ticker.upper(), "reportDate": report_date, "url": artifact.get("url", ""), "title": artifact.get("title", ""), "text": artifact["qa_text"], "provider": artifact.get("provider", "")})
     except Exception as exc:
         print(f"[research] Transcript cache write failed for {ticker} (non-fatal): {exc}", flush=True)
 
@@ -526,10 +550,12 @@ def fetch_transcript_excerpt(
         for item in results:
             raw = item.get("raw_content", "")
             if len(raw) > best_len and _mentions_entity(raw):
+                sections = _extract_transcript_sections(raw, max_total=max_chars)
                 best = {
                     "url": item.get("url", ""),
                     "title": item.get("title", ""),
-                    "text": _extract_focused_excerpts(raw, max_total=max_chars),
+                    "text": sections["text"],
+                    "qa_text": sections["qa_text"],
                     "provider": item.get("provider", provider_name),
                 }
                 best_len = len(raw)

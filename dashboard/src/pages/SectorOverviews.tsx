@@ -5,6 +5,7 @@ import { cycleCutoff, currentWeekWindow, sortByReportTiming } from "../lib/repor
 import { beatMiss, fmtPct, fmtUsdCompact, relativeDay } from "../lib/format";
 import { CompanyLogo } from "../components/CompanyLogo";
 import { ReactionBadge } from "../components/Badge";
+import { CoverageGroupIcon } from "../components/CoverageGroupIcon";
 
 export function SectorOverviews({
   groupId,
@@ -46,7 +47,7 @@ export function SectorOverviews({
     return {
       tracked,
       current,
-      reportingPct: tracked.length ? Math.round((current.length / tracked.length) * 100) : 0,
+      reportingPct: group.tickers.size ? Math.round((current.length / group.tickers.size) * 100) : 0,
       beatRate: withConsensus.length ? Math.round((beats / withConsensus.length) * 100) : null,
       avgReaction: reactions.length ? reactions.reduce((sum, value) => sum + value, 0) / reactions.length : null,
     };
@@ -56,10 +57,9 @@ export function SectorOverviews({
     <div className="mx-auto max-w-6xl px-5 py-10 sm:py-14">
       <header className="mb-7">
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Coverage overviews</div>
-        <h1 className="mt-2 text-[32px] font-extrabold tracking-tight text-[#15171c] dark:text-[#e7e8ea] sm:text-[40px]">
-          {group.name}
-        </h1>
+        <div className="mt-2 flex items-center gap-3"><CoverageGroupIcon icon={group.icon} size={44} /><h1 className="text-[32px] font-extrabold tracking-tight text-[#15171c] dark:text-[#e7e8ea] sm:text-[40px]">{group.name}</h1></div>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#5b5f6b] dark:text-[#9a9ea8]">{group.description}</p>
+        <p className="mt-2 font-mono text-[11px] text-[#9a9ea8]">Includes {Array.from(group.tickers).join(" · ")}</p>
       </header>
 
       <div className="mb-7 flex gap-2 overflow-x-auto pb-1">
@@ -79,7 +79,7 @@ export function SectorOverviews({
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <OverviewStat label="Tracked" value={String(view.tracked.length)} />
+        <OverviewStat label="Constituents" value={String(group.tickers.size)} note={`${view.tracked.length} with archived reports`} />
         <OverviewStat
           label="Reported this week"
           value={progress ? (progress.total ? `${progress.percent}%` : "—") : `${view.reportingPct}%`}

@@ -15,6 +15,8 @@ export const upsertSnapshot = mutation({
     fyRevenueConsensusUsd: v.optional(v.union(v.float64(), v.null())),
     fyRevenueConsensusYoyPct: v.optional(v.union(v.float64(), v.null())),
     epsConsensus: v.optional(v.union(v.float64(), v.null())),
+    consensusSource: v.optional(v.string()),
+    capturedAt: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     requireArchiveToken(args.adminToken);

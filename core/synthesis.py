@@ -394,6 +394,12 @@ _DEEP_DIVE_JSON_SCHEMA = {
             },
         },
         "key_metrics": {"type": "array", "minItems": 4, "maxItems": 8, "items": {"type": "string"}},
+        "qa_highlights": {
+            "type": "array", "maxItems": 4,
+            "items": {"type": "object", "properties": {
+                "analyst_question": {"type": "string"}, "answer_summary": {"type": "string"},
+            }, "required": ["analyst_question", "answer_summary"], "additionalProperties": False},
+        },
         "official_links": {
             "type": "object",
             "properties": {
@@ -437,7 +443,7 @@ _DEEP_DIVE_JSON_SCHEMA = {
     },
     "required": [
         "intro", "financial_highlights", "sections", "key_metrics", "official_links",
-        "financials", "fiscal_quarter_label", "reporting_period_end",
+        "financials", "fiscal_quarter_label", "reporting_period_end", "qa_highlights",
     ],
     "additionalProperties": False,
 }
@@ -592,6 +598,8 @@ def synthesize_earnings_brief_with_web_search(
                 "they conflict, since it's more likely to be the primary source):\n\n"
                 f"{transcript['text']}\n\n--- end excerpt ---"
             )
+            if transcript.get("qa_text"):
+                prompt += ("\n\nANALYST Q&A INSTRUCTIONS: Produce no more than four qa_highlights, only from the separately labeled analyst Q&A. Prioritize demand, guidance, margins, pricing, and sales cycles; paraphrase and include the analyst or firm when stated.")
 
     try:
         client = OpenAI(api_key=api_key)
@@ -628,6 +636,11 @@ def synthesize_earnings_brief_with_web_search(
             if not heading or not bullets:
                 continue
             sections.append({"heading": heading, "bullets": bullets})
+        qa_highlights = []
+        for item in data.get("qa_highlights", []) or []:
+            if not isinstance(item, dict): continue
+            question, answer = str(item.get("analyst_question", "")).strip(), str(item.get("answer_summary", "")).strip()
+            if question and answer: qa_highlights.append({"analyst_question": question, "answer_summary": answer})
         return {
             "fiscal_quarter_label": str(data.get("fiscal_quarter_label", "")).strip(),
             "reporting_period_end": str(data.get("reporting_period_end", "")).strip(),
@@ -637,6 +650,7 @@ def synthesize_earnings_brief_with_web_search(
             "key_metrics": [str(b).strip() for b in data.get("key_metrics", []) or [] if str(b).strip()],
             "official_links": _clean_official_links(data.get("official_links")),
             "financials": _clean_financials(data.get("financials")),
+            "qa_highlights": qa_highlights,
         }
     except Exception as exc:
         print(f"[synthesis] Web-search deep-dive synthesis failed for {ticker}: {exc}", flush=True)

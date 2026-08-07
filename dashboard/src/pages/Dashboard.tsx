@@ -7,6 +7,7 @@ import { stripCitations } from "../lib/citations";
 import { relativeDay, beatMiss } from "../lib/format";
 import { COVERAGE_GROUPS } from "../lib/coverageGroups";
 import { bestHighlight, cycleCutoff, currentWeekWindow, sortByReportTiming } from "../lib/reporting";
+import { CoverageGroupIcon } from "../components/CoverageGroupIcon";
 
 export function Dashboard({ onOpenCompany, onOpenOverview }: { onOpenCompany: (ticker: string) => void; onOpenOverview: (groupId: string) => void }) {
   const [recent, setRecent] = useState<PostEarningsSummary[] | null>(null);
@@ -76,7 +77,7 @@ export function Dashboard({ onOpenCompany, onOpenOverview }: { onOpenCompany: (t
           </div>
         </div>
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {COVERAGE_GROUPS.slice(0, 3).map((group) => {
+          {COVERAGE_GROUPS.map((group) => {
             const tracked = companies.filter((company) => group.tickers.has(company.ticker));
             const reported = tracked.filter((company) => company.reportDate >= cycleCutoff()).length;
             return (
@@ -86,14 +87,15 @@ export function Dashboard({ onOpenCompany, onOpenOverview }: { onOpenCompany: (t
                 className="rounded-card border border-black/[0.06] bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/35 hover:shadow-sm dark:border-white/[0.08] dark:bg-[#121317]"
               >
                 <div className="flex items-center justify-between gap-3">
-                  <span className="text-[13px] font-semibold text-[#15171c] dark:text-[#e7e8ea]">{group.name}</span>
-                  <span className="text-[11px] font-semibold text-accent">{tracked.length ? Math.round((reported / tracked.length) * 100) : 0}%</span>
+                  <span className="flex items-center gap-2.5 text-[13px] font-semibold text-[#15171c] dark:text-[#e7e8ea]"><CoverageGroupIcon icon={group.icon} size={30} />{group.name}</span>
+                  <span className="text-[11px] font-semibold text-accent">{group.tickers.size ? Math.round((reported / group.tickers.size) * 100) : 0}%</span>
                 </div>
                 <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-[#7a7f89] dark:text-[#8f949f]">{group.description}</p>
+                <div className="mt-2 truncate font-mono text-[10px] text-[#a0a4ad]">{Array.from(group.tickers).join(" · ")}</div>
                 <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/[0.05] dark:bg-white/[0.06]">
-                  <div className="h-full rounded-full bg-accent" style={{ width: `${tracked.length ? (reported / tracked.length) * 100 : 0}%` }} />
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${group.tickers.size ? (reported / group.tickers.size) * 100 : 0}%` }} />
                 </div>
-                <div className="mt-1.5 text-[10px] text-[#9a9ea8]">{reported} of {tracked.length} reported this cycle</div>
+                <div className="mt-1.5 text-[10px] text-[#9a9ea8]">{reported} recent · {tracked.length} archived · {group.tickers.size} constituents</div>
               </button>
             );
           })}

@@ -16,6 +16,13 @@ from core.stock_data import fetch_financial_snapshot  # noqa: E402
 from pipelines.earnings_archive import archive_pre_earnings_snapshot  # noqa: E402
 
 
+def _optional_number(value):
+    text = str(value or "").strip()
+    if not text: return None
+    try: return float(text.replace("$", "").replace(",", ""))
+    except ValueError: return None
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="Warm transcript and consensus inputs in small resumable batches.")
     p.add_argument("--calendar-csv", required=True); p.add_argument("--start", default=""); p.add_argument("--end", default="")
@@ -29,7 +36,7 @@ def main():
     if not args.transcripts and not args.consensus: raise SystemExit("Choose --transcripts and/or --consensus.")
     allowed = {t.strip().upper() for t in args.watchlist.split(",") if t.strip()}
     with open(args.calendar_csv, "r", encoding="utf-8-sig", newline="") as source: rows = list(csv.DictReader(source))
-    events = sorted([{"ticker": str(r.get("Ticker", "")).upper(), "company": str(r.get("Company Name", "") or r.get("Ticker", "")), "report_date": str(r.get("Report Date", ""))} for r in rows if r.get("Ticker") and r.get("Report Date") and (not allowed or str(r.get("Ticker")).upper() in allowed) and (not args.start or str(r.get("Report Date")) >= args.start) and (not args.end or str(r.get("Report Date")) <= args.end)], key=lambda e:(e["report_date"],e["ticker"]))
+    events = sorted([{"ticker": str(r.get("Ticker", "")).upper(), "company": str(r.get("Company Name", "") or r.get("Ticker", "")), "report_date": str(r.get("Report Date", "")), "eps_estimate": _optional_number(r.get("EPS Estimate")), "revenue_estimate": _optional_number(r.get("Revenue Estimate"))} for r in rows if r.get("Ticker") and r.get("Report Date") and (not allowed or str(r.get("Ticker")).upper() in allowed) and (not args.start or str(r.get("Report Date")) >= args.start) and (not args.end or str(r.get("Report Date")) <= args.end)], key=lambda e:(e["report_date"],e["ticker"]))
     state_path=Path(args.resume_file); state=json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {"completed":{}}; completed=state.setdefault("completed",{})
     def needs_work(event):
         prior=completed.get(f"{event['ticker']}:{event['report_date']}",{})
@@ -44,7 +51,14 @@ def main():
             artifact=fetch_transcript_excerpt(event["ticker"],event["company"],"",event["report_date"]); outcome["transcript"]="cached" if artifact.get("cache_hit") else "fetched" if artifact else "not_found"
         if args.consensus:
             days=(date.fromisoformat(event["report_date"])-date.today()).days
-            outcome["consensus"]=archive_pre_earnings_snapshot(ticker=event["ticker"],report_date=event["report_date"],snap=fetch_financial_snapshot(event["ticker"])).get("status","unknown") if 0<=days<=21 else "skipped_outside_21_day_window"
+            if 0<=days<=21:
+                snap=fetch_financial_snapshot(event["ticker"]); sources=[]
+                if event.get("revenue_estimate") is not None: snap["next_q_revenue_consensus"]=event["revenue_estimate"]; sources.append("calendar revenue estimate")
+                elif snap.get("next_q_revenue_consensus") is not None: sources.append("yfinance revenue estimate")
+                kwargs={"ticker":event["ticker"],"report_date":event["report_date"],"snap":snap,"consensus_source":" + ".join(sources + (["calendar EPS estimate"] if event.get("eps_estimate") is not None else [])),"captured_at":datetime.now().isoformat(timespec="seconds")}
+                if event.get("eps_estimate") is not None: kwargs["eps_consensus"]=event["eps_estimate"]
+                outcome["consensus"]=archive_pre_earnings_snapshot(**kwargs).get("status","unknown")
+            else: outcome["consensus"]="skipped_outside_21_day_window"
         completed[key]=outcome; state_path.parent.mkdir(parents=True,exist_ok=True); state_path.write_text(json.dumps(state,indent=2,sort_keys=True),encoding="utf-8"); print(f"[backfill] {key}: {outcome}")
         if i<len(batch)-1 and args.pause_seconds>0: time.sleep(args.pause_seconds)
     return 0

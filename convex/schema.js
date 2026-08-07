@@ -11,6 +11,8 @@ export default defineSchema({
     fyRevenueConsensusUsd: v.optional(v.union(v.float64(), v.null())),
     fyRevenueConsensusYoyPct: v.optional(v.union(v.float64(), v.null())),
     epsConsensus: v.optional(v.union(v.float64(), v.null())),
+    consensusSource: v.optional(v.string()),
+    capturedAt: v.optional(v.string()),
     createdAt: v.string(), updatedAt: v.string(),
   }).index("by_ticker_report_date", ["ticker", "reportDate"]),
 

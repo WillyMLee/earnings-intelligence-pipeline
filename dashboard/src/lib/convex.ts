@@ -42,6 +42,8 @@ export type PostEarningsSummary = {
   sections?: Section[] | null;
   officialLinks?: OfficialLinks | null;
   qaHighlights?: QaHighlight[] | null;
+  consensusSource?: string | null;
+  consensusCapturedAt?: string | null;
   updatedAt: string;
 };
 
