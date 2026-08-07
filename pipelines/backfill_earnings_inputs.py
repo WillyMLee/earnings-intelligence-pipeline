@@ -40,7 +40,7 @@ def main():
     state_path=Path(args.resume_file); state=json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {"completed":{}}; completed=state.setdefault("completed",{})
     def needs_work(event):
         prior=completed.get(f"{event['ticker']}:{event['report_date']}",{})
-        return (args.transcripts and "transcript" not in prior) or (args.consensus and "consensus" not in prior)
+        return (args.transcripts and "transcript_v2" not in prior) or (args.consensus and "consensus" not in prior)
     batch=[e for e in events if needs_work(e)][:max(1,args.batch_size)]
     print(f"[backfill] {len(events)} eligible; processing {len(batch)}")
     for i,event in enumerate(batch):
@@ -48,7 +48,7 @@ def main():
         if args.dry_run: print(f"[dry-run] {key} {event['company']}"); continue
         outcome={**completed.get(key,{}),"completedAt":datetime.now().isoformat(timespec="seconds")}
         if args.transcripts:
-            artifact=fetch_transcript_excerpt(event["ticker"],event["company"],"",event["report_date"]); outcome["transcript"]="cached" if artifact.get("cache_hit") else "fetched" if artifact else "not_found"
+            artifact=fetch_transcript_excerpt(event["ticker"],event["company"],"",event["report_date"]); outcome["transcript_v2"]="cached" if artifact.get("cache_hit") else "fetched" if artifact else "not_found"
         if args.consensus:
             days=(date.fromisoformat(event["report_date"])-date.today()).days
             if 0<=days<=21:
