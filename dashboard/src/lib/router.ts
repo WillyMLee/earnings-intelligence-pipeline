@@ -5,7 +5,11 @@ import { useEffect, useState } from "react";
 // in react-router. Hash routing also means the Workers static-asset SPA
 // fallback (wrangler.jsonc's not_found_handling) never has to deal with
 // nested real paths at all -- every route is the same index.html.
-export type Route = { name: "dashboard" } | { name: "feed" } | { name: "company"; ticker: string };
+export type Route =
+  | { name: "dashboard" }
+  | { name: "feed" }
+  | { name: "sectors"; groupId: string }
+  | { name: "company"; ticker: string };
 
 function parseHash(hash: string): Route {
   const path = hash.replace(/^#\/?/, "");
@@ -13,6 +17,7 @@ function parseHash(hash: string): Route {
   if (segment === "company" && ticker) {
     return { name: "company", ticker: ticker.toUpperCase() };
   }
+  if (segment === "sectors") return { name: "sectors", groupId: ticker || "hyperscalers" };
   if (segment === "feed") return { name: "feed" };
   return { name: "dashboard" };
 }
@@ -28,6 +33,7 @@ export function useRoute(): [Route, (route: Route) => void] {
 
   const setRoute = (next: Route) => {
     if (next.name === "company") window.location.hash = `/company/${next.ticker}`;
+    else if (next.name === "sectors") window.location.hash = `/sectors/${next.groupId}`;
     else if (next.name === "feed") window.location.hash = "/feed";
     else window.location.hash = "/";
   };

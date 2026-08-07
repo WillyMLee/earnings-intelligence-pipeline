@@ -343,6 +343,9 @@ _TRANSCRIPT_FOCUS_KEYWORDS = (
     "useful life",
     "lease",
     "reclassif",
+    "guidance", "outlook", "gross margin", "operating margin", "free cash flow",
+    "backlog", "bookings", "demand", "pricing", "capacity", "customer growth",
+    "artificial intelligence", "question-and-answer", "q&a", "analyst",
 )
 # Deliberately excludes generic terms like "guidance" and "outlook" -- caught
 # live: those appear repeatedly in boilerplate forward-looking-statements
@@ -350,7 +353,7 @@ _TRANSCRIPT_FOCUS_KEYWORDS = (
 # before it ever reaches the specific CapEx/lease passage later in the call.
 
 
-def _extract_focused_excerpts(text: str, max_total: int = 8000, window: int = 900) -> str:
+def _extract_focused_excerpts(text: str, max_total: int = 8000, window: int = 1200) -> str:
     """Pull windows of text around guidance/CapEx-relevant keywords instead
     of a blind head-slice of the transcript -- caught live: injecting a full
     40,000-char transcript into the synthesis prompt caused the model's
@@ -361,38 +364,73 @@ def _extract_focused_excerpts(text: str, max_total: int = 8000, window: int = 90
     hundred words around "capital expenditure"/"lease"/"guidance") in a
     fraction of the size, and skips boilerplate operator/intro text the
     model doesn't need anyway."""
-    lower = text.lower()
-    spans: List[tuple] = []
-    for keyword in _TRANSCRIPT_FOCUS_KEYWORDS:
-        start = 0
-        while True:
-            idx = lower.find(keyword, start)
-            if idx == -1:
-                break
-            spans.append((max(0, idx - window // 2), min(len(text), idx + window // 2)))
-            start = idx + len(keyword)
-    if not spans:
-        return text[:max_total]
-
-    spans.sort()
-    merged: List[list] = []
-    for s, e in spans:
-        if merged and s <= merged[-1][1] + 200:
-            merged[-1][1] = max(merged[-1][1], e)
-        else:
-            merged.append([s, e])
-
-    pieces = []
-    total = 0
-    for s, e in merged:
-        piece = text[s:e].strip()
-        if not piece:
+    normalized = text.replace("\r\n", "\n")
+    chunks: List[tuple[int, int, str]] = []
+    step = max(400, window - 250)
+    for start in range(0, len(normalized), step):
+        chunk = normalized[start : start + window].strip()
+        if len(chunk) < 180:
             continue
-        if total + len(piece) > max_total:
+        lower = chunk.lower()
+        keyword_hits = sum(1 for keyword in _TRANSCRIPT_FOCUS_KEYWORDS if keyword in lower)
+        numeric_evidence = int("$" in chunk) + int("%" in chunk) + int(any(char.isdigit() for char in chunk))
+        qa_signal = int("question-and-answer" in lower or "operator" in lower or "analyst" in lower)
+        boilerplate_penalty = 4 if "forward-looking statements" in lower and keyword_hits < 2 else 0
+        score = keyword_hits * 3 + numeric_evidence + qa_signal * 2 - boilerplate_penalty
+        if score > 1:
+            chunks.append((score, start, chunk))
+    if not chunks:
+        return normalized[:max_total]
+    selected: List[tuple[int, str]] = []
+    for _score, start, chunk in sorted(chunks, key=lambda item: (-item[0], item[1])):
+        if any(abs(start - prior_start) < step for prior_start, _ in selected):
+            continue
+        selected.append((start, chunk))
+        if sum(len(piece) for _, piece in selected) >= max_total:
             break
+    selected.sort(key=lambda item: item[0])
+    pieces: List[str] = []
+    remaining = max_total
+    for _start, chunk in selected:
+        if remaining < 180:
+            break
+        piece = chunk[:remaining].strip()
         pieces.append(piece)
-        total += len(piece)
-    return "\n[...]\n".join(pieces) or text[:max_total]
+        remaining -= len(piece)
+    return "\n[...]\n".join(pieces)
+
+
+def _convex_artifact_request(kind: str, path: str, args: Dict[str, Any]) -> Any:
+    convex_url = os.environ.get("CONVEX_URL", "").strip()
+    if not convex_url:
+        return None
+    payload = _request_json("POST", f"{convex_url.rstrip('/')}/api/{kind}", {"Accept": "application/json", "Content-Type": "application/json"}, {"path": path, "args": args, "format": "json"}, 30)
+    if payload.get("status") != "success":
+        raise RuntimeError(payload.get("errorMessage") or f"Convex {path} failed")
+    return payload.get("value")
+
+
+def _load_cached_transcript(ticker: str, report_date: str, max_chars: int) -> Dict[str, str]:
+    if not report_date:
+        return {}
+    try:
+        cached = _convex_artifact_request("query", "researchArtifacts:getArtifact", {"kind": "transcript_excerpt", "ticker": ticker.upper(), "reportDate": report_date})
+    except Exception as exc:
+        print(f"[research] Transcript cache read failed for {ticker} (non-fatal): {exc}", flush=True)
+        return {}
+    if not isinstance(cached, dict) or not cached.get("text"):
+        return {}
+    return {"url": str(cached.get("url") or ""), "title": str(cached.get("title") or ""), "text": str(cached.get("text") or "")[:max_chars], "provider": str(cached.get("provider") or "cache"), "cache_hit": "true"}
+
+
+def _store_cached_transcript(ticker: str, report_date: str, artifact: Dict[str, str]) -> None:
+    token = os.environ.get("EARNINGS_ARCHIVE_TOKEN", "").strip() or os.environ.get("ADMIN_TOKEN", "").strip()
+    if not report_date or not token or not artifact.get("text"):
+        return
+    try:
+        _convex_artifact_request("mutation", "researchArtifacts:upsertArtifact", {"adminToken": token, "kind": "transcript_excerpt", "ticker": ticker.upper(), "reportDate": report_date, "url": artifact.get("url", ""), "title": artifact.get("title", ""), "text": artifact["text"], "provider": artifact.get("provider", "")})
+    except Exception as exc:
+        print(f"[research] Transcript cache write failed for {ticker} (non-fatal): {exc}", flush=True)
 
 
 def fetch_transcript_excerpt(
@@ -431,6 +469,11 @@ def fetch_transcript_excerpt(
     with high confidence, which would have silently grounded the brief in
     stale data. report_date is reliable (it's the actual scheduled/known
     report date) and disambiguates just as well without that risk."""
+    cached = _load_cached_transcript(ticker, report_date, max_chars)
+    if cached:
+        print(f"[research] Transcript excerpt cache hit for {ticker} {report_date}", flush=True)
+        return cached
+
     # "earnings call transcript" alone tends to surface the company's own
     # press-release page (which has the headline numbers but not CFO/analyst
     # Q&A commentary) over an actual transcript -- caught live: this missed
@@ -500,6 +543,7 @@ def fetch_transcript_excerpt(
         f"({best_len} chars from {best.get('url')})",
         flush=True,
     )
+    _store_cached_transcript(ticker, report_date, best)
     return best
 
 

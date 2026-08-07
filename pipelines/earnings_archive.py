@@ -23,6 +23,28 @@ def _list_from_csv(value: str) -> List[str]:
     return [item.strip() for item in str(value or "").split(",") if item.strip()]
 
 
+def archive_earnings_calendar(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
+    """Archive the already-fetched normalized calendar for dashboard progress queries."""
+    convex_url = os.environ.get("CONVEX_URL", "").strip()
+    archive_token = os.environ.get("EARNINGS_ARCHIVE_TOKEN", "").strip() or os.environ.get("ADMIN_TOKEN", "").strip()
+    if not convex_url or not archive_token:
+        return {"status": "skipped", "reason": "Convex archive credentials not configured"}
+    events = []
+    for row in rows:
+        ticker, report_date = str(row.get("Ticker", "")).strip().upper(), str(row.get("Report Date", "")).strip()
+        if not ticker or not report_date: continue
+        event = {"ticker": ticker, "company": str(row.get("Company Name", "") or ticker), "reportDate": report_date, "reportTime": str(row.get("Report Time", "") or "TBD")}
+        for source, target in (("EPS Estimate", "epsEstimate"), ("Revenue Estimate", "revenueEstimateUsd")):
+            try:
+                if str(row.get(source, "")).strip(): event[target] = float(str(row[source]).replace("$", "").replace(",", ""))
+            except ValueError: pass
+        events.append(event)
+    if not events: return {"status": "skipped", "reason": "No events"}
+    dates=[event["reportDate"] for event in events]
+    result=_convex_request(convex_url=convex_url,kind="mutation",path="earningsCalendar:replaceWindow",args={"adminToken":archive_token,"windowStart":min(dates),"windowEnd":max(dates),"events":events})
+    return {"status":"archived","events":len(events),"result":result}
+
+
 def _event_payload(event: Any) -> Dict[str, Any]:
     return {
         "ticker": getattr(event, "ticker", ""),
@@ -237,6 +259,29 @@ def fetch_post_earnings_summaries_by_ticker(ticker: str, limit: int = 20) -> Lis
         print(f"[earnings-archive] Convex ticker lookup failed for {ticker}: {exc}", flush=True)
         return []
     return result if isinstance(result, list) else []
+
+
+_UNSET = object()
+
+
+def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = None, eps_consensus: Any = _UNSET) -> Dict[str, Any]:
+    """Persist period-matched consensus before the provider rolls to the next quarter."""
+    convex_url = os.environ.get("CONVEX_URL", "").strip()
+    archive_token = os.environ.get("EARNINGS_ARCHIVE_TOKEN", "").strip() or os.environ.get("ADMIN_TOKEN", "").strip()
+    if not convex_url or not archive_token:
+        return {"status": "skipped", "reason": "Convex archive credentials not configured"}
+    args: Dict[str, Any] = {"adminToken": archive_token, "ticker": ticker, "reportDate": report_date}
+    if snap is not None:
+        args.update({
+            "revenueConsensusUsd": snap.get("next_q_revenue_consensus"),
+            "revenueConsensusYoyPct": snap.get("next_q_yoy_pct"),
+            "fyRevenueConsensusUsd": snap.get("fy_revenue_consensus"),
+            "fyRevenueConsensusYoyPct": snap.get("fy_yoy_pct"),
+        })
+    if eps_consensus is not _UNSET:
+        args["epsConsensus"] = eps_consensus
+    result = _convex_request(convex_url=convex_url, kind="mutation", path="preEarningsSnapshots:upsertSnapshot", args=args)
+    return {"status": "archived", "result": result}
 
 
 def archive_weekly_brief(

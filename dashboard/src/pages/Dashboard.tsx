@@ -1,18 +1,23 @@
 import { useEffect, useMemo, useState } from "react";
-import { listRecentEarnings, listCompanies, type PostEarningsSummary, type CompanyListing } from "../lib/convex";
+import { getReportingProgress, listRecentEarnings, listCompanies, type PostEarningsSummary, type CompanyListing, type ReportingProgress } from "../lib/convex";
 import { IndexBar } from "../components/IndexBar";
 import { CompanyLogo } from "../components/CompanyLogo";
 import { ReactionBadge } from "../components/Badge";
 import { stripCitations } from "../lib/citations";
 import { relativeDay, beatMiss } from "../lib/format";
+import { COVERAGE_GROUPS } from "../lib/coverageGroups";
+import { bestHighlight, cycleCutoff, currentWeekWindow, sortByReportTiming } from "../lib/reporting";
 
-export function Dashboard({ onOpenCompany }: { onOpenCompany: (ticker: string) => void }) {
+export function Dashboard({ onOpenCompany, onOpenOverview }: { onOpenCompany: (ticker: string) => void; onOpenOverview: (groupId: string) => void }) {
   const [recent, setRecent] = useState<PostEarningsSummary[] | null>(null);
   const [companies, setCompanies] = useState<CompanyListing[]>([]);
+  const [progress, setProgress] = useState<ReportingProgress | null>(null);
 
   useEffect(() => {
-    listRecentEarnings(8).then(setRecent).catch(() => setRecent([]));
+    listRecentEarnings(30).then((rows) => setRecent(sortByReportTiming(rows).slice(0, 8))).catch(() => setRecent([]));
     listCompanies().then(setCompanies).catch(() => {});
+    const week = currentWeekWindow();
+    getReportingProgress(week.start, week.end).then(setProgress).catch(() => {});
   }, []);
 
   const stats = useMemo(() => {
@@ -25,6 +30,9 @@ export function Dashboard({ onOpenCompany }: { onOpenCompany: (ticker: string) =
     return {
       companiesTracked: companies.length,
       reportsShown: recent.length,
+      reportedThisCycle: companies.length
+        ? Math.round((companies.filter((company) => company.reportDate >= cycleCutoff()).length / companies.length) * 100)
+        : 0,
       beatRate: withConsensus.length > 0 ? Math.round((beats / withConsensus.length) * 100) : null,
       avgReaction,
     };
@@ -46,7 +54,11 @@ export function Dashboard({ onOpenCompany }: { onOpenCompany: (ticker: string) =
       {stats && (
         <div className="mb-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatTile label="Companies tracked" value={String(stats.companiesTracked)} />
-          <StatTile label="Recent reports" value={String(stats.reportsShown)} />
+          <StatTile
+            label="Reported this week"
+            value={`${progress?.total ? progress.percent : stats.reportedThisCycle}%`}
+            note={progress?.total ? `${progress.reported} of ${progress.total} scheduled` : "Calendar sync pending"}
+          />
           <StatTile label="Revenue beat rate" value={stats.beatRate !== null ? `${stats.beatRate}%` : "—"} />
           <StatTile
             label="Avg. reaction"
@@ -56,13 +68,50 @@ export function Dashboard({ onOpenCompany }: { onOpenCompany: (ticker: string) =
         </div>
       )}
 
-      <div className="mb-4 text-[13px] font-semibold uppercase tracking-wide text-[#8b8f99]">Recent highlights</div>
+      <div className="mb-8">
+        <div className="mb-3 flex items-end justify-between gap-4">
+          <div>
+            <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8b8f99]">Coverage overviews</div>
+            <div className="mt-1 text-[13px] text-[#9a9ea8]">Follow earnings as a connected industry story.</div>
+          </div>
+        </div>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {COVERAGE_GROUPS.slice(0, 3).map((group) => {
+            const tracked = companies.filter((company) => group.tickers.has(company.ticker));
+            const reported = tracked.filter((company) => company.reportDate >= cycleCutoff()).length;
+            return (
+              <button
+                key={group.id}
+                onClick={() => onOpenOverview(group.id)}
+                className="rounded-card border border-black/[0.06] bg-white p-4 text-left transition-all hover:-translate-y-0.5 hover:border-accent/35 hover:shadow-sm dark:border-white/[0.08] dark:bg-[#121317]"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <span className="text-[13px] font-semibold text-[#15171c] dark:text-[#e7e8ea]">{group.name}</span>
+                  <span className="text-[11px] font-semibold text-accent">{tracked.length ? Math.round((reported / tracked.length) * 100) : 0}%</span>
+                </div>
+                <p className="mt-1.5 line-clamp-2 text-[12px] leading-relaxed text-[#7a7f89] dark:text-[#8f949f]">{group.description}</p>
+                <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/[0.05] dark:bg-white/[0.06]">
+                  <div className="h-full rounded-full bg-accent" style={{ width: `${tracked.length ? (reported / tracked.length) * 100 : 0}%` }} />
+                </div>
+                <div className="mt-1.5 text-[10px] text-[#9a9ea8]">{reported} of {tracked.length} reported this cycle</div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mb-4 flex items-end justify-between gap-4">
+        <div>
+          <div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8b8f99]">Recent highlights</div>
+          <div className="mt-1 text-[12px] text-[#9a9ea8]">Ordered by report date and market session.</div>
+        </div>
+        {stats && <div className="text-[11px] text-[#9a9ea8]">{stats.reportsShown} latest</div>}
+      </div>
       <div className="flex flex-col gap-3">
         {recent === null && <div className="text-[13px] text-[#9a9ea8]">Loading…</div>}
         {recent?.length === 0 && <div className="text-[13px] text-[#9a9ea8]">No reports archived yet.</div>}
         {recent?.map((r) => {
-          const topBullet = (r.financialHighlights ?? [])[0];
-          const highlightText = topBullet ? stripCitations(topBullet.text).text : (r.keyMetrics ?? [])[0];
+          const highlightText = stripCitations(bestHighlight(r)).text;
           return (
             <button
               key={r._id}
@@ -74,7 +123,7 @@ export function Dashboard({ onOpenCompany }: { onOpenCompany: (ticker: string) =
                 <div className="flex items-center gap-2">
                   <span className="text-[13px] font-semibold text-[#15171c] dark:text-[#e7e8ea]">{r.company}</span>
                   <span className="font-mono text-[11px] text-[#9a9ea8]">{r.ticker}</span>
-                  <span className="text-[11px] text-[#9a9ea8]">{relativeDay(r.reportDate)}</span>
+                  <span className="text-[11px] text-[#9a9ea8]">{relativeDay(r.reportDate)} · {r.reportTime}</span>
                 </div>
                 {highlightText && (
                   <div className="mt-0.5 truncate text-[12px] text-[#5b5f6b] dark:text-[#9a9ea8]">{highlightText}</div>
@@ -89,7 +138,7 @@ export function Dashboard({ onOpenCompany }: { onOpenCompany: (ticker: string) =
   );
 }
 
-function StatTile({ label, value, tone }: { label: string; value: string; tone?: "up" | "down" }) {
+function StatTile({ label, value, tone, note }: { label: string; value: string; tone?: "up" | "down"; note?: string }) {
   return (
     <div className="rounded-card border border-black/[0.06] bg-white p-3.5 dark:border-white/[0.08] dark:bg-[#121317]">
       <div className="text-[10px] font-semibold uppercase tracking-wide text-[#8b8f99]">{label}</div>
@@ -100,6 +149,7 @@ function StatTile({ label, value, tone }: { label: string; value: string; tone?:
       >
         {value}
       </div>
+      {note && <div className="mt-0.5 text-[10px] text-[#9a9ea8]">{note}</div>}
     </div>
   );
 }

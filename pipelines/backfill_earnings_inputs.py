@@ -1,0 +1,53 @@
+#!/usr/bin/env python3
+"""Public-repo entry point for resumable transcript/consensus prefetch batches."""
+
+from __future__ import annotations
+
+import argparse, csv, json, sys, time
+from datetime import date, datetime
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from core.research import fetch_transcript_excerpt  # noqa: E402
+from core.stock_data import fetch_financial_snapshot  # noqa: E402
+from pipelines.earnings_archive import archive_pre_earnings_snapshot  # noqa: E402
+
+
+def parse_args():
+    p = argparse.ArgumentParser(description="Warm transcript and consensus inputs in small resumable batches.")
+    p.add_argument("--calendar-csv", required=True); p.add_argument("--start", default=""); p.add_argument("--end", default="")
+    p.add_argument("--watchlist", default=""); p.add_argument("--batch-size", type=int, default=10); p.add_argument("--pause-seconds", type=float, default=.75)
+    p.add_argument("--resume-file", default="data/earnings-input-backfill-state.json"); p.add_argument("--transcripts", action="store_true")
+    p.add_argument("--consensus", action="store_true"); p.add_argument("--dry-run", action="store_true"); return p.parse_args()
+
+
+def main():
+    args = parse_args()
+    if not args.transcripts and not args.consensus: raise SystemExit("Choose --transcripts and/or --consensus.")
+    allowed = {t.strip().upper() for t in args.watchlist.split(",") if t.strip()}
+    with open(args.calendar_csv, "r", encoding="utf-8-sig", newline="") as source: rows = list(csv.DictReader(source))
+    events = sorted([{"ticker": str(r.get("Ticker", "")).upper(), "company": str(r.get("Company Name", "") or r.get("Ticker", "")), "report_date": str(r.get("Report Date", ""))} for r in rows if r.get("Ticker") and r.get("Report Date") and (not allowed or str(r.get("Ticker")).upper() in allowed) and (not args.start or str(r.get("Report Date")) >= args.start) and (not args.end or str(r.get("Report Date")) <= args.end)], key=lambda e:(e["report_date"],e["ticker"]))
+    state_path=Path(args.resume_file); state=json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {"completed":{}}; completed=state.setdefault("completed",{})
+    def needs_work(event):
+        prior=completed.get(f"{event['ticker']}:{event['report_date']}",{})
+        return (args.transcripts and "transcript" not in prior) or (args.consensus and "consensus" not in prior)
+    batch=[e for e in events if needs_work(e)][:max(1,args.batch_size)]
+    print(f"[backfill] {len(events)} eligible; processing {len(batch)}")
+    for i,event in enumerate(batch):
+        key=f"{event['ticker']}:{event['report_date']}"
+        if args.dry_run: print(f"[dry-run] {key} {event['company']}"); continue
+        outcome={**completed.get(key,{}),"completedAt":datetime.now().isoformat(timespec="seconds")}
+        if args.transcripts:
+            artifact=fetch_transcript_excerpt(event["ticker"],event["company"],"",event["report_date"]); outcome["transcript"]="cached" if artifact.get("cache_hit") else "fetched" if artifact else "not_found"
+        if args.consensus:
+            days=(date.fromisoformat(event["report_date"])-date.today()).days
+            outcome["consensus"]=archive_pre_earnings_snapshot(ticker=event["ticker"],report_date=event["report_date"],snap=fetch_financial_snapshot(event["ticker"])).get("status","unknown") if 0<=days<=21 else "skipped_outside_21_day_window"
+        completed[key]=outcome; state_path.parent.mkdir(parents=True,exist_ok=True); state_path.write_text(json.dumps(state,indent=2,sort_keys=True),encoding="utf-8"); print(f"[backfill] {key}: {outcome}")
+        if i<len(batch)-1 and args.pause_seconds>0: time.sleep(args.pause_seconds)
+    return 0
+
+
+if __name__ == "__main__": raise SystemExit(main())

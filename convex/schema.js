@@ -4,6 +4,33 @@ import { v } from "convex/values";
 const optionalString = v.optional(v.union(v.string(), v.null()));
 
 export default defineSchema({
+  preEarningsSnapshots: defineTable({
+    ticker: v.string(), reportDate: v.string(),
+    revenueConsensusUsd: v.optional(v.union(v.float64(), v.null())),
+    revenueConsensusYoyPct: v.optional(v.union(v.float64(), v.null())),
+    fyRevenueConsensusUsd: v.optional(v.union(v.float64(), v.null())),
+    fyRevenueConsensusYoyPct: v.optional(v.union(v.float64(), v.null())),
+    epsConsensus: v.optional(v.union(v.float64(), v.null())),
+    createdAt: v.string(), updatedAt: v.string(),
+  }).index("by_ticker_report_date", ["ticker", "reportDate"]),
+
+  researchArtifacts: defineTable({
+    kind: v.string(), ticker: v.string(), reportDate: v.string(), url: v.optional(v.string()), title: v.optional(v.string()), text: v.string(), provider: v.optional(v.string()), createdAt: v.string(), updatedAt: v.string(),
+  }).index("by_kind_ticker_date", ["kind", "ticker", "reportDate"]),
+
+  earningsCalendarEvents: defineTable({
+    ticker: v.string(),
+    company: v.string(),
+    reportDate: v.string(),
+    reportTime: v.string(),
+    sector: v.optional(v.string()),
+    epsEstimate: v.optional(v.union(v.float64(), v.null())),
+    revenueEstimateUsd: v.optional(v.union(v.float64(), v.null())),
+    updatedAt: v.string(),
+  })
+    .index("by_report_date", ["reportDate"])
+    .index("by_ticker_report_date", ["ticker", "reportDate"]),
+
   earningsBriefs: defineTable({
     runKey: v.string(),
     mode: v.string(),

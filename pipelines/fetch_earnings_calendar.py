@@ -19,6 +19,8 @@ import urllib.request
 from datetime import datetime
 from typing import Dict, Iterable, List
 
+from earnings_archive import archive_earnings_calendar
+
 
 OUTPUT_HEADERS = [
     "Ticker",
@@ -168,12 +170,15 @@ def main() -> int:
     args = parse_args()
     if args.input_csv and os.path.exists(args.input_csv):
         count = copy_csv(args.input_csv, args.output)
+        with open(args.output, "r", encoding="utf-8-sig", newline="") as source:
+            archive_earnings_calendar(csv.DictReader(source))
         print(f"[OK] Normalized existing earnings CSV: {args.output} ({count} rows)")
         return 0
 
     payload = fetch_alpha_vantage_csv(args.alpha_vantage_api_key, horizon=args.horizon)
     rows = normalize_alpha_vantage_rows(payload)
     write_rows(args.output, rows)
+    archive_earnings_calendar(rows)
     print(
         f"[OK] Fetched Alpha Vantage earnings calendar: {args.output} ({len(rows)} rows) at {datetime.now().isoformat()}"
     )

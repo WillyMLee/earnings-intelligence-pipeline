@@ -1,34 +1,20 @@
-/**
- * A numbered, connected step list -- rounded number badge + connecting
- * line on the left, plain text (no per-item box) on the right, marked with
- * a small accent-colored bullet dot for scannability. Mirrors the "Live
- * process" reference card's badge/connector, but each item reads as a
- * normal readable line instead of its own bordered card -- the boxed-per-
- * bullet look got noisy once a section had more than 3-4 items.
- */
-export function StepList({ items, isLastGroup = true }: { items: string[]; isLastGroup?: boolean }) {
+function ItemText({ text }: { text: string }) {
+  const separator = text.indexOf(":");
+  if (separator <= 0 || separator > 42) return <>{text}</>;
+  return <><strong className="font-semibold text-[#15171c] dark:text-[#e7e8ea]">{text.slice(0, separator + 1)}</strong>{text.slice(separator + 1)}</>;
+}
+
+export function StepList({ items }: { items: string[]; isLastGroup?: boolean }) {
   if (items.length === 0) return null;
   return (
-    <ol className="flex flex-col">
-      {items.map((item, index) => {
-        const isLastItem = index === items.length - 1;
-        const showConnector = !isLastItem || !isLastGroup;
-        return (
-          <li key={index} className="flex gap-3">
-            <div className="flex flex-col items-center">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-[13px] font-bold text-accent dark:bg-accent/20">
-                {index + 1}
-              </div>
-              {showConnector && <div className="my-0.5 w-px flex-1 bg-black/10 dark:bg-white/10" />}
-            </div>
-            <div className={`flex flex-1 gap-2 py-1 text-[13px] leading-snug text-[#2b2e35] dark:text-[#dcdee2] ${isLastItem ? "pb-2.5" : "pb-4"}`}>
-              <span className="mt-[7px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent" />
-              <span>{item}</span>
-            </div>
-          </li>
-        );
-      })}
-    </ol>
+    <ul className="space-y-2.5">
+      {items.map((item, index) => (
+        <li key={index} className="flex gap-2.5 text-[13px] leading-relaxed text-[#454951] dark:text-[#c4c7ce]">
+          <span className="mt-[8px] h-1.5 w-1.5 shrink-0 rounded-full bg-accent/80" />
+          <span><ItemText text={item} /></span>
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -45,27 +31,22 @@ export function ConnectedStepGroups({ groups }: { groups: { heading: string; ite
   const nonEmpty = groups.filter((g) => g.items.length > 0);
   if (nonEmpty.length === 0) return null;
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col gap-3">
       {nonEmpty.map((group, gi) => {
-        const isLastGroup = gi === nonEmpty.length - 1;
+        const isPrimary = gi === 0;
         return (
-          <div key={gi}>
-            {gi > 0 && (
-              <div className="flex gap-3">
-                <div className="flex w-7 shrink-0 justify-center">
-                  <div className="my-0.5 w-px flex-1 bg-black/10 dark:bg-white/10" />
-                </div>
-                <div className="flex-1" />
-              </div>
-            )}
-            <div className="mb-2 flex gap-3">
-              <div className="w-7 shrink-0" />
-              <div className="text-[10px] font-semibold uppercase tracking-wide text-[#8b8f99] dark:text-[#7d818c]">
-                {group.heading}
-              </div>
+          <details key={gi} open={isPrimary} className="group rounded-xl border border-black/[0.06] bg-black/[0.015] px-4 py-3 dark:border-white/[0.07] dark:bg-white/[0.02]">
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-[11px] font-semibold uppercase tracking-[0.1em] text-[#717681] marker:hidden dark:text-[#8f949f]">
+              <span>{group.heading}</span>
+              <span className="flex items-center gap-2 normal-case tracking-normal text-[#9a9ea8]">
+                {group.items.length} point{group.items.length === 1 ? "" : "s"}
+                <span className="text-[14px] transition-transform group-open:rotate-45">＋</span>
+              </span>
+            </summary>
+            <div className="mt-3 border-t border-black/[0.05] pt-3 dark:border-white/[0.06]">
+              <StepList items={group.items} />
             </div>
-            <StepList items={group.items} isLastGroup={isLastGroup} />
-          </div>
+          </details>
         );
       })}
     </div>

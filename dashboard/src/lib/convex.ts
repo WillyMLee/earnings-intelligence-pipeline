@@ -52,6 +52,25 @@ export type CompanyListing = {
   reportDate: string;
 };
 
+export type CalendarEvent = {
+  ticker: string;
+  company: string;
+  reportDate: string;
+  reportTime: string;
+  sector?: string;
+  epsEstimate?: number | null;
+  revenueEstimateUsd?: number | null;
+};
+
+export type ReportingProgress = {
+  start: string;
+  end: string;
+  total: number;
+  reported: number;
+  percent: number;
+  scheduled: CalendarEvent[];
+};
+
 async function convexQuery<T>(path: string, args: Record<string, unknown>): Promise<T> {
   if (!CONVEX_URL) {
     throw new Error(
@@ -90,4 +109,12 @@ export function listCompanies() {
 
 export function listByTicker(ticker: string, limit = 20) {
   return convexQuery<PostEarningsSummary[]>("postEarningsSummaries:listByTicker", { ticker, limit });
+}
+
+export function getReportingProgress(start: string, end: string, tickers?: string[]) {
+  return convexQuery<ReportingProgress>("earningsCalendar:reportingProgress", {
+    start,
+    end,
+    ...(tickers ? { tickers } : {}),
+  });
 }

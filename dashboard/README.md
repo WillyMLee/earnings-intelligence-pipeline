@@ -7,7 +7,8 @@ summary.
 
 Built as a static site (Vite + React + Tailwind) that talks to Convex's
 HTTP query API directly — no server of its own, and no write/admin token
-is ever used or shipped to the client. Deployed to Cloudflare Pages.
+is ever used or shipped to the client. Deployed as a Cloudflare Worker with
+static assets and an edge proxy for intraday index data.
 
 ## Run locally
 
@@ -21,13 +22,13 @@ npm run dev
 
 ```bash
 npm run build
-npx wrangler pages deploy dist --project-name=earnings-intelligence
+npx wrangler deploy
 ```
 
-First deploy creates the Pages project and prints a `*.pages.dev` URL.
-Set `VITE_CONVEX_URL` as a build-time environment variable in the Cloudflare
-Pages project settings (or bake it into `.env.production` before building)
-so production builds point at your Convex deployment.
+This deploys the SPA and its `/api/indices` edge proxy together and prints the
+`*.workers.dev` URL.
+Set `VITE_CONVEX_URL` at build time (or in `.env.production`) so production
+builds point at your Convex deployment.
 
 ## Porting this to your own data
 
@@ -36,11 +37,11 @@ defined in `../convex/postEarningsSummaries.js`:
 
 - `postEarningsSummaries:listRecent({ limit, sector? })` — most recent
   results across all tickers, optionally filtered by sector.
-- `postEarningsSummaries:listSectors()` — distinct sector values, for the
-  filter pills.
+- `postEarningsSummaries:listCompanies()` — latest identity row per ticker.
 - `postEarningsSummaries:listByTicker({ ticker, limit })` — a single
-  ticker's history (not yet used in the UI, wired for a future per-ticker
-  trend view).
+  ticker's history.
+- `earningsCalendar:reportingProgress({ start, end, tickers? })` — scheduled
+  versus archived reports for the reporting-progress tiles.
 
 Point `VITE_CONVEX_URL` at any Convex deployment exposing the same query
 names/shapes and the dashboard works unmodified.

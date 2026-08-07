@@ -60,7 +60,23 @@ export function IndexBar() {
   // indices of wildly different absolute scale (Dow ~54k, S&P ~7.7k,
   // Nasdaq ~26k) can only share one y-axis this way; per the dataviz
   // skill, this is the correct move instead of a dual/triple axis chart.
+  const easternMinutes = (ms: number) => {
+    const parts = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/New_York",
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: false,
+    }).formatToParts(new Date(ms));
+    const hour = Number(parts.find((part) => part.type === "hour")?.value ?? 0) % 24;
+    const minute = Number(parts.find((part) => part.type === "minute")?.value ?? 0);
+    return hour * 60 + minute;
+  };
+  const marketOpen = 9 * 60 + 30;
+  const marketClose = 16 * 60;
+  const xForTime = (ms: number) => Math.max(0, Math.min(100, ((easternMinutes(ms) - marketOpen) / (marketClose - marketOpen)) * 100));
+
   const allSeries = indices
+    .map((idx) => ({ ...idx, series: idx.series.filter((point) => easternMinutes(point.t) >= marketOpen && easternMinutes(point.t) <= marketClose) }))
     .filter((idx) => idx.series.length > 0)
     .map((idx) => {
       const base = idx.series[0].price;
@@ -75,17 +91,15 @@ export function IndexBar() {
   const allPcts = allSeries.flatMap((s) => s.pctSeries.map((p) => p.pct));
   const maxAbs = Math.max(...allPcts.map((v) => Math.abs(v)), 0.1);
   const yFor = (pct: number) => height / 2 - (pct / maxAbs) * (height / 2 - 12);
-  const maxLen = Math.max(...allSeries.map((s) => s.pctSeries.length), 1);
-  const xFor = (i: number) => (i / Math.max(maxLen - 1, 1)) * width;
-
-  const firstT = allSeries[0]?.pctSeries[0]?.t;
-  const firstPctSeries = allSeries[0]?.pctSeries;
-  const lastT = firstPctSeries?.[firstPctSeries.length - 1]?.t;
-  const fmtTime = (ms?: number) =>
-    ms ? new Date(ms).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }) : "";
-
-  const hoverIdx =
-    hoverX !== null ? Math.round((hoverX / width) * (maxLen - 1)) : null;
+  const fmtTime = (ms?: number) => ms ? new Date(ms).toLocaleTimeString("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "2-digit" }) : "";
+  const reference = allSeries[0]?.pctSeries ?? [];
+  const hoverIdx = hoverX === null || reference.length === 0
+    ? null
+    : reference.reduce((best, point, index) => Math.abs(xForTime(point.t) - hoverX) < Math.abs(xForTime(reference[best].t) - hoverX) ? index : best, 0);
+  const nearestPct = (series: { t: number; pct: number }[], target?: number) => {
+    if (target == null || series.length === 0) return null;
+    return series.reduce((best, point) => Math.abs(point.t - target) < Math.abs(best.t - target) ? point : best, series[0]);
+  };
 
   return (
     <div className="mb-6 flex flex-col gap-4 rounded-card border border-black/[0.06] bg-white p-4 dark:border-white/[0.08] dark:bg-[#121317] sm:flex-row">
@@ -125,27 +139,30 @@ export function IndexBar() {
           <line x1={0} y1={height / 2} x2={width} y2={height / 2} stroke="currentColor" className="text-black/10 dark:text-white/10" strokeWidth={0.5} />
           {allSeries.map((idx) => {
             const d = idx.pctSeries
-              .map((p, i) => `${i === 0 ? "M" : "L"} ${xFor(i)} ${yFor(p.pct)}`)
+              .map((p, i) => `${i === 0 ? "M" : "L"} ${xForTime(p.t)} ${yFor(p.pct)}`)
               .join(" ");
             return <path key={idx.symbol} d={d} fill="none" stroke={COLORS[idx.symbol]} strokeWidth={1.5} vectorEffect="non-scaling-stroke" />;
           })}
           {hoverIdx !== null && (
-            <line x1={xFor(hoverIdx)} y1={0} x2={xFor(hoverIdx)} y2={height} stroke="currentColor" className="text-black/20 dark:text-white/20" strokeWidth={0.5} />
+            <line x1={xForTime(reference[hoverIdx].t)} y1={0} x2={xForTime(reference[hoverIdx].t)} y2={height} stroke="currentColor" className="text-black/20 dark:text-white/20" strokeWidth={0.5} />
           )}
         </svg>
-        <div className="mt-1 flex justify-between text-[10px] text-[#9a9ea8]">
-          <span>{fmtTime(firstT)}</span>
-          <span>{fmtTime(lastT)}</span>
+        <div className="mt-1 grid grid-cols-4 text-[10px] text-[#9a9ea8]">
+          <span>9:30 AM</span>
+          <span className="text-center">12 PM</span>
+          <span className="text-center">2 PM</span>
+          <span className="text-right">4 PM close</span>
         </div>
         {hoverIdx !== null && (
           <div className="pointer-events-none absolute -top-1 right-0 rounded-md border border-black/10 bg-white px-2 py-1 text-[11px] shadow-sm dark:border-white/10 dark:bg-[#1c1d22]">
-            <div className="mb-0.5 font-semibold text-[#8b8f99]">{fmtTime(allSeries[0]?.pctSeries[hoverIdx]?.t)}</div>
-            {allSeries.map((idx) => (
-              <div key={idx.symbol} className="flex items-center gap-1.5">
+            <div className="mb-0.5 font-semibold text-[#8b8f99]">{fmtTime(reference[hoverIdx]?.t)} ET</div>
+            {allSeries.map((idx) => {
+              const point = nearestPct(idx.pctSeries, reference[hoverIdx]?.t);
+              return <div key={idx.symbol} className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: COLORS[idx.symbol] }} />
-                <span className="font-medium">{idx.pctSeries[hoverIdx]?.pct.toFixed(2)}%</span>
-              </div>
-            ))}
+                <span className="font-medium">{point?.pct.toFixed(2)}%</span>
+              </div>;
+            })}
           </div>
         )}
       </div>

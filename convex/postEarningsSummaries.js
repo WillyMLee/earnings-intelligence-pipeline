@@ -115,3 +115,45 @@ export const listByTicker = query({
     return rows.slice(0, limit);
   },
 });
+
+export const listRecent = query({
+  args: { limit: v.optional(v.float64()), sector: v.optional(v.string()) },
+  handler: async (ctx, args) => {
+    const limit = Math.max(1, Math.min(args.limit ?? 50, 200));
+    let rows = await ctx.db.query("postEarningsSummaries").collect();
+    if (args.sector) rows = rows.filter((row) => row.sector === args.sector);
+    rows.sort((left, right) => {
+      const byDate = String(right.reportDate).localeCompare(String(left.reportDate));
+      return byDate !== 0 ? byDate : String(right.updatedAt).localeCompare(String(left.updatedAt));
+    });
+    return rows.slice(0, limit);
+  },
+});
+
+export const listSectors = query({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("postEarningsSummaries").collect();
+    return Array.from(new Set(rows.map((row) => row.sector).filter(Boolean))).sort();
+  },
+});
+
+export const listCompanies = query({
+  args: {},
+  handler: async (ctx) => {
+    const rows = await ctx.db.query("postEarningsSummaries").collect();
+    const byTicker = new Map();
+    for (const row of rows) {
+      const existing = byTicker.get(row.ticker);
+      if (!existing || String(row.reportDate) > String(existing.reportDate)) {
+        byTicker.set(row.ticker, {
+          ticker: row.ticker,
+          company: row.company,
+          sector: row.sector ?? null,
+          reportDate: row.reportDate,
+        });
+      }
+    }
+    return Array.from(byTicker.values()).sort((a, b) => a.company.localeCompare(b.company));
+  },
+});

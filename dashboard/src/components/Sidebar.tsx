@@ -17,7 +17,7 @@ export function Sidebar({
   activeTicker: string | null;
   route: Route;
   onSelect: (ticker: string) => void;
-  onNav: (name: "dashboard" | "feed") => void;
+  onNav: (name: "dashboard" | "feed" | "sectors") => void;
 }) {
   const [groupMode, setGroupMode] = useState<GroupMode>("alphabetical");
   const [tickerFilter, setTickerFilter] = useState<TickerFilter>("all");
@@ -60,6 +60,7 @@ export function Sidebar({
     <aside className="flex h-full w-64 shrink-0 flex-col border-r border-black/[0.06] bg-white dark:border-white/[0.08] dark:bg-[#0e0f13]">
       <nav className="flex flex-col gap-0.5 border-b border-black/[0.06] p-3 dark:border-white/[0.08]">
         <NavLink label="Dashboard" active={route.name === "dashboard"} onClick={() => onNav("dashboard")} />
+        <NavLink label="Sector overviews" active={route.name === "sectors"} onClick={() => onNav("sectors")} />
         <NavLink label="Feed" active={route.name === "feed"} onClick={() => onNav("feed")} />
       </nav>
       <div className="border-b border-black/[0.06] p-4 dark:border-white/[0.08]">

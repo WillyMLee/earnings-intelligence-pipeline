@@ -69,7 +69,10 @@ export function EarningsCard({
           <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#8b8f99] dark:text-[#7d818c]">
             What mattered
           </div>
-          <StepList items={summary.keyMetrics} />
+          <StepList items={summary.keyMetrics.slice(0, 3)} />
+          {summary.keyMetrics.length > 3 && (
+            <div className="mt-2 pl-4 text-[11px] text-[#9a9ea8]">+{summary.keyMetrics.length - 3} more points in the full profile</div>
+          )}
         </div>
       )}
 

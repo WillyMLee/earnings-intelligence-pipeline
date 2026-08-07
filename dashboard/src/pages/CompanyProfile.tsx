@@ -8,6 +8,7 @@ import { StatCell } from "../components/StatCell";
 import { StepList, ConnectedStepGroups } from "../components/StepList";
 import { Tabs } from "../components/Tabs";
 import { TrendChart } from "../components/TrendChart";
+import { isReviewWarning } from "../lib/reporting";
 
 const TAB_NAMES = ["Profile", "Financials", "Call highlights", "Reaction history", "Trends"];
 
@@ -147,7 +148,7 @@ function ProfileTab({ latest }: { latest: PostEarningsSummary }) {
     ["Investor deck", links.investor_deck ?? ""],
     ["Transcript", links.transcript ?? ""],
   ].filter(([, url]) => !!url) as [string, string][];
-  const topHighlights = (latest.financialHighlights ?? []).slice(0, 3).map((b) => stripCitations(b.text).text);
+  const topHighlights = (latest.financialHighlights ?? []).filter((b) => !isReviewWarning(b.text)).slice(0, 3).map((b) => stripCitations(b.text).text);
 
   return (
     <div className="flex flex-col gap-4">
@@ -328,7 +329,9 @@ function CallHighlightsTab({
   report: PostEarningsSummary;
 }) {
   const intro = stripCitations(report.intro);
-  const highlightBullets = (report.financialHighlights ?? []).map((b) => stripCitations(b.text).text);
+  const rawHighlightBullets = (report.financialHighlights ?? []).map((b) => stripCitations(b.text).text);
+  const warningBullets = rawHighlightBullets.filter(isReviewWarning);
+  const highlightBullets = rawHighlightBullets.filter((text) => !isReviewWarning(text));
   const highlightUrls = stripCitationsFromAll((report.financialHighlights ?? []).map((b) => b.text)).urls;
   const sectionUrls = useMemo(
     () =>
@@ -347,7 +350,7 @@ function CallHighlightsTab({
     ...(highlightBullets.length > 0 ? [{ heading: "Financial highlights", items: highlightBullets }] : []),
     ...(report.sections ?? []).map((section) => ({
       heading: section.heading,
-      items: section.bullets.map((b) => stripCitations(b.text).text),
+      items: section.bullets.map((b) => stripCitations(b.text).text).filter((text) => !isReviewWarning(text)),
     })),
   ];
 
@@ -387,10 +390,15 @@ function CallHighlightsTab({
             </Card>
           )}
 
+          {warningBullets.length > 0 && (
+            <div className="rounded-card border border-amber-300/50 bg-amber-50 px-4 py-3 text-[12px] leading-relaxed text-amber-900 dark:border-amber-500/20 dark:bg-amber-500/[0.08] dark:text-amber-200">
+              <div className="mb-1 text-[10px] font-bold uppercase tracking-[0.12em] text-amber-700 dark:text-amber-300">Verification note</div>
+              {warningBullets.map((warning, index) => <div key={index}>{warning.replace(/^\s*(note|warning|caveat)\s*:\s*/i, "")}</div>)}
+            </div>
+          )}
+
           {stepGroups.length > 0 && (
-            <Card>
-              <ConnectedStepGroups groups={stepGroups} />
-            </Card>
+            <Card><ConnectedStepGroups groups={stepGroups} /></Card>
           )}
 
           {(report.qaHighlights?.length ?? 0) > 0 && (
@@ -416,16 +424,12 @@ function CallHighlightsTab({
           )}
 
           {allSources.length > 0 && (
-            <Card>
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-[#8b8f99]">Sources</div>
-              <div className="flex flex-col gap-1">
-                {allSources.map((url) => (
-                  <a key={url} href={url} target="_blank" rel="noreferrer" className="truncate text-[12px] text-accent hover:underline">
-                    {url}
-                  </a>
-                ))}
+            <details className="rounded-card border border-black/[0.06] bg-white px-5 py-4 dark:border-white/[0.08] dark:bg-[#121317]">
+              <summary className="cursor-pointer text-[11px] font-semibold uppercase tracking-[0.1em] text-[#8b8f99]">Sources · {allSources.length}</summary>
+              <div className="mt-3 flex flex-col gap-1 border-t border-black/[0.05] pt-3 dark:border-white/[0.06]">
+                {allSources.map((url) => <a key={url} href={url} target="_blank" rel="noreferrer" className="truncate text-[12px] text-accent hover:underline">{url}</a>)}
               </div>
-            </Card>
+            </details>
           )}
         </>
       )}

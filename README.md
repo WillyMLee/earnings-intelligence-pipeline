@@ -12,6 +12,7 @@ This repo is a cleaned-up, genericized extract of a system that has been running
 - **Post-earnings briefs** — sent the same day a company reports, session-aware (before-open vs. after-close reporters get processed and delivered at different times so the price reaction shown is actually settled, not a snapshot from the wrong session).
 - **Daily/weekly radar digests** — a scan across the whole coverage universe for what's reporting soon and what matters.
 - **Structured historical archive** — every post-earnings brief writes comparable, structured figures (revenue, EPS, CapEx guide-vs-actual) to a shared store, not just prose, so quarter-over-quarter and sector-level trend queries are possible later without re-parsing old emails.
+- **Public research dashboard** — recent results, company histories, fixed-session market charts, reporting progress, and connected coverage overviews for major reporting cohorts.
 
 ## Architecture
 
@@ -109,6 +110,24 @@ python pipelines/run_pre_earnings_deep_dive_auto.py \
 ```
 
 `--draft-only` builds the email artifacts without sending — useful for iterating on prompts/guardrails without spending on delivery.
+
+Warm expensive inputs separately in small, resumable batches:
+
+```bash
+python pipelines/backfill_earnings_inputs.py \
+  --calendar-csv data/latest_earnings_calendar.csv \
+  --start 2025-01-01 --end 2026-08-07 \
+  --transcripts --batch-size 10
+
+python pipelines/backfill_earnings_inputs.py \
+  --calendar-csv data/latest_earnings_calendar.csv \
+  --consensus --batch-size 50
+```
+
+Transcript excerpts are cached in Convex by ticker and report date. Consensus
+is only fetched for reports inside the next 21 days, before providers roll the
+estimate to a later fiscal period. The resume file records each input type
+independently, so transcript and consensus batches can run on different cadences.
 
 ## Known limitations & roadmap
 
