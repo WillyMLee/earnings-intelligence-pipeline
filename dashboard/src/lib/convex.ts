@@ -3,7 +3,12 @@
 // point of view, a handful of read-only queries. Swap CONVEX_URL for your
 // own deployment if you're porting this (see the root README's porting
 // guide) -- the schema/query shapes are documented in convex/schema.js.
-const CONVEX_URL = import.meta.env.VITE_CONVEX_URL as string;
+// The production Convex URL is a public API endpoint, not a credential.
+// Keep an explicit fallback so Cloudflare's clean Git builds do not silently
+// compile an empty URL when local-only .env files are unavailable.
+const CONVEX_URL =
+  (import.meta.env.VITE_CONVEX_URL as string | undefined) ||
+  "https://honorable-goldfish-309.convex.cloud";
 
 export type Bullet = { text: string; children?: string[] };
 export type Section = { heading: string; bullets: Bullet[] };
