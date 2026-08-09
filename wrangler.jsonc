@@ -1,0 +1,14 @@
+{
+  "$schema": "dashboard/node_modules/wrangler/config-schema.json",
+  "name": "earnings-intelligence-pipeline",
+  "compatibility_date": "2025-01-01",
+  "main": "dashboard/worker/index.js",
+  "build": {
+    "command": "npm --prefix dashboard ci && npm --prefix dashboard run build"
+  },
+  "assets": {
+    "directory": "./dashboard/dist",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application"
+  }
+}

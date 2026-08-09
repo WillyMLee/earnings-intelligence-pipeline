@@ -1,5 +1,8 @@
 node_modules
-dist
+# dist is intentionally committed as a safe fallback for Cloudflare Workers
+# Builds. The root wrangler.jsonc rebuilds it when custom builds are honored;
+# a checked-in build prevents an uncompiled /src/main.tsx deployment if the
+# hosted build command is ever cleared or skipped.
 .env.local
 .env.*.local
 *.log
