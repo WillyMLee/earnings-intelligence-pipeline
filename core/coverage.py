@@ -85,4 +85,8 @@ DASHBOARD_THEME_TICKERS = frozenset({
     "PANW", "CRWD", "ZS", "FTNT", "OKTA", "NET", "S",
     "PLTR", "DDOG", "MDB", "CFLT", "ESTC", "APP", "TTD",
     "VST", "CEG", "ETN", "NRG", "OKLO", "GEV",
+    "JPM", "BAC", "WFC", "C", "GS", "MS", "AXP", "V", "MA", "PYPL", "COF", "SCHW", "BLK",
+    "WMT", "COST", "HD", "LOW", "MCD", "SBUX", "NKE", "DIS", "NFLX", "UBER", "DASH", "ABNB", "BKNG",
+    "BA", "CAT", "HON", "GE", "RTX", "LMT", "NOC", "UPS", "FDX", "UNP", "DE",
+    "LLY", "UNH", "JNJ", "ABBV", "MRK", "TMO", "ISRG", "AMGN", "GILD", "PFE",
 })

@@ -55,6 +55,12 @@ _CORPORATE_SUFFIXES = {
     "n.v.", "nv", "s.a.", "sa", "ag", "se",
 }
 
+_DISPLAY_NAME_OVERRIDES = {
+    "AAL": "American Airlines",
+    "AMZN": "Amazon",
+    "BA": "Boeing",
+}
+
 
 def _strip_corporate_suffix(name: str) -> str:
     """Emails should say "Intel", not "Intel Corporation" -- the honorific
@@ -76,6 +82,9 @@ def normalize_company_name(name: str, ticker: str = "") -> str:
     would mangle a ticker-derived acronym embedded in the name (RTX
     Corporation, PNC Financial Services Group -> "Rtx"/"Pnc" otherwise). Also
     strips the trailing corporate suffix regardless of input casing."""
+    ticker_clean = ticker.strip().upper()
+    if ticker_clean in _DISPLAY_NAME_OVERRIDES:
+        return _DISPLAY_NAME_OVERRIDES[ticker_clean]
     text = str(name or "").strip()
     if not text:
         return text
@@ -84,7 +93,6 @@ def normalize_company_name(name: str, ticker: str = "") -> str:
         # .title() capitalizes the letter after an apostrophe too (MCDONALD'S
         # -> "Mcdonald'S") -- fix the common possessive case.
         titled = re.sub(r"'S\b", "'s", titled)
-        ticker_clean = ticker.strip().upper()
         if ticker_clean:
             titled = re.sub(rf"\b{re.escape(ticker_clean.title())}\b", ticker_clean, titled)
     else:

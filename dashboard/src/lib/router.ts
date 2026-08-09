@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 // nested real paths at all -- every route is the same index.html.
 export type Route =
   | { name: "dashboard" }
+  | { name: "calendar" }
   | { name: "feed" }
   | { name: "sectors"; groupId: string }
   | { name: "company"; ticker: string };
@@ -18,6 +19,7 @@ function parseHash(hash: string): Route {
     return { name: "company", ticker: ticker.toUpperCase() };
   }
   if (segment === "sectors") return { name: "sectors", groupId: ticker || "hyperscalers" };
+  if (segment === "calendar") return { name: "calendar" };
   if (segment === "feed") return { name: "feed" };
   return { name: "dashboard" };
 }
@@ -34,6 +36,7 @@ export function useRoute(): [Route, (route: Route) => void] {
   const setRoute = (next: Route) => {
     if (next.name === "company") window.location.hash = `/company/${next.ticker}`;
     else if (next.name === "sectors") window.location.hash = `/sectors/${next.groupId}`;
+    else if (next.name === "calendar") window.location.hash = "/calendar";
     else if (next.name === "feed") window.location.hash = "/feed";
     else window.location.hash = "/";
   };

@@ -1,21 +1,45 @@
 import { useEffect, useMemo, useState } from "react";
-import { listRecentEarnings, listSectors, listCompanies, type PostEarningsSummary, type CompanyListing } from "./lib/convex";
+import { listCalendarEvents, listRecentEarnings, listSectors, listCompanies, type CalendarEvent, type PostEarningsSummary, type CompanyListing } from "./lib/convex";
 import { EarningsCard } from "./components/EarningsCard";
 import { Sidebar } from "./components/Sidebar";
 import { CompanyProfile } from "./pages/CompanyProfile";
 import { Dashboard } from "./pages/Dashboard";
 import { SectorOverviews } from "./pages/SectorOverviews";
+import { EarningsCalendar } from "./pages/EarningsCalendar";
 import { useRoute } from "./lib/router";
+import { FULL_2026_CALENDAR_WINDOW, Q2_2026_WINDOW } from "./lib/earningsStatus";
 
 type LoadState = "loading" | "ready" | "error";
 
 export default function App() {
   const [route, setRoute] = useRoute();
   const [companies, setCompanies] = useState<CompanyListing[]>([]);
+  const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
 
   useEffect(() => {
-    listCompanies()
-      .then(setCompanies)
+    Promise.all([
+      listCompanies(),
+      listCalendarEvents(FULL_2026_CALENDAR_WINDOW.start, FULL_2026_CALENDAR_WINDOW.end),
+    ])
+      .then(([briefCompanies, events]) => {
+        const merged = new Map(briefCompanies.map((company) => [company.ticker, company]));
+        for (const event of events) {
+          const prior = merged.get(event.ticker);
+          merged.set(event.ticker, {
+            ticker: event.ticker,
+            company: event.company,
+            sector: prior?.sector ?? event.sector ?? null,
+            reportDate: event.reportDate,
+          });
+        }
+        setCompanies(Array.from(merged.values()));
+        setCalendarEvents([
+          ...events.filter((event) => event.reportDate >= Q2_2026_WINDOW.start && event.reportDate <= Q2_2026_WINDOW.end),
+          ...briefCompanies
+            .filter((company) => company.reportDate >= Q2_2026_WINDOW.start && company.reportDate <= Q2_2026_WINDOW.end)
+            .map((company) => ({ ticker: company.ticker, company: company.company, reportDate: company.reportDate, reportTime: "Reported", sector: company.sector ?? undefined })),
+        ]);
+      })
       .catch(() => {
         /* sidebar just stays empty on failure -- non-fatal */
       });
@@ -25,6 +49,7 @@ export default function App() {
     <div className="flex h-screen">
       <Sidebar
         companies={companies}
+        calendarEvents={calendarEvents}
         activeTicker={route.name === "company" ? route.ticker : null}
         route={route}
         onSelect={(ticker) => setRoute({ name: "company", ticker })}
@@ -35,6 +60,8 @@ export default function App() {
           <CompanyProfile ticker={route.ticker} onBack={() => setRoute({ name: "dashboard" })} />
         ) : route.name === "feed" ? (
           <Feed onOpenCompany={(ticker) => setRoute({ name: "company", ticker })} />
+        ) : route.name === "calendar" ? (
+          <EarningsCalendar onOpenCompany={(ticker) => setRoute({ name: "company", ticker })} />
         ) : route.name === "sectors" ? (
           <SectorOverviews
             groupId={route.groupId}
@@ -90,7 +117,7 @@ function Feed({ onOpenCompany }: { onOpenCompany: (ticker: string) => void }) {
   }, [summaries]);
 
   return (
-    <div className="mx-auto max-w-5xl px-5 py-10 sm:py-14">
+    <div className="mx-auto max-w-[1500px] px-5 py-10 sm:px-8 sm:py-14">
       <header className="mb-10">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white px-3 py-1.5 dark:border-white/[0.08] dark:bg-[#121317]">
           <span className="relative flex h-2 w-2">

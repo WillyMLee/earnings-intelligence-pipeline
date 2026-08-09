@@ -1,3 +1,5 @@
+import { displayCompanyName } from "./companyNames";
+
 // Thin, dependency-free client for Convex's HTTP query API -- avoids
 // pulling in the full convex-react SDK for what is, from this dashboard's
 // point of view, a handful of read-only queries. Swap CONVEX_URL for your
@@ -103,7 +105,7 @@ export function listRecentEarnings(limit = 50, sector?: string) {
   return convexQuery<PostEarningsSummary[]>("postEarningsSummaries:listRecent", {
     limit,
     ...(sector ? { sector } : {}),
-  });
+  }).then((rows) => rows.map((row) => ({ ...row, company: displayCompanyName(row.ticker, row.company) })));
 }
 
 export function listSectors() {
@@ -111,11 +113,23 @@ export function listSectors() {
 }
 
 export function listCompanies() {
-  return convexQuery<CompanyListing[]>("postEarningsSummaries:listCompanies", {});
+  return convexQuery<CompanyListing[]>("postEarningsSummaries:listCompanies", {}).then((rows) =>
+    rows.map((row) => ({ ...row, company: displayCompanyName(row.ticker, row.company) }))
+  );
 }
 
 export function listByTicker(ticker: string, limit = 20) {
-  return convexQuery<PostEarningsSummary[]>("postEarningsSummaries:listByTicker", { ticker, limit });
+  return convexQuery<PostEarningsSummary[]>("postEarningsSummaries:listByTicker", { ticker, limit }).then((rows) =>
+    rows.map((row) => ({ ...row, company: displayCompanyName(row.ticker, row.company) }))
+  );
+}
+
+export function listCalendarEvents(start: string, end: string, tickers?: string[]) {
+  return convexQuery<CalendarEvent[]>("earningsCalendar:listWindow", {
+    start,
+    end,
+    ...(tickers ? { tickers } : {}),
+  }).then((rows) => rows.map((row) => ({ ...row, company: displayCompanyName(row.ticker, row.company) })));
 }
 
 export function getReportingProgress(start: string, end: string, tickers?: string[]) {

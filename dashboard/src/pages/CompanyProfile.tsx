@@ -53,7 +53,7 @@ export function CompanyProfile({ ticker, onBack }: { ticker: string; onBack: () 
       <div className="p-8">
         <BackLink onBack={onBack} />
         <div className="mt-4 rounded-card border border-dashed border-black/10 px-6 py-16 text-center text-[#9a9ea8] dark:border-white/10">
-          No archived reports for {ticker} yet.
+          No completed earnings briefs for {ticker} yet.
         </div>
       </div>
     );
@@ -77,7 +77,7 @@ export function CompanyProfile({ ticker, onBack }: { ticker: string; onBack: () 
             <div className="mt-0.5 flex items-center gap-2">
               {latest.sector && <Badge>{latest.sector}</Badge>}
               <span className="text-[12px] text-[#9a9ea8]">
-                {history.length} report{history.length === 1 ? "" : "s"} archived
+                {history.length} report{history.length === 1 ? "" : "s"} captured
               </span>
             </div>
           </div>
@@ -383,7 +383,7 @@ function CallHighlightsTab({
       {!hasDetail && (
         <Card>
           <div className="text-[13px] text-[#9a9ea8]">
-            No detailed brief archived for this report (only the compact summary is available).
+            No detailed brief is available for this report yet (only the compact summary is available).
           </div>
         </Card>
       )}

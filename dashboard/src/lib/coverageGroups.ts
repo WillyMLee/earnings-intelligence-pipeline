@@ -3,7 +3,7 @@ export type CoverageGroup = {
   name: string;
   shortName: string;
   description: string;
-  icon: "cloud" | "stars" | "chip" | "layers" | "shield" | "database" | "bolt";
+  icon: "cloud" | "stars" | "chip" | "layers" | "shield" | "database" | "bolt" | "bank" | "cart" | "factory" | "health";
   tickers: Set<string>;
 };
 
@@ -63,6 +63,38 @@ export const COVERAGE_GROUPS: CoverageGroup[] = [
     description: "Power availability, equipment demand and data-center buildout read-throughs.",
     icon: "bolt",
     tickers: new Set(["VST", "CEG", "ETN", "NRG", "OKLO", "GEV"]),
+  },
+  {
+    id: "financials-payments",
+    name: "Financials & Payments",
+    shortName: "Financials",
+    description: "Credit, capital markets, transaction volumes and consumer-spending read-throughs.",
+    icon: "bank",
+    tickers: new Set(["JPM", "BAC", "WFC", "C", "GS", "MS", "AXP", "V", "MA", "PYPL", "COF", "SCHW", "BLK"]),
+  },
+  {
+    id: "consumer-commerce",
+    name: "Consumer & Commerce",
+    shortName: "Consumer",
+    description: "Household demand, travel, advertising and digital-commerce signals across major platforms.",
+    icon: "cart",
+    tickers: new Set(["WMT", "COST", "HD", "LOW", "MCD", "SBUX", "NKE", "DIS", "NFLX", "UBER", "DASH", "ABNB", "BKNG"]),
+  },
+  {
+    id: "industrials-aerospace",
+    name: "Industrials & Aerospace",
+    shortName: "Industrials",
+    description: "Order books, freight, construction, defense and manufacturing-cycle indicators.",
+    icon: "factory",
+    tickers: new Set(["BA", "CAT", "HON", "GE", "RTX", "LMT", "NOC", "UPS", "FDX", "UNP", "DE", "ETN", "GEV"]),
+  },
+  {
+    id: "healthcare",
+    name: "Healthcare",
+    shortName: "Healthcare",
+    description: "Drug launches, procedure volumes, managed-care trends and R&D productivity.",
+    icon: "health",
+    tickers: new Set(["LLY", "UNH", "JNJ", "ABBV", "MRK", "TMO", "ISRG", "AMGN", "GILD", "PFE"]),
   },
 ];
 

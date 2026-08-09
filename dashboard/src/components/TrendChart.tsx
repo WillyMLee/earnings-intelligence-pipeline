@@ -18,7 +18,7 @@ export function TrendChart({ title, points, accent = "#e8724c" }: { title: strin
   if (withData.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-black/10 px-4 py-8 text-center text-[12px] text-[#9a9ea8] dark:border-white/10">
-        No {title.toLowerCase()} data archived yet.
+        No {title.toLowerCase()} data captured yet.
       </div>
     );
   }
@@ -30,7 +30,7 @@ export function TrendChart({ title, points, accent = "#e8724c" }: { title: strin
           {fmtUsdCompact(withData[0].value)}
         </div>
         <div className="mt-1 text-[11px] text-[#9a9ea8]">
-          {withData[0].label} · trend builds up as more quarters are archived
+          {withData[0].label} · trend builds as more quarters are captured
         </div>
       </div>
     );

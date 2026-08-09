@@ -1,27 +1,32 @@
 import { useMemo, useState } from "react";
-import type { CompanyListing } from "../lib/convex";
+import type { CalendarEvent, CompanyListing } from "../lib/convex";
 import type { Route } from "../lib/router";
 import { CompanyLogo } from "./CompanyLogo";
 import { MAG7_TICKERS, TOP100_TICKERS, TICKER_FILTER_LABEL, type TickerFilter } from "../lib/tickerGroups";
+import { COVERAGE_GROUPS } from "../lib/coverageGroups";
+import { eventStatus } from "../lib/earningsStatus";
 
 type GroupMode = "alphabetical" | "sector";
 
 export function Sidebar({
   companies,
+  calendarEvents,
   activeTicker,
   route,
   onSelect,
   onNav,
 }: {
   companies: CompanyListing[];
+  calendarEvents: CalendarEvent[];
   activeTicker: string | null;
   route: Route;
   onSelect: (ticker: string) => void;
-  onNav: (name: "dashboard" | "feed" | "sectors") => void;
+  onNav: (name: "dashboard" | "calendar" | "feed" | "sectors") => void;
 }) {
   const [groupMode, setGroupMode] = useState<GroupMode>("alphabetical");
   const [tickerFilter, setTickerFilter] = useState<TickerFilter>("all");
   const [query, setQuery] = useState("");
+  const calendarByTicker = useMemo(() => new Map(calendarEvents.map((event) => [event.ticker, event])), [calendarEvents]);
 
   const filtered = useMemo(() => {
     let list = companies;
@@ -48,7 +53,7 @@ export function Sidebar({
     }
     const bySector = new Map<string, CompanyListing[]>();
     for (const c of filtered) {
-      const key = c.sector ?? "Unclassified";
+      const key = c.sector ?? COVERAGE_GROUPS.find((coverage) => coverage.tickers.has(c.ticker))?.shortName ?? "Broad coverage";
       const list = bySector.get(key) ?? [];
       list.push(c);
       bySector.set(key, list);
@@ -57,9 +62,10 @@ export function Sidebar({
   }, [filtered, groupMode]);
 
   return (
-    <aside className="flex h-full w-64 shrink-0 flex-col border-r border-black/[0.06] bg-white dark:border-white/[0.08] dark:bg-[#0e0f13]">
+    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-black/[0.06] bg-white dark:border-white/[0.08] dark:bg-[#0e0f13]">
       <nav className="flex flex-col gap-0.5 border-b border-black/[0.06] p-3 dark:border-white/[0.08]">
         <NavLink label="Dashboard" active={route.name === "dashboard"} onClick={() => onNav("dashboard")} />
+        <NavLink label="Earnings calendar" active={route.name === "calendar"} onClick={() => onNav("calendar")} />
         <NavLink label="Sector overviews" active={route.name === "sectors"} onClick={() => onNav("sectors")} />
         <NavLink label="Feed" active={route.name === "feed"} onClick={() => onNav("feed")} />
       </nav>
@@ -125,6 +131,10 @@ export function Sidebar({
                   <span className="truncate text-[13px] font-medium text-[#2b2e35] dark:text-[#dcdee2]">
                     {c.company}
                   </span>
+                  <span
+                    title={eventStatus(calendarByTicker.get(c.ticker)) === "reported" ? "Reported" : eventStatus(calendarByTicker.get(c.ticker)) === "upcoming" ? "Upcoming" : "Date pending"}
+                    className={`ml-auto h-2 w-2 shrink-0 rounded-full ${eventStatus(calendarByTicker.get(c.ticker)) === "reported" ? "bg-emerald-500" : eventStatus(calendarByTicker.get(c.ticker)) === "upcoming" ? "bg-amber-500" : "bg-[#a0a4ad]"}`}
+                  />
                 </button>
               ))}
           </div>
