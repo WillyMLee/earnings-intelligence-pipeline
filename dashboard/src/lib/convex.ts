@@ -70,6 +70,7 @@ export type CalendarEvent = {
   epsEstimate?: number | null;
   revenueEstimateUsd?: number | null;
   dateConfidence?: "confirmed" | "inferred";
+  updatedAt?: string;
 };
 
 export type ReportingProgress = {

@@ -9,6 +9,7 @@ import { COVERAGE_GROUPS } from "../lib/coverageGroups";
 import { bestHighlight, sortByReportTiming } from "../lib/reporting";
 import { CoverageGroupIcon } from "../components/CoverageGroupIcon";
 import { TickerStatusChip } from "../components/TickerStatusChip";
+import { RefreshSchedule } from "../components/RefreshSchedule";
 import { briefCaptured, eventStatus, FULL_2026_CALENDAR_WINDOW, Q2_2026_WINDOW, seasonEventByTicker } from "../lib/earningsStatus";
 
 export function Dashboard({ onOpenCompany, onOpenOverview }: { onOpenCompany: (ticker: string) => void; onOpenOverview: (groupId: string) => void }) {
@@ -62,6 +63,8 @@ export function Dashboard({ onOpenCompany, onOpenOverview }: { onOpenCompany: (t
       </header>
 
       <IndexBar />
+
+      <RefreshSchedule summaries={summaries} events={events} />
 
       {view && (
         <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
