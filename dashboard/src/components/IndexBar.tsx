@@ -136,7 +136,7 @@ export function IndexBar() {
           onMouseLeave={() => setHoverX(null)}
         >
           {/* zero line */}
-          <line x1={0} y1={height / 2} x2={width} y2={height / 2} stroke="currentColor" className="text-black/10 dark:text-white/10" strokeWidth={0.5} />
+          <line x1={0} y1={height / 2} x2={width} y2={height / 2} stroke="currentColor" className="text-black/20 dark:text-white/20" strokeWidth={0.65} />
           {allSeries.map((idx) => {
             const d = idx.pctSeries
               .map((p, i) => `${i === 0 ? "M" : "L"} ${xForTime(p.t)} ${yFor(p.pct)}`)

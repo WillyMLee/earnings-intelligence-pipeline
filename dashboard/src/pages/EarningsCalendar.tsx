@@ -46,7 +46,9 @@ export function EarningsCalendar({ onOpenCompany }: { onOpenCompany: (ticker: st
     const reported = allSeasonRows.filter((event) => eventStatus(event) === "reported").length;
     const upcoming = allSeasonRows.filter((event) => eventStatus(event) === "upcoming").length;
     const captured = allSeasonRows.filter((event) => briefCaptured(event, summaries)).length;
-    return { rows, uniqueTickers, reported, upcoming, captured };
+    const confirmed = allSeasonRows.filter((event) => event.dateConfidence !== "inferred").length;
+    const estimated = allSeasonRows.length - confirmed;
+    return { rows, uniqueTickers, reported, upcoming, captured, confirmed, estimated };
   }, [events, seasonDef, statusFilter, query, summaries]);
 
   return (
@@ -70,7 +72,7 @@ export function EarningsCalendar({ onOpenCompany }: { onOpenCompany: (ticker: st
       </header>
 
       <div className="mb-6 grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <CalendarStat label="Companies tracked" value={String(view.uniqueTickers)} />
+        <CalendarStat label="Companies tracked" value={String(view.uniqueTickers)} note={`${view.confirmed} confirmed · ${view.estimated} estimated`} />
         <CalendarStat label="Reported" value={String(view.reported)} tone="reported" />
         <CalendarStat label="Upcoming" value={String(view.upcoming)} tone="upcoming" />
         <CalendarStat label="Briefs captured" value={String(view.captured)} note={view.reported ? `${Math.round((view.captured / view.reported) * 100)}% of reported` : "No reports yet"} />
@@ -120,7 +122,7 @@ export function EarningsCalendar({ onOpenCompany }: { onOpenCompany: (ticker: st
               const themes = COVERAGE_GROUPS.filter((group) => group.tickers.has(event.ticker)).map((group) => group.shortName);
               return (
                 <tr key={`${event.ticker}:${event.reportDate}`} className={index ? "border-t border-black/[0.05] dark:border-white/[0.06]" : ""}>
-                  <td className="whitespace-nowrap px-4 py-3"><div className="text-[12px] font-semibold text-[#2b2e35] dark:text-[#dcdee2]">{calendarDateLabel(event)}</div><div className="mt-0.5 text-[10px] text-[#9a9ea8]">{event.dateConfidence === "inferred" ? "Exact date backfill pending" : event.reportTime}</div></td>
+                  <td className="whitespace-nowrap px-4 py-3"><div className="text-[12px] font-semibold text-[#2b2e35] dark:text-[#dcdee2]">{calendarDateLabel(event)}</div><div className="mt-0.5 text-[10px] text-[#9a9ea8]">{calendarDateNote(event)}</div></td>
                   <td className="px-4 py-3"><button onClick={() => onOpenCompany(event.ticker)} className="flex items-center gap-2.5 text-left hover:underline"><CompanyLogo ticker={event.ticker} company={event.company} size={30} /><span><span className="block text-[12px] font-semibold text-[#15171c] dark:text-[#e7e8ea]">{event.company}</span><span className="font-mono text-[10px] text-[#9a9ea8]">{event.ticker}</span></span></button></td>
                   <td className="px-4 py-3"><span className={`inline-flex rounded-full px-2 py-1 text-[10px] font-bold ${status === "reported" ? "bg-emerald-500/[0.1] text-emerald-700 dark:text-emerald-300" : "bg-amber-500/[0.1] text-amber-700 dark:text-amber-300"}`}>{status === "reported" ? "Reported" : "Upcoming"}</span><div className="mt-1 text-[9px] text-[#9a9ea8]">{status === "reported" ? captured ? "Brief ready" : "Brief pending" : "Anticipated date"}</div></td>
                   <td className="max-w-[260px] px-4 py-3 text-[10px] text-[#7a7f89] dark:text-[#9a9ea8]">{themes.length ? themes.join(" · ") : "Broad coverage"}</td>
@@ -141,5 +143,11 @@ function CalendarStat({ label, value, note, tone }: { label: string; value: stri
 }
 
 function calendarDateLabel(event: CalendarEvent) {
-  return event.dateConfidence === "inferred" ? "Earlier in Q2" : fmtDate(event.reportDate);
+  if (event.dateConfidence !== "inferred") return fmtDate(event.reportDate);
+  return event.reportTime.startsWith("Estimated") ? `Est. ${fmtDate(event.reportDate)}` : "Earlier in Q2";
+}
+
+function calendarDateNote(event: CalendarEvent) {
+  if (event.dateConfidence !== "inferred") return event.reportTime;
+  return event.reportTime.startsWith("Estimated") ? "Prior-quarter cadence; confirmation pending" : "Exact date backfill pending";
 }

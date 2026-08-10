@@ -92,7 +92,39 @@ export function seasonEventByTicker(
       });
     }
   }
+
+  if (start === Q3_2026_WINDOW.start && end === Q3_2026_WINDOW.end) {
+    // The provider's forward calendar is intentionally sparse several weeks
+    // out. Keep every currently tracked company visible by projecting its Q2
+    // date forward one quarter. A provider-supplied Q3 row always wins and
+    // projected dates remain explicitly labelled as estimates in the UI.
+    const priorQuarter = seasonEventByTicker(
+      events,
+      summaries,
+      Q2_2026_WINDOW.start,
+      Q2_2026_WINDOW.end,
+    );
+    for (const prior of priorQuarter.values()) {
+      if (byTicker.has(prior.ticker)) continue;
+      const projectedDate = addUtcDays(prior.reportDate, 91);
+      if (projectedDate < start || projectedDate > end) continue;
+      byTicker.set(prior.ticker, {
+        ticker: prior.ticker,
+        company: prior.company,
+        reportDate: projectedDate,
+        reportTime: "Estimated from prior-quarter cadence",
+        sector: prior.sector,
+        dateConfidence: "inferred",
+      });
+    }
+  }
   return byTicker;
+}
+
+function addUtcDays(isoDate: string, days: number): string {
+  const date = new Date(`${isoDate}T00:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().slice(0, 10);
 }
 
 export function briefCaptured(event: CalendarEvent, summaries: PostEarningsSummary[]): boolean {

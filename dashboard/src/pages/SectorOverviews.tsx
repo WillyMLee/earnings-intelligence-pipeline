@@ -64,8 +64,8 @@ export function SectorOverviews({ groupId, onSelectGroup, onOpenCompany }: { gro
         <p className="mt-2 text-[11px] text-[#9a9ea8]">Includes {Array.from(group.tickers).map((ticker) => displayCompanyName(ticker, ticker)).join(" · ")}</p>
       </header>
 
-      <div className="mb-7 flex gap-2 overflow-x-auto pb-1">
-        {COVERAGE_GROUPS.map((item) => <button key={item.id} onClick={() => onSelectGroup(item.id)} className={`shrink-0 rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${item.id === group.id ? "border-accent bg-accent-soft text-accent dark:bg-accent/20" : "border-black/[0.08] bg-white text-[#5b5f6b] dark:border-white/[0.1] dark:bg-[#121317] dark:text-[#9a9ea8]"}`}>{item.shortName}</button>)}
+      <div className="mb-7 flex flex-wrap gap-2">
+        {COVERAGE_GROUPS.map((item) => <button key={item.id} onClick={() => onSelectGroup(item.id)} className={`rounded-full border px-3 py-1.5 text-[12px] font-semibold transition-colors ${item.id === group.id ? "border-accent bg-accent-soft text-accent dark:bg-accent/20" : "border-black/[0.08] bg-white text-[#5b5f6b] dark:border-white/[0.1] dark:bg-[#121317] dark:text-[#9a9ea8]"}`}>{item.shortName}</button>)}
       </div>
 
       <div className="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">

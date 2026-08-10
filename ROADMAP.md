@@ -11,6 +11,47 @@ This is the area with the most room to improve, and where the next real investme
 - **Transcript cache is now durable; semantic retrieval is still the next step.** Focused transcript excerpts are cached by ticker + report date, so repeated and backfill runs do not repay the scrape cost. Retrieval within a transcript is still scored keyword-window selection rather than embedding similarity.
 - **`TICKER_IS_PORTCO` / segment-level ground truth doesn't exist generically.** There's no free, reliable source for a specific company's segment-level revenue breakdown (confirmed: `yfinance`'s income statement is company-wide only) the way there is for total revenue or CapEx. A dated anchor for segment figures — even a small hand-maintained lookup table for the handful of companies whose segment breakouts matter most to your coverage — would let guardrail #7 catch *understatement*, not just the structurally-impossible-overstatement case it catches today.
 
+## Historical actuals and company-profile backfill
+
+This is the next major data project. It is deliberately recorded as outstanding rather than presenting partially inferred financials as complete.
+
+### Quarterly actuals: Q1 2020 onward
+
+Use SEC filings as the primary fact layer. The [SEC's EDGAR APIs](https://www.sec.gov/search-filings/edgar-application-programming-interfaces) need no API key, expose XBRL facts from 10-Q, 10-K, 8-K, 20-F, 40-F and 6-K filings, and provide a nightly `companyfacts.zip` bulk archive. Fetch this server-side because `data.sec.gov` does not support browser CORS.
+
+1. **One-time backfill:** download the nightly Company Facts ZIP once, filter it to the covered CIKs, and materialize quarters from Q1 2020. Do not make thousands of repeated filing requests.
+2. **Incremental refresh:** after filing days, refresh one Company Facts document per reporting company, cache it by CIK, and skip unchanged accessions. Keep the worker comfortably below the SEC's [10 requests/second ceiling](https://www.sec.gov/filergroup/announcements-old/new-rate-control-limits); four requests/second with identification and retry/backoff is the intended operating limit.
+3. **Primary-source fallback:** only when standardized XBRL is absent or ambiguous, inspect the filed 8-K earnings-release exhibit, 10-Q/10-K, shareholder letter, or investor-relations release. Store the exact source URL and accession with every fallback fact.
+4. **Derive after normalization:** calculate gross margin, EBITDA margin, net margin, sequential growth and year-over-year growth from normalized facts. Never ask a model to calculate ratios that code can calculate deterministically.
+
+Canonical quarterly fields:
+
+- Revenue; gross profit; net income.
+- EBITDA and adjusted EBITDA only when explicitly company-reported, kept as distinct concepts. Do not manufacture adjusted EBITDA from GAAP tags.
+- Cash plus short-term investments, with the components retained; total debt split between current and long-term when available.
+- ARR and NRR only when the company reports them, with definition text and source because these KPIs are not standardized.
+- Derived gross margin, EBITDA margin and net margin, plus QoQ and YoY growth for each compatible metric.
+
+Each stored fact needs ticker, CIK, fiscal year/quarter, period start/end, unit, form, filed date, accession, source URL, taxonomy tag, value and confidence. Duration facts in Q2/Q3 filings can be year-to-date; create standalone quarters by subtracting prior YTD values only when the periods align. Prefer amended/restated accessions over stale values and preserve the old provenance for auditability. The current coverage universe is roughly 147 companies, or about 3,800 company-quarter rows through Q3 2026 before duplicates and restatements—small enough for an inexpensive nightly materialization job.
+
+### Company summaries and product/service bullets
+
+Build a compact source packet for each company from the latest 10-K/20-F business description and official product pages. Hash that packet and only regenerate a profile when the source hash changes. A profile record should contain:
+
+- A two-to-four sentence executive summary.
+- Structured `productsAndServices[]` entries with a short boldable name and one-sentence plain-English description.
+- Source URLs, source filing accession, `updatedAt`, and source hash.
+
+This non-urgent enrichment is a good fit for the [OpenAI Batch API](https://developers.openai.com/api/reference/resources/batches), which processes asynchronous JSONL batches within its completion window at a discounted batch rate. Run one structured-output request per changed company, validate length/duplication/source coverage, and review failures separately instead of paying to regenerate the whole universe. Refresh annually after the 10-K/20-F and selectively after a material product change.
+
+### Dashboard integration still outstanding
+
+- Add a `quarterlyFinancials` archive table and idempotent upsert keyed by company, metric, period and filing accession.
+- Replace the current sparse company Trends view with metric toggles for absolute values, margins, QoQ and YoY growth from Q1 2020 onward; show unavailable EBITDA/ARR/NRR as unavailable rather than zero.
+- Render the profile executive summary and product/service bullets from the versioned profile record.
+- Add freshness and provenance affordances so a reader can distinguish filed GAAP facts, company-reported non-GAAP/KPI facts and model-written descriptions.
+- Run reconciliation QA on a representative set of calendar-year companies, non-calendar fiscal years, foreign issuers, banks, insurers and REITs before broad deployment.
+
 ## Guardrail gaps (known, not yet fixed)
 
 - **Segment-vs-company-wide figure bleed.** Because the focused-excerpt extraction (above) can juxtapose a segment-level figure with company-wide commentary in the same window, a model has been observed misattributing a segment's operating income/growth rate to the company-wide `financials` fields. No deterministic check catches this today. A reasonable next step: cross-reference `revenue_yoy_pct` (and similar derived fields) against the independently-known prior-period actual for implausible drift, the same pattern already used for revenue/consensus divergence.

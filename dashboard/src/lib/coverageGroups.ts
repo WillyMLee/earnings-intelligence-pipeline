@@ -3,7 +3,7 @@ export type CoverageGroup = {
   name: string;
   shortName: string;
   description: string;
-  icon: "cloud" | "stars" | "chip" | "layers" | "shield" | "database" | "bolt" | "bank" | "cart" | "factory" | "health";
+  icon: "cloud" | "stars" | "chip" | "layers" | "shield" | "database" | "megaphone" | "bolt" | "bank" | "cart" | "factory" | "health";
   tickers: Set<string>;
 };
 
@@ -54,7 +54,15 @@ export const COVERAGE_GROUPS: CoverageGroup[] = [
     shortName: "Data & AI software",
     description: "Consumption, developer activity and production AI workloads across data and observability platforms.",
     icon: "database",
-    tickers: new Set(["PLTR", "DDOG", "MDB", "CFLT", "ESTC", "APP", "TTD"]),
+    tickers: new Set(["PLTR", "DDOG", "MDB", "CFLT", "ESTC"]),
+  },
+  {
+    id: "ad-marketing-tech",
+    name: "Ad & Marketing Tech",
+    shortName: "Ad & marketing tech",
+    description: "Ad buying, measurement, monetization and customer-engagement signals across independent platforms and marketing software.",
+    icon: "megaphone",
+    tickers: new Set(["APP", "TTD", "ZETA", "BRZE", "KVYO", "MGNI", "PUBM", "IAS", "RDDT"]),
   },
   {
     id: "power-data-centers",
