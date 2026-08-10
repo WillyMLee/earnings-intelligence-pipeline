@@ -110,16 +110,27 @@ export function Dashboard({ onOpenCompany, onOpenOverview }: { onOpenCompany: (t
           <div><div className="text-[11px] font-semibold uppercase tracking-[0.12em] text-[#8b8f99]">Recent highlights</div><div className="mt-1 text-[12px] text-[#9a9ea8]">Ordered by report date and market session.</div></div>
           {view && <div className="text-[11px] text-[#9a9ea8]">{view.recent.length} latest</div>}
         </div>
-        <div className="grid gap-3 xl:grid-cols-2">
+        <div className="grid min-w-0 gap-3 xl:grid-cols-2">
           {!view && <div className="text-[13px] text-[#9a9ea8]">Loading…</div>}
           {view?.recent.length === 0 && <div className="text-[13px] text-[#9a9ea8]">No completed reports captured yet.</div>}
           {view?.recent.map((row) => {
             const highlightText = stripCitations(bestHighlight(row)).text;
             return (
-              <button key={row._id} onClick={() => onOpenCompany(row.ticker)} className="flex items-center gap-3 rounded-card border border-black/[0.06] bg-white p-3.5 text-left transition-colors hover:border-accent/40 dark:border-white/[0.08] dark:bg-[#121317]">
-                <CompanyLogo ticker={row.ticker} company={row.company} size={36} />
-                <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-x-2 gap-y-0.5"><span className="text-[13px] font-semibold text-[#15171c] dark:text-[#e7e8ea]">{row.company}</span><span className="font-mono text-[11px] text-[#9a9ea8]">{row.ticker}</span><span className="text-[11px] text-[#9a9ea8]">{relativeDay(row.reportDate)} · {row.reportTime}</span></div>{highlightText && <div className="mt-0.5 truncate text-[12px] text-[#5b5f6b] dark:text-[#9a9ea8]">{highlightText}</div>}</div>
-                <ReactionBadge pct={row.reactionPct} />
+              <button key={row._id} onClick={() => onOpenCompany(row.ticker)} className="flex w-full min-w-0 items-start gap-3 overflow-hidden rounded-card border border-black/[0.06] bg-white p-3.5 text-left transition-colors hover:border-accent/40 dark:border-white/[0.08] dark:bg-[#121317] sm:items-center">
+                <span className="shrink-0"><CompanyLogo ticker={row.ticker} company={row.company} size={36} /></span>
+                <div className="min-w-0 flex-1">
+                  <div className="flex min-w-0 items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <div className="flex min-w-0 items-baseline gap-2">
+                        <span className="truncate text-[13px] font-semibold text-[#15171c] dark:text-[#e7e8ea]">{row.company}</span>
+                        <span className="shrink-0 font-mono text-[10px] text-[#9a9ea8] sm:text-[11px]">{row.ticker}</span>
+                      </div>
+                      <div className="mt-0.5 text-[10px] leading-snug text-[#9a9ea8] sm:text-[11px]">{relativeDay(row.reportDate)} · {row.reportTime}</div>
+                    </div>
+                    <span className="shrink-0"><ReactionBadge pct={row.reactionPct} /></span>
+                  </div>
+                  {highlightText && <div className="mt-1 line-clamp-2 text-[12px] leading-relaxed text-[#5b5f6b] dark:text-[#9a9ea8]">{highlightText}</div>}
+                </div>
               </button>
             );
           })}

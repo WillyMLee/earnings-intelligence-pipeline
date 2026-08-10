@@ -73,7 +73,7 @@ export default function App() {
           <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#5b5f6b] dark:text-[#c4c7ce]">Earnings Intelligence</div>
           <div className="h-10 w-10" />
         </header>
-        <main className="min-w-0 flex-1 overflow-y-auto">
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
         {route.name === "company" ? (
           <CompanyProfile ticker={route.ticker} onBack={() => setRoute({ name: "dashboard" })} />
         ) : route.name === "feed" ? (
