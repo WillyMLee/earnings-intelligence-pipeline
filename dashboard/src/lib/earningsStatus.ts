@@ -11,8 +11,12 @@ const VERIFIED_Q2_2026_REPORTS: CalendarEvent[] = [
   // includes these completed rows:
   // Alphabet: https://abc.xyz/investor/ (Q2 2026 call, July 22)
   // Tesla: https://ir.tesla.com/press-release/tesla-releases-second-quarter-2026-financial-results
+  // DoorDash: https://ir.doordash.com/events-and-presentations/events-calendar/event-details/2026/DoorDash-Q2-2026-Earnings-Call/default.aspx
+  // Airbnb: https://investors.airbnb.com/press-releases/news-details/2026/Airbnb-to-Announce-Second-Quarter-2026-Results/default.aspx
   { ticker: "GOOGL", company: "Alphabet", reportDate: "2026-07-22", reportTime: "After Close", dateConfidence: "confirmed" },
   { ticker: "TSLA", company: "Tesla", reportDate: "2026-07-22", reportTime: "After Close", dateConfidence: "confirmed" },
+  { ticker: "DASH", company: "DoorDash", reportDate: "2026-08-05", reportTime: "After Close", dateConfidence: "confirmed" },
+  { ticker: "ABNB", company: "Airbnb", reportDate: "2026-08-06", reportTime: "After Close", dateConfidence: "confirmed" },
 ];
 
 type CompletedReport = Pick<PostEarningsSummary, "ticker" | "company" | "reportDate" | "reportTime" | "sector">;

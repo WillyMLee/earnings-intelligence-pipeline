@@ -18,6 +18,12 @@ const ACTIVE_JOBS: RefreshJob[] = [
     schedules: [{ days: WEEKDAYS, hour: 12, minute: 0 }],
   },
   {
+    title: "Transcript + Q&A cache",
+    cadence: "Tue / Thu / Sat · 06:30 UTC",
+    detail: "Warms up to 12 uncached report transcripts per run; durable cache hits are skipped without using a synthesis model.",
+    schedules: [{ days: [2, 4, 6], hour: 6, minute: 30 }],
+  },
+  {
     title: "Pre-earnings briefs",
     cadence: "Weekdays · 13:30 UTC",
     detail: "Builds company context for the email universe and dashboard-only coverage before reports.",
@@ -41,11 +47,6 @@ const ACTIVE_JOBS: RefreshJob[] = [
 ];
 
 const PLANNED_JOBS = [
-  {
-    title: "Transcript-history backfill",
-    target: "Target cadence: nightly during the initial backfill, then on report days.",
-    detail: "The resumable worker exists, but it is not attached to a production cron yet.",
-  },
   {
     title: "Q1 2020+ SEC actuals and company profiles",
     target: "Target cadence: nightly fact batches; weekly profile batches for changed source packets.",
@@ -133,7 +134,7 @@ export function RefreshSchedule({
       </summary>
 
       <div className="border-t border-black/[0.06] px-4 py-4 dark:border-white/[0.07]">
-        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
           {nextRuns.map(({ job, next }) => (
             <div key={job.title} className="rounded-xl border border-black/[0.05] bg-black/[0.015] p-3 dark:border-white/[0.06] dark:bg-white/[0.02]">
               <div className="flex items-start justify-between gap-2">

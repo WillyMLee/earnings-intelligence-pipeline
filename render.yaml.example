@@ -94,6 +94,64 @@ services:
         sync: false
 
   - type: cron
+    name: earnings-pipeline-input-prefetch
+    runtime: python
+    # Calendar + forward consensus only. This does not call a synthesis model.
+    schedule: "0 12 * * 1-5"
+    buildCommand: pip install -r requirements.txt && python -m compileall core pipelines
+    startCommand: >
+      python pipelines/fetch_earnings_calendar.py
+      --output data/latest_earnings_calendar.csv
+      --horizon 3month
+      && python pipelines/backfill_earnings_inputs.py
+      --calendar-csv data/latest_earnings_calendar.csv
+      --consensus
+      --batch-size 150
+      --resume-file /tmp/earnings-input-prefetch-state.json
+    envVars:
+      - fromGroup: earnings-pipeline-defaults
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: CONVEX_URL
+        sync: false
+      - key: EARNINGS_ARCHIVE_TOKEN
+        sync: false
+
+  - type: cron
+    name: earnings-pipeline-transcript-qa-cache
+    runtime: python
+    # Tue/Thu/Sat at 06:30 UTC. Scrape/cache only, capped at 12 uncached
+    # attempts per run; durable Convex cache hits do not consume the budget.
+    schedule: "30 6 * * 2,4,6"
+    buildCommand: pip install -r requirements.txt && python -m compileall core pipelines
+    startCommand: >
+      python pipelines/fetch_earnings_calendar.py
+      --output data/latest_earnings_calendar.csv
+      --horizon 3month
+      && python pipelines/backfill_earnings_inputs.py
+      --calendar-csv data/latest_earnings_calendar.csv
+      --start 2026-07-01
+      --transcripts
+      --batch-size 12
+      --pause-seconds 1.0
+      --rotate-daily
+      --resume-file /tmp/earnings-transcript-cache-state.json
+    envVars:
+      - fromGroup: earnings-pipeline-defaults
+      - key: ALPHA_VANTAGE_API_KEY
+        sync: false
+      - key: LLMLAYER_API_KEY
+        sync: false
+      - key: TAVILY_API_KEY
+        sync: false
+      - key: TINYFISH_API_KEY
+        sync: false
+      - key: CONVEX_URL
+        sync: false
+      - key: EARNINGS_ARCHIVE_TOKEN
+        sync: false
+
+  - type: cron
     name: earnings-pipeline-pre-earnings-deep-dive
     runtime: python
     # 13:30 UTC = 9:30 AM ET -- the morning before each reporter's print.

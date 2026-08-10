@@ -28,7 +28,8 @@ def parse_args():
     p.add_argument("--calendar-csv", required=True); p.add_argument("--start", default=""); p.add_argument("--end", default="")
     p.add_argument("--watchlist", default=""); p.add_argument("--batch-size", type=int, default=10); p.add_argument("--pause-seconds", type=float, default=.75)
     p.add_argument("--resume-file", default="data/earnings-input-backfill-state.json"); p.add_argument("--transcripts", action="store_true")
-    p.add_argument("--consensus", action="store_true"); p.add_argument("--dry-run", action="store_true"); return p.parse_args()
+    p.add_argument("--consensus", action="store_true"); p.add_argument("--dry-run", action="store_true")
+    p.add_argument("--rotate-daily", action="store_true", help="Rotate the starting event so repeated misses cannot starve the queue."); return p.parse_args()
 
 
 def main():
@@ -41,14 +42,23 @@ def main():
     def needs_work(event):
         prior=completed.get(f"{event['ticker']}:{event['report_date']}",{})
         return (args.transcripts and "transcript_v2" not in prior) or (args.consensus and "consensus" not in prior)
-    batch=[e for e in events if needs_work(e)][:max(1,args.batch_size)]
+    pending=[e for e in events if needs_work(e)]
+    if args.rotate_daily and pending:
+        offset=(date.today().toordinal()*max(1,args.batch_size))%len(pending); pending=pending[offset:]+pending[:offset]
+    transcript_only=args.transcripts and not args.consensus
+    batch=pending if transcript_only else pending[:max(1,args.batch_size)]
     print(f"[backfill] {len(events)} eligible; processing {len(batch)}")
+    uncached_attempts=0
     for i,event in enumerate(batch):
         key=f"{event['ticker']}:{event['report_date']}"
-        if args.dry_run: print(f"[dry-run] {key} {event['company']}"); continue
+        if args.dry_run:
+            if i<max(1,args.batch_size): print(f"[dry-run] {key} {event['company']}")
+            continue
+        performed_remote_attempt=False
         outcome={**completed.get(key,{}),"completedAt":datetime.now().isoformat(timespec="seconds")}
         if args.transcripts:
-            artifact=fetch_transcript_excerpt(event["ticker"],event["company"],"",event["report_date"]); outcome["transcript_v2"]="cached" if artifact.get("cache_hit") else "fetched" if artifact else "not_found"
+            artifact=fetch_transcript_excerpt(event["ticker"],event["company"],"",event["report_date"]); cache_hit=bool(artifact.get("cache_hit")); outcome["transcript_v2"]="cached" if cache_hit else "fetched" if artifact else "not_found"
+            if not cache_hit: uncached_attempts+=1; performed_remote_attempt=True
         if args.consensus:
             days=(date.fromisoformat(event["report_date"])-date.today()).days
             if 0<=days<=21:
@@ -60,7 +70,8 @@ def main():
                 outcome["consensus"]=archive_pre_earnings_snapshot(**kwargs).get("status","unknown")
             else: outcome["consensus"]="skipped_outside_21_day_window"
         completed[key]=outcome; state_path.parent.mkdir(parents=True,exist_ok=True); state_path.write_text(json.dumps(state,indent=2,sort_keys=True),encoding="utf-8"); print(f"[backfill] {key}: {outcome}")
-        if i<len(batch)-1 and args.pause_seconds>0: time.sleep(args.pause_seconds)
+        if transcript_only and uncached_attempts>=max(1,args.batch_size): break
+        if i<len(batch)-1 and performed_remote_attempt and args.pause_seconds>0: time.sleep(args.pause_seconds)
     return 0
 
 
