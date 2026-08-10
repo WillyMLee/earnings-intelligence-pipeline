@@ -3,7 +3,7 @@ export type CoverageGroup = {
   name: string;
   shortName: string;
   description: string;
-  icon: "cloud" | "stars" | "chip" | "layers" | "shield" | "database" | "megaphone" | "bolt" | "bank" | "cart" | "factory" | "health";
+  icon: "cloud" | "stars" | "chip" | "layers" | "shield" | "database" | "megaphone" | "bolt" | "bank" | "cart" | "factory" | "health" | "portfolio";
   tickers: Set<string>;
 };
 
@@ -54,7 +54,7 @@ export const COVERAGE_GROUPS: CoverageGroup[] = [
     shortName: "Data & AI software",
     description: "Consumption, developer activity and production AI workloads across data and observability platforms.",
     icon: "database",
-    tickers: new Set(["PLTR", "DDOG", "MDB", "CFLT", "ESTC"]),
+    tickers: new Set(["PLTR", "DDOG", "MDB", "ESTC"]),
   },
   {
     id: "ad-marketing-tech",
@@ -62,7 +62,15 @@ export const COVERAGE_GROUPS: CoverageGroup[] = [
     shortName: "Ad & marketing tech",
     description: "Ad buying, measurement, monetization and customer-engagement signals across independent platforms and marketing software.",
     icon: "megaphone",
-    tickers: new Set(["APP", "TTD", "ZETA", "BRZE", "KVYO", "MGNI", "PUBM", "IAS", "RDDT"]),
+    tickers: new Set(["APP", "TTD", "ZETA", "BRZE", "KVYO", "MGNI", "PUBM", "RDDT"]),
+  },
+  {
+    id: "neostellar-portcos",
+    name: "Neostellar Portcos",
+    shortName: "Neostellar",
+    description: "Portfolio-level earnings coverage across Lime, GrabAGun, CoreWeave, PSQ Holdings and Skillsoft.",
+    icon: "portfolio",
+    tickers: new Set(["LIME", "PEW", "CRWV", "PSQH", "SKIL"]),
   },
   {
     id: "power-data-centers",

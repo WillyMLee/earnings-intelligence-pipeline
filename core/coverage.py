@@ -37,17 +37,13 @@ _SECTOR_GROUPS: Dict[str, str] = {
     "Consumer": "AAPL,TSLA,NFLX,WMT,COST,HD,MCD,SBUX,NKE,PG,KO,FDX,UPS",
 }
 
-# Portfolio companies and notable recent IPOs don't share a single group
-# sector the way the rest of the universe does -- assign individually.
-# NOTE: the tickers below are illustrative placeholders. In a real deployment,
-# replace _INDIVIDUAL_SECTORS and PORTCO_TICKERS with your own fund's actual
-# holdings and sector calls -- this file is meant to be edited per-fund, not
-# used as-is.
+# Neostellar portfolio companies and notable recent IPOs don't share a single
+# group sector the way the rest of the universe does -- assign individually.
 _INDIVIDUAL_SECTORS: Dict[str, str] = {
-    "EXPCO1": "Mobility & Transportation",
-    "EXPCO2": "Vertical SaaS & Cybersecurity",
-    "EXPCO3": "Consumer",
-    "EXPCO4": "Consumer",
+    "LIME": "Mobility & Transportation",
+    "SKIL": "Vertical SaaS & Cybersecurity",
+    "PSQH": "Consumer",
+    "PEW": "Consumer",
     "SPCX": "Aerospace & Defense",
     "CBRS": "AI Infrastructure & Semis",
     "QNT": "Quantum Computing",
@@ -58,7 +54,7 @@ _INDIVIDUAL_SECTORS: Dict[str, str] = {
 # separate from sector because this is the join key a future merge with a
 # separate private-company/portfolio-tracking system would use, not a sector
 # classification.
-PORTCO_TICKERS = frozenset({"EXPCO1", "EXPCO2", "EXPCO3", "EXPCO4", "CRWV"})
+PORTCO_TICKERS = frozenset({"LIME", "SKIL", "PSQH", "PEW", "CRWV"})
 
 TICKER_SECTOR: Dict[str, str] = dict(_INDIVIDUAL_SECTORS)
 for _sector, _tickers in _SECTOR_GROUPS.items():
@@ -83,8 +79,9 @@ DASHBOARD_THEME_TICKERS = frozenset({
     "AMD", "AVGO", "ANET", "ARM", "MU", "LRCX", "KLAC", "WDC", "STX", "SNDK", "DELL",
     "CRM", "NOW", "SNOW", "ADBE", "TEAM", "HUBS", "WDAY", "GTLB", "MNDY", "BILL", "SHOP", "TOST",
     "PANW", "CRWD", "ZS", "FTNT", "OKTA", "NET", "S",
-    "PLTR", "DDOG", "MDB", "CFLT", "ESTC",
-    "APP", "TTD", "ZETA", "BRZE", "KVYO", "MGNI", "PUBM", "IAS", "RDDT",
+    "PLTR", "DDOG", "MDB", "ESTC",
+    "APP", "TTD", "ZETA", "BRZE", "KVYO", "MGNI", "PUBM", "RDDT",
+    "LIME", "PEW", "CRWV", "PSQH", "SKIL",
     "VST", "CEG", "ETN", "NRG", "OKLO", "GEV",
     "JPM", "BAC", "WFC", "C", "GS", "MS", "AXP", "V", "MA", "PYPL", "COF", "SCHW", "BLK",
     "WMT", "COST", "HD", "LOW", "MCD", "SBUX", "NKE", "DIS", "NFLX", "UBER", "DASH", "ABNB", "BKNG",

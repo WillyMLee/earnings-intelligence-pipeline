@@ -85,7 +85,7 @@ These are the reusable lessons, generalized from specific production incidents. 
 
 This isn't packaged as a pip-installable library — it's a reference implementation meant to be forked and edited. The places to touch:
 
-- **Coverage universe**: `pipelines/run_earnings_radar_automation.py` (`DEFAULT_COVERAGE_UNIVERSE`) and `core/coverage.py` (`_INDIVIDUAL_SECTORS`, `PORTCO_TICKERS`) both currently contain illustrative placeholder tickers where a real fund's portfolio-company list would go — replace with your own.
+- **Coverage universe**: `pipelines/run_earnings_radar_automation.py` (`DEFAULT_COVERAGE_UNIVERSE`) and `core/coverage.py` (`_INDIVIDUAL_SECTORS`, `PORTCO_TICKERS`) define the public-company and Neostellar portfolio-company coverage lists.
 - **Research providers**: `core/research.py`'s cascade (`run_research_query_cascade`) is provider-agnostic by design — each `search_*()` function returns the same normalized shape, so swapping or adding a provider means adding one function and one line in the cascade, not touching call sites.
 - **Delivery**: `pipelines/agentmail_delivery.py` is the only file that knows about AgentMail specifically. Swapping to SES, Postmark, or SMTP means replacing this one module — everything upstream produces an HTML string and a recipient list, provider-agnostic.
 - **Archive store**: `pipelines/earnings_archive.py` + `convex/` assume Convex, but the actual contract is small (write a structured summary keyed by ticker+date, read back by date or by ticker) — porting to Supabase/Postgres/DynamoDB means reimplementing that one file's handful of functions.

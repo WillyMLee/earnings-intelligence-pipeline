@@ -33,7 +33,7 @@ DEFAULT_COVERAGE_UNIVERSE = (
     # SaaS expansion: identity, devops, HR/ops, ad-tech
     "ZS,OKTA,HUBS,GTLB,WDAY,TOST,BILL,MNDY,TTD,"
     # database and data platforms
-    "MDB,CFLT,PLTR,ESTC,"
+    "MDB,PLTR,ESTC,"
     # banks and financial services — NIM, credit quality, capital markets
     "JPM,BAC,WFC,C,GS,MS,USB,AXP,"
     # payments and fintech
@@ -48,9 +48,8 @@ DEFAULT_COVERAGE_UNIVERSE = (
     "DAL,UAL,AAL,"
     # consumer bellwethers: discretionary + staples + restaurants + logistics
     "AAPL,TSLA,NFLX,WMT,COST,HD,MCD,SBUX,NKE,PG,KO,FDX,UPS,"
-    # Portfolio companies (illustrative placeholders -- replace with your
-    # fund's actual holdings; see core/coverage.py for where these tie in)
-    "EXPCO1,EXPCO2,EXPCO3,EXPCO4,"
+    # Neostellar portfolio companies
+    "LIME,SKIL,PSQH,PEW,"
     # notable recent IPOs being tracked separately (not portco holdings)
     "SPCX,CBRS,QNT,XNDU"
 )

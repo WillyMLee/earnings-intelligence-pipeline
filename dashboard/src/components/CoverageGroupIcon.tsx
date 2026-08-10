@@ -13,6 +13,7 @@ const PATHS: Record<CoverageGroup["icon"], React.ReactNode> = {
   cart: <><path d="M3 4h2l2.2 10.2a2 2 0 0 0 2 1.6h7.6a2 2 0 0 0 2-1.6L20 8H7" /><circle cx="10" cy="20" r="1" /><circle cx="17" cy="20" r="1" /></>,
   factory: <><path d="M3 21V9l6 3V8l6 3V4h6v17H3Z" /><path d="M7 17h2m3 0h2m3 0h2" /></>,
   health: <><path d="M12 21s-8-4.8-8-11a4.5 4.5 0 0 1 8-2.8A4.5 4.5 0 0 1 20 10c0 6.2-8 11-8 11Z" /><path d="M8 12h2l1-2 2 5 1-3h2" /></>,
+  portfolio: <><rect x="3" y="7" width="18" height="13" rx="2" /><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M3 12h18M10 12v2h4v-2" /></>,
 };
 
 export function CoverageGroupIcon({ icon, size = 36 }: { icon: CoverageGroup["icon"]; size?: number }) {

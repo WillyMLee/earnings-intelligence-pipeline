@@ -13,10 +13,25 @@ const VERIFIED_Q2_2026_REPORTS: CalendarEvent[] = [
   // Tesla: https://ir.tesla.com/press-release/tesla-releases-second-quarter-2026-financial-results
   // DoorDash: https://ir.doordash.com/events-and-presentations/events-calendar/event-details/2026/DoorDash-Q2-2026-Earnings-Call/default.aspx
   // Airbnb: https://investors.airbnb.com/press-releases/news-details/2026/Airbnb-to-Announce-Second-Quarter-2026-Results/default.aspx
+  // Additional confirmations are from each issuer's IR release; PSQH is
+  // supported by its July 29 results release and August 4 SEC filings.
   { ticker: "GOOGL", company: "Alphabet", reportDate: "2026-07-22", reportTime: "After Close", dateConfidence: "confirmed" },
   { ticker: "TSLA", company: "Tesla", reportDate: "2026-07-22", reportTime: "After Close", dateConfidence: "confirmed" },
   { ticker: "DASH", company: "DoorDash", reportDate: "2026-08-05", reportTime: "After Close", dateConfidence: "confirmed" },
   { ticker: "ABNB", company: "Airbnb", reportDate: "2026-08-06", reportTime: "After Close", dateConfidence: "confirmed" },
+  { ticker: "FTNT", company: "Fortinet", reportDate: "2026-07-29", reportTime: "After Close", dateConfidence: "confirmed" },
+  { ticker: "RDDT", company: "Reddit", reportDate: "2026-07-30", reportTime: "After Close", dateConfidence: "confirmed" },
+  { ticker: "PSQH", company: "PSQ Holdings", reportDate: "2026-07-29", reportTime: "Before Open", dateConfidence: "confirmed" },
+  { ticker: "ZETA", company: "Zeta Global", reportDate: "2026-08-04", reportTime: "After Close", dateConfidence: "confirmed" },
+  { ticker: "KVYO", company: "Klaviyo", reportDate: "2026-08-05", reportTime: "After Close", dateConfidence: "confirmed" },
+  { ticker: "MGNI", company: "Magnite", reportDate: "2026-08-05", reportTime: "After Close", dateConfidence: "confirmed" },
+  { ticker: "PUBM", company: "PubMatic", reportDate: "2026-08-06", reportTime: "After Close", dateConfidence: "confirmed" },
+];
+
+const INFERRED_Q2_2026_UPCOMING: CalendarEvent[] = [
+  // Braze has not announced its fiscal Q2 date yet. Its prior-year call was
+  // September 4, so keep it visible as an estimate until IR confirms it.
+  { ticker: "BRZE", company: "Braze", reportDate: "2026-09-03", reportTime: "Estimated from prior-year cadence", dateConfidence: "inferred" },
 ];
 
 type CompletedReport = Pick<PostEarningsSummary, "ticker" | "company" | "reportDate" | "reportTime" | "sector">;
@@ -77,7 +92,13 @@ export function seasonEventByTicker(
   }
 
   if (start === Q2_2026_WINDOW.start && end === Q2_2026_WINDOW.end) {
-    for (const verified of VERIFIED_Q2_2026_REPORTS) byTicker.set(verified.ticker, verified);
+    for (const verified of VERIFIED_Q2_2026_REPORTS) {
+      const existing = byTicker.get(verified.ticker);
+      byTicker.set(verified.ticker, { ...existing, ...verified, sector: existing?.sector ?? verified.sector });
+    }
+    for (const estimate of INFERRED_Q2_2026_UPCOMING) {
+      if (!byTicker.has(estimate.ticker)) byTicker.set(estimate.ticker, estimate);
+    }
 
     // Some calendar providers stop returning rows once the report date has
     // passed. A confirmed Q3 date proves the preceding Q2 reporting event is
