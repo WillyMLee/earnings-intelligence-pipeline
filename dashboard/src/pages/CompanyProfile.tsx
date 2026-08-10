@@ -63,7 +63,7 @@ export function CompanyProfile({ ticker, onBack }: { ticker: string; onBack: () 
   const selectedReport = history[selectedReportIdx] ?? latest;
 
   return (
-    <div className="p-6 sm:p-8">
+    <div className="p-4 sm:p-8">
       <BackLink onBack={onBack} />
 
       <header className="mt-4 flex flex-wrap items-start justify-between gap-6">
@@ -85,7 +85,7 @@ export function CompanyProfile({ ticker, onBack }: { ticker: string; onBack: () 
         {/* Headline stats live here, once, at the top of the page -- every
             tab below reads against this instead of each re-deriving/
             re-showing its own copy of price/reaction. */}
-        <div className="flex gap-5">
+        <div className="flex w-full justify-between gap-3 sm:w-auto sm:justify-start sm:gap-5">
           <HeaderStat label="Price" value={latest.priceUsd != null ? `$${latest.priceUsd.toFixed(2)}` : "—"} />
           <HeaderStat label="Mkt cap" value={fmtUsdCompact(latest.marketCapUsd ?? null)} />
           <HeaderStat label="Last reaction" node={<ReactionBadge pct={latest.reactionPct} />} />

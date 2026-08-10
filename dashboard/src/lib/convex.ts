@@ -69,6 +69,7 @@ export type CalendarEvent = {
   sector?: string;
   epsEstimate?: number | null;
   revenueEstimateUsd?: number | null;
+  dateConfidence?: "confirmed" | "inferred";
 };
 
 export type ReportingProgress = {

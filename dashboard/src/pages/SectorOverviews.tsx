@@ -17,7 +17,7 @@ export function SectorOverviews({ groupId, onSelectGroup, onOpenCompany }: { gro
 
   useEffect(() => {
     Promise.all([
-      listCalendarEvents(Q2_2026_WINDOW.start, Q2_2026_WINDOW.end),
+      listCalendarEvents("2026-07-01", "2026-12-31"),
       listRecentEarnings(250),
     ])
       .then(([calendarRows, summaryRows]) => {
@@ -56,10 +56,10 @@ export function SectorOverviews({ groupId, onSelectGroup, onOpenCompany }: { gro
   }, [events, summaries, group]);
 
   return (
-    <div className="mx-auto max-w-[1500px] px-5 py-10 sm:px-8 sm:py-14">
+    <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-8 sm:py-14">
       <header className="mb-7">
         <div className="text-[11px] font-semibold uppercase tracking-[0.14em] text-accent">Coverage overviews</div>
-        <div className="mt-2 flex items-center gap-3"><CoverageGroupIcon icon={group.icon} size={44} /><h1 className="text-[32px] font-extrabold tracking-tight text-[#15171c] dark:text-[#e7e8ea] sm:text-[40px]">{group.name}</h1></div>
+        <div className="mt-2 flex items-center gap-3"><CoverageGroupIcon icon={group.icon} size={40} /><h1 className="text-[28px] font-extrabold tracking-tight text-[#15171c] dark:text-[#e7e8ea] sm:text-[40px]">{group.name}</h1></div>
         <p className="mt-2 max-w-3xl text-[15px] leading-relaxed text-[#5b5f6b] dark:text-[#9a9ea8]">{group.description}</p>
         <p className="mt-2 text-[11px] text-[#9a9ea8]">Includes {Array.from(group.tickers).map((ticker) => displayCompanyName(ticker, ticker)).join(" · ")}</p>
       </header>

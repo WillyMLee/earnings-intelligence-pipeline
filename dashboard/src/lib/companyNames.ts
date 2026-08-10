@@ -17,7 +17,7 @@ const DISPLAY_NAMES: Record<string, string> = {
   PFE: "Pfizer", PG: "P&G", PLTR: "Palantir", PYPL: "PayPal", QCOM: "Qualcomm", RTX: "RTX",
   S: "SentinelOne", SBUX: "Starbucks", SCHW: "Charles Schwab", SHOP: "Shopify", SNDK: "Sandisk",
   SNOW: "Snowflake", STX: "Seagate", T: "AT&T", TEAM: "Atlassian", TMO: "Thermo Fisher Scientific",
-  TMUS: "T-Mobile US", TOST: "Toast", TTD: "The Trade Desk", UNH: "UnitedHealth Group",
+  TMUS: "T-Mobile US", TOST: "Toast", TSLA: "Tesla", TTD: "The Trade Desk", UNH: "UnitedHealth Group",
   UNP: "Union Pacific", UPS: "UPS", V: "Visa", VST: "Vistra", WDAY: "Workday",
   WDC: "Western Digital", WFC: "Wells Fargo", WMT: "Walmart", XOM: "ExxonMobil", ZS: "Zscaler",
 };

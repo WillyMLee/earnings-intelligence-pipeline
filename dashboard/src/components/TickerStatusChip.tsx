@@ -10,15 +10,16 @@ export function TickerStatusChip({ ticker, event, compact = false }: { ticker: s
     unscheduled: "border-black/[0.08] bg-black/[0.02] text-[#8b8f99] dark:border-white/[0.08] dark:bg-white/[0.03]",
   }[status];
   const label = status === "reported" ? "Reported" : status === "upcoming" ? "Upcoming" : "Date pending";
+  const dateLabel = event?.dateConfidence === "inferred" ? "Earlier in Q2 · exact date backfill pending" : event ? `${fmtDate(event.reportDate)} ${event.reportTime}` : "";
 
   return (
     <span
-      title={`${ticker} · ${label}${event ? ` · ${fmtDate(event.reportDate)} ${event.reportTime}` : ""}`}
+      title={`${ticker} · ${label}${dateLabel ? ` · ${dateLabel}` : ""}`}
       className={`inline-flex items-center gap-1.5 rounded-md border font-mono font-semibold ${styles} ${compact ? "px-1.5 py-0.5 text-[9px]" : "px-2 py-1 text-[10px]"}`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${status === "reported" ? "bg-emerald-500" : status === "upcoming" ? "bg-amber-500" : "bg-[#a0a4ad]"}`} />
       {compact ? ticker : label}
-      {!compact && event && <span className="font-sans font-normal opacity-70">{new Date(`${event.reportDate}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>}
+      {!compact && event && <span className="font-sans font-normal opacity-70">{event.dateConfidence === "inferred" ? "Earlier Q2" : new Date(`${event.reportDate}T00:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" })}</span>}
     </span>
   );
 }

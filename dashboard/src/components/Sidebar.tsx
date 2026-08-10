@@ -13,6 +13,8 @@ export function Sidebar({
   calendarEvents,
   activeTicker,
   route,
+  mobileOpen,
+  onClose,
   onSelect,
   onNav,
 }: {
@@ -20,6 +22,8 @@ export function Sidebar({
   calendarEvents: CalendarEvent[];
   activeTicker: string | null;
   route: Route;
+  mobileOpen: boolean;
+  onClose: () => void;
   onSelect: (ticker: string) => void;
   onNav: (name: "dashboard" | "calendar" | "feed" | "sectors") => void;
 }) {
@@ -62,7 +66,13 @@ export function Sidebar({
   }, [filtered, groupMode]);
 
   return (
-    <aside className="flex h-full w-72 shrink-0 flex-col border-r border-black/[0.06] bg-white dark:border-white/[0.08] dark:bg-[#0e0f13]">
+    <>
+      {mobileOpen && <button aria-label="Close navigation" onClick={onClose} className="fixed inset-0 z-40 bg-black/45 backdrop-blur-[1px] md:hidden" />}
+      <aside className={`fixed inset-y-0 left-0 z-50 flex h-dvh w-[min(18rem,calc(100vw-3rem))] shrink-0 flex-col border-r border-black/[0.06] bg-white shadow-2xl transition-transform duration-200 dark:border-white/[0.08] dark:bg-[#0e0f13] md:static md:z-auto md:h-full md:w-72 md:translate-x-0 md:shadow-none ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}>
+      <div className="flex h-14 shrink-0 items-center justify-between border-b border-black/[0.06] px-4 dark:border-white/[0.08] md:hidden">
+        <span className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#5b5f6b] dark:text-[#c4c7ce]">Browse coverage</span>
+        <button type="button" aria-label="Close navigation" onClick={onClose} className="grid h-9 w-9 place-items-center rounded-lg text-xl text-[#8b8f99]">×</button>
+      </div>
       <nav className="flex flex-col gap-0.5 border-b border-black/[0.06] p-3 dark:border-white/[0.08]">
         <NavLink label="Dashboard" active={route.name === "dashboard"} onClick={() => onNav("dashboard")} />
         <NavLink label="Earnings calendar" active={route.name === "calendar"} onClick={() => onNav("calendar")} />
@@ -140,7 +150,8 @@ export function Sidebar({
           </div>
         ))}
       </nav>
-    </aside>
+      </aside>
+    </>
   );
 }
 

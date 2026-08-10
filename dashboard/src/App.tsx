@@ -7,7 +7,7 @@ import { Dashboard } from "./pages/Dashboard";
 import { SectorOverviews } from "./pages/SectorOverviews";
 import { EarningsCalendar } from "./pages/EarningsCalendar";
 import { useRoute } from "./lib/router";
-import { FULL_2026_CALENDAR_WINDOW, Q2_2026_WINDOW } from "./lib/earningsStatus";
+import { FULL_2026_CALENDAR_WINDOW, Q2_2026_WINDOW, seasonEventByTicker } from "./lib/earningsStatus";
 
 type LoadState = "loading" | "ready" | "error";
 
@@ -15,6 +15,7 @@ export default function App() {
   const [route, setRoute] = useRoute();
   const [companies, setCompanies] = useState<CompanyListing[]>([]);
   const [calendarEvents, setCalendarEvents] = useState<CalendarEvent[]>([]);
+  const [mobileNavOpen, setMobileNavOpen] = useState(false);
 
   useEffect(() => {
     Promise.all([
@@ -33,12 +34,14 @@ export default function App() {
           });
         }
         setCompanies(Array.from(merged.values()));
-        setCalendarEvents([
-          ...events.filter((event) => event.reportDate >= Q2_2026_WINDOW.start && event.reportDate <= Q2_2026_WINDOW.end),
-          ...briefCompanies
-            .filter((company) => company.reportDate >= Q2_2026_WINDOW.start && company.reportDate <= Q2_2026_WINDOW.end)
-            .map((company) => ({ ticker: company.ticker, company: company.company, reportDate: company.reportDate, reportTime: "Reported", sector: company.sector ?? undefined })),
-        ]);
+        const completedReports = briefCompanies.map((company) => ({
+          ticker: company.ticker,
+          company: company.company,
+          reportDate: company.reportDate,
+          reportTime: "Reported",
+          sector: company.sector ?? undefined,
+        }));
+        setCalendarEvents(Array.from(seasonEventByTicker(events, completedReports, Q2_2026_WINDOW.start, Q2_2026_WINDOW.end).values()));
       })
       .catch(() => {
         /* sidebar just stays empty on failure -- non-fatal */
@@ -46,16 +49,31 @@ export default function App() {
   }, []);
 
   return (
-    <div className="flex h-screen">
+    <div className="flex h-dvh overflow-hidden">
       <Sidebar
         companies={companies}
         calendarEvents={calendarEvents}
         activeTicker={route.name === "company" ? route.ticker : null}
         route={route}
-        onSelect={(ticker) => setRoute({ name: "company", ticker })}
-        onNav={(name) => name === "sectors" ? setRoute({ name: "sectors", groupId: "hyperscalers" }) : setRoute({ name })}
+        mobileOpen={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        onSelect={(ticker) => { setMobileNavOpen(false); setRoute({ name: "company", ticker }); }}
+        onNav={(name) => { setMobileNavOpen(false); name === "sectors" ? setRoute({ name: "sectors", groupId: "hyperscalers" }) : setRoute({ name }); }}
       />
-      <main className="flex-1 overflow-y-auto">
+      <div className="flex min-w-0 flex-1 flex-col">
+        <header className="flex h-14 shrink-0 items-center justify-between border-b border-black/[0.06] bg-white/95 px-4 backdrop-blur dark:border-white/[0.08] dark:bg-[#0e0f13]/95 md:hidden">
+          <button
+            type="button"
+            aria-label="Open navigation"
+            onClick={() => setMobileNavOpen(true)}
+            className="grid h-10 w-10 place-items-center rounded-lg border border-black/[0.07] text-[#5b5f6b] dark:border-white/[0.09] dark:text-[#c4c7ce]"
+          >
+            <span className="flex w-4 flex-col gap-1"><span className="h-px w-full bg-current" /><span className="h-px w-full bg-current" /><span className="h-px w-full bg-current" /></span>
+          </button>
+          <div className="text-[12px] font-bold uppercase tracking-[0.12em] text-[#5b5f6b] dark:text-[#c4c7ce]">Earnings Intelligence</div>
+          <div className="h-10 w-10" />
+        </header>
+        <main className="min-w-0 flex-1 overflow-y-auto">
         {route.name === "company" ? (
           <CompanyProfile ticker={route.ticker} onBack={() => setRoute({ name: "dashboard" })} />
         ) : route.name === "feed" ? (
@@ -74,7 +92,8 @@ export default function App() {
             onOpenOverview={(groupId) => setRoute({ name: "sectors", groupId })}
           />
         )}
-      </main>
+        </main>
+      </div>
     </div>
   );
 }
@@ -117,7 +136,7 @@ function Feed({ onOpenCompany }: { onOpenCompany: (ticker: string) => void }) {
   }, [summaries]);
 
   return (
-    <div className="mx-auto max-w-[1500px] px-5 py-10 sm:px-8 sm:py-14">
+    <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-8 sm:py-14">
       <header className="mb-10">
         <div className="mb-4 inline-flex items-center gap-2 rounded-full border border-black/[0.06] bg-white px-3 py-1.5 dark:border-white/[0.08] dark:bg-[#121317]">
           <span className="relative flex h-2 w-2">
@@ -126,7 +145,7 @@ function Feed({ onOpenCompany }: { onOpenCompany: (ticker: string) => void }) {
           </span>
           <span className="text-[12px] font-medium text-[#5b5f6b] dark:text-[#9a9ea8]">Live earnings feed</span>
         </div>
-        <h1 className="text-[32px] font-extrabold tracking-tight text-[#15171c] dark:text-[#e7e8ea] sm:text-[40px]">
+        <h1 className="text-[28px] font-extrabold tracking-tight text-[#15171c] dark:text-[#e7e8ea] sm:text-[40px]">
           Earnings Intelligence
         </h1>
         <p className="mt-2 max-w-xl text-[15px] leading-relaxed text-[#5b5f6b] dark:text-[#9a9ea8]">

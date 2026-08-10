@@ -43,7 +43,7 @@ export function Dashboard({ onOpenCompany, onOpenOverview }: { onOpenCompany: (t
     return {
       recent,
       q2ByTicker,
-      universe: new Set(events.map((event) => event.ticker)).size,
+      universe: q2ByTicker.size,
       reported: reported.length,
       upcoming: upcoming.length,
       captured,
@@ -53,9 +53,9 @@ export function Dashboard({ onOpenCompany, onOpenOverview }: { onOpenCompany: (t
   }, [summaries, events]);
 
   return (
-    <div className="mx-auto max-w-[1500px] px-5 py-10 sm:px-8 sm:py-14">
+    <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-8 sm:py-14">
       <header className="mb-6">
-        <h1 className="text-[32px] font-extrabold tracking-tight text-[#15171c] dark:text-[#e7e8ea] sm:text-[40px]">Dashboard</h1>
+        <h1 className="text-[28px] font-extrabold tracking-tight text-[#15171c] dark:text-[#e7e8ea] sm:text-[40px]">Dashboard</h1>
         <p className="mt-2 max-w-2xl text-[15px] leading-relaxed text-[#5b5f6b] dark:text-[#9a9ea8]">
           Current-season reporting progress and the latest intelligence across the full coverage universe.
         </p>

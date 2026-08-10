@@ -102,20 +102,20 @@ export function IndexBar() {
   };
 
   return (
-    <div className="mb-6 flex flex-col gap-4 rounded-card border border-black/[0.06] bg-white p-4 dark:border-white/[0.08] dark:bg-[#121317] sm:flex-row">
-      <div className="flex shrink-0 flex-row gap-3 sm:flex-col sm:gap-2">
+    <div className="mb-6 flex flex-col gap-3 rounded-card border border-black/[0.06] bg-white p-3 dark:border-white/[0.08] dark:bg-[#121317] sm:flex-row sm:gap-4 sm:p-4">
+      <div className="grid shrink-0 grid-cols-3 gap-2 sm:flex sm:flex-col">
         {allSeries.map((idx) => {
           const up = (idx.changePct ?? 0) >= 0;
           return (
-            <div key={idx.symbol} className="min-w-[128px]">
+            <div key={idx.symbol} className="min-w-0 sm:min-w-[128px]">
               <div className="flex items-center gap-1.5">
                 <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: COLORS[idx.symbol] }} />
-                <span className="text-[11px] font-medium text-[#8b8f99]">{idx.name}</span>
+                <span className="truncate text-[9px] font-medium text-[#8b8f99] sm:text-[11px]">{idx.name}</span>
               </div>
-              <div className="mt-0.5 text-[15px] font-bold text-[#15171c] dark:text-[#e7e8ea]">
+              <div className="mt-0.5 truncate text-[13px] font-bold text-[#15171c] dark:text-[#e7e8ea] sm:text-[15px]">
                 {idx.price?.toLocaleString(undefined, { maximumFractionDigits: 2 }) ?? "—"}
               </div>
-              <div className={`text-[12px] font-semibold ${up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
+              <div className={`truncate text-[10px] font-semibold sm:text-[12px] ${up ? "text-emerald-600 dark:text-emerald-400" : "text-rose-600 dark:text-rose-400"}`}>
                 {idx.change !== null ? `${up ? "+" : ""}${idx.change.toFixed(2)}` : "—"}{" "}
                 {idx.changePct !== null ? `${up ? "+" : ""}${idx.changePct.toFixed(2)}%` : ""}
               </div>
@@ -128,7 +128,7 @@ export function IndexBar() {
         <svg
           viewBox={`0 0 ${width} ${height}`}
           preserveAspectRatio="none"
-          className="h-[140px] w-full overflow-visible"
+          className="h-[110px] w-full overflow-visible sm:h-[140px]"
           onMouseMove={(e) => {
             const rect = e.currentTarget.getBoundingClientRect();
             setHoverX(((e.clientX - rect.left) / rect.width) * width);
