@@ -14,4 +14,5 @@ tmp/
 **/*.pyc
 **/.pytest_cache/
 **/node_modules/
+.wrangler/
 convex/_generated/
