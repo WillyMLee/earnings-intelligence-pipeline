@@ -4,10 +4,12 @@
 
 export function fmtUsdCompact(value: number | null | undefined): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return "—";
-  const billions = value / 1_000_000_000;
-  if (Math.abs(billions) >= 1) return `$${billions.toLocaleString(undefined, { maximumFractionDigits: 2 })}B`;
-  const millions = value / 1_000_000;
-  return `$${millions.toLocaleString(undefined, { maximumFractionDigits: 0 })}M`;
+  const sign = value < 0 ? "-" : "";
+  const absolute = Math.abs(value);
+  const billions = absolute / 1_000_000_000;
+  if (billions >= 1) return `${sign}$${billions.toLocaleString(undefined, { maximumFractionDigits: 2 })}B`;
+  const millions = absolute / 1_000_000;
+  return `${sign}$${millions.toLocaleString(undefined, { maximumFractionDigits: 0 })}M`;
 }
 
 export function fmtPct(value: number | null | undefined, signed = true): string {

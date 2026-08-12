@@ -223,7 +223,7 @@ const FINANCIALS_ROWS: FinRow[] = [
   },
   {
     label: "Total debt",
-    value: (h) => fmtUsdCompact((h.shortTermDebtUsd ?? 0) + (h.longTermDebtUsd ?? 0) || null),
+    value: (h) => fmtUsdCompact(h.totalDebtUsd ?? ((h.shortTermDebtUsd ?? 0) + (h.longTermDebtUsd ?? 0) || null)),
   },
   { label: "Reaction", value: () => "" },
 ];
@@ -251,7 +251,7 @@ function FinancialsTab({ latest, history }: { latest: PostEarningsSummary; histo
           <StatCell label="EPS" value={fmtEps(latest.epsActual)} sublabel={latest.epsSurprisePct != null ? `${fmtPct(latest.epsSurprisePct)} surprise` : undefined} />
           <StatCell label="EPS Consensus" value={latest.epsConsensus != null ? fmtEps(latest.epsConsensus) : "Not tracked"} sublabel={epsVerdict?.toUpperCase()} />
           <StatCell label="Cash & ST Investments" value={fmtUsdCompact((latest.cashAndEquivalentsUsd ?? 0) + (latest.shortTermInvestmentsUsd ?? 0) || null)} />
-          <StatCell label="Total Debt" value={fmtUsdCompact((latest.shortTermDebtUsd ?? 0) + (latest.longTermDebtUsd ?? 0) || null)} />
+          <StatCell label="Total Debt" value={fmtUsdCompact(latest.totalDebtUsd ?? ((latest.shortTermDebtUsd ?? 0) + (latest.longTermDebtUsd ?? 0) || null))} />
         </div>
         {(latest.consensusSource || latest.consensusCapturedAt) && (
           <div className="mt-4 border-t border-black/[0.05] pt-3 text-[11px] text-[#9a9ea8] dark:border-white/[0.06]">
