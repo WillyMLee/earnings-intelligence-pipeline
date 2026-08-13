@@ -47,9 +47,36 @@ export function todayIso(): string {
   return `${value.year}-${value.month}-${value.day}`;
 }
 
-export function eventStatus(event: CalendarEvent | undefined, today = todayIso()): EarningsStatus {
+function newYorkMinuteOfDay(now = new Date()): number {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(now);
+  const value = Object.fromEntries(parts.map((part) => [part.type, part.value]));
+  return Number(value.hour) * 60 + Number(value.minute);
+}
+
+export function eventStatus(
+  event: CalendarEvent | undefined,
+  today = todayIso(),
+  minuteOfDayEt = newYorkMinuteOfDay(),
+): EarningsStatus {
   if (!event) return "unscheduled";
-  return event.reportDate <= today ? "reported" : "upcoming";
+  if (event.reportDate < today) return "reported";
+  if (event.reportDate > today) return "upcoming";
+
+  // A report date is not the same as a completed report. On the day of an
+  // After Close print, the company remains upcoming until the market closes;
+  // PEW was incorrectly shown as reported all day because the old check only
+  // compared YYYY-MM-DD strings.
+  const reportTime = event.reportTime.trim().toLowerCase();
+  if (reportTime === "reported") return "reported";
+  if (event.dateConfidence === "inferred" || reportTime.startsWith("estimated")) return "upcoming";
+  if (reportTime.startsWith("before")) return minuteOfDayEt >= 9 * 60 + 30 ? "reported" : "upcoming";
+  if (reportTime.startsWith("after")) return minuteOfDayEt >= 16 * 60 ? "reported" : "upcoming";
+  return "upcoming";
 }
 
 export function latestEventByTicker(events: CalendarEvent[]): Map<string, CalendarEvent> {
