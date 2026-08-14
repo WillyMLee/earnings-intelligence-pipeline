@@ -40,6 +40,7 @@ flowchart TD
 | Coverage & sector tagging | `core/coverage.py` | Ticker → sector / portfolio-company mapping, queryable at write time |
 | Live financial facts | `core/stock_data.py` | yfinance-sourced snapshots: prior-quarter actuals, consensus, **dated anchors** used to verify the LLM's own research (see guardrails) |
 | Research | `core/research.py` | Multi-provider search cascade (LLMLayer → Tavily → TinyFish → optional Exa) with graceful degradation; also fetches and extracts real transcript/press-release text, not just snippets |
+| Research policy | `core/earnings_orchestration.py`, `docs/earnings-research-orchestration.md` | Declarative pre/post evidence stages, LLMLayer-first provider waterfalls, provenance contracts, and Cloudflare Workflow mapping |
 | Synthesis + guardrails | `core/synthesis.py` | The core: structured-output LLM synthesis, an LLM review pass, and a **deterministic** sanity-check layer independent of the LLM (this is the file to read first) |
 | Rendering & delivery | `pipelines/render_*.py`, `pipelines/agentmail_delivery.py` | HTML/markdown email rendering, citation extraction, send via AgentMail |
 | Cross-cron archive | `pipelines/earnings_archive.py`, `convex/` | Structured historical storage — necessary because scheduled cron containers are stateless and don't share a filesystem between runs (see below) |
@@ -128,6 +129,15 @@ Transcript excerpts are cached in Convex by ticker and report date. Consensus
 is only fetched for reports inside the next 21 days, before providers roll the
 estimate to a later fiscal period. The resume file records each input type
 independently, so transcript and consensus batches can run on different cadences.
+
+Inspect the deterministic orchestration plan for one event without calling any
+providers:
+
+```bash
+python pipelines/plan_earnings_research.py \
+  --ticker IBM --company "International Business Machines" \
+  --report-date 2026-10-21 --report-time AMC --mode post
+```
 
 ## Known limitations & roadmap
 

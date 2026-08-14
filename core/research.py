@@ -9,6 +9,8 @@ import urllib.request
 from datetime import datetime
 from typing import Any, Dict, Iterable, List, Optional, Sequence
 
+from core.earnings_orchestration import classify_provider_error, provider_waterfall
+
 
 COMPANY_STOPWORDS = {
     "company",
@@ -478,9 +480,8 @@ def fetch_transcript_excerpt(
     -- a full 40k-char transcript dump was tried first and broke the
     downstream model's structured JSON output entirely.
 
-    Tries Tavily first (explicitly requests full raw markdown page content
-    via include_raw_content), then TinyFish, then LLMLayer -- stops as soon
-    as a result has enough real content to be worth using. Returns {} if no
+    Tries LLMLayer first, then TinyFish, then Tavily -- stops as soon as a
+    result has enough real content to be worth using. Returns {} if no
     provider is configured or none returned substantial transcript content;
     callers should treat that as "no transcript available" and fall back to
     whatever other research they already do, not as an error.
@@ -512,13 +513,17 @@ def fetch_transcript_excerpt(
     # below, but a better-targeted query needs it less often).
     period_hint = " ".join(part for part in (report_date, quarter) if part)
     query = f"{company} ({ticker}) {period_hint} earnings call transcript prepared remarks Q&A CFO"
-    providers = []
-    if os.environ.get("TAVILY_API_KEY", "").strip():
-        providers.append(("tavily", search_tavily))
-    if os.environ.get("TINYFISH_API_KEY", "").strip():
-        providers.append(("tinyfish", search_tinyfish))
-    if os.environ.get("LLMLAYER_API_KEY", "").strip():
-        providers.append(("llmlayer", search_llmlayer))
+    provider_functions = {
+        "llmlayer": search_llmlayer,
+        "tinyfish": search_tinyfish,
+        "tavily": search_tavily,
+        "exa": search_exa,
+    }
+    providers = [
+        (name, provider_functions[name])
+        for name in provider_waterfall("transcript", include_exa=_EXA_ENABLED)
+        if os.environ.get(f"{name.upper()}_API_KEY", "").strip()
+    ]
 
     entity_tokens = _entity_tokens(company, ticker)
 
@@ -634,20 +639,41 @@ def _dedup_append(
 
 
 def _sort_collected(collected: List[Dict[str, str]]) -> None:
+    # Stable two-pass sort keeps recent results first within each provider,
+    # while preserving the contractual provider priority across the result
+    # set. A newer fallback result must not silently displace LLMLayer.
     collected.sort(
         key=lambda item: (
             item.get("published_date", "") or "",
-            item.get("provider", ""),
             item.get("title", ""),
         ),
         reverse=True,
     )
+    rank = {
+        name: index
+        for index, name in enumerate(provider_waterfall("discovery", include_exa=True))
+    }
+    collected.sort(key=lambda item: rank.get(item.get("provider", ""), len(rank)))
 
 
 # Exa has credits again, but per direct instruction it's being held back from
 # the cascade for now (LLMLayer is primary). Flip this back to True to
 # re-enable it -- the rest of the cascade logic doesn't need to change.
 _EXA_ENABLED = False
+
+
+def _configured_providers(kind: str) -> List[tuple[str, Any]]:
+    provider_functions = {
+        "llmlayer": search_llmlayer,
+        "exa": search_exa,
+        "tavily": search_tavily,
+        "tinyfish": search_tinyfish,
+    }
+    return [
+        (name, provider_functions[name])
+        for name in provider_waterfall(kind, include_exa=_EXA_ENABLED)
+        if os.environ.get(f"{name.upper()}_API_KEY", "").strip()
+    ]
 
 
 def run_research_query_cascade(
@@ -663,45 +689,59 @@ def run_research_query_cascade(
     errors: List[str] = []
     seen_urls: "set[str]" = set()
     providers_used: List[str] = []
+    provider_attempts: List[Dict[str, Any]] = []
 
-    if os.environ.get("LLMLAYER_API_KEY", "").strip():
-        try:
-            for item in search_llmlayer(query=query, max_results=max_results_per_provider, include_domains=include_domains):
-                _dedup_append(item, collected, seen_urls, "llmlayer")
-            providers_used.append("llmlayer")
-        except Exception as err:
-            errors.append(f"llmlayer: {err}")
+    for provider_name, provider_fn in _configured_providers("discovery"):
+        if provider_name in {"exa", "tavily"} and len(collected) >= min_results_before_tavily:
+            continue
+        if provider_name == "tinyfish" and len(collected) >= min_results_before_tinyfish:
+            continue
 
-    if _EXA_ENABLED and len(collected) < min_results_before_tavily and os.environ.get("EXA_API_KEY", "").strip():
+        before = len(collected)
+        providers_used.append(provider_name)
         try:
-            for item in search_exa(query=query, max_results=max_results_per_provider, include_domains=include_domains):
-                _dedup_append(item, collected, seen_urls, "exa")
-            providers_used.append("exa")
+            results = provider_fn(
+                query=query,
+                max_results=max_results_per_provider,
+                include_domains=include_domains,
+            )
+            for item in results:
+                _dedup_append(item, collected, seen_urls, provider_name)
+            added = len(collected) - before
+            provider_attempts.append(
+                {
+                    "provider": provider_name,
+                    "status": "ok" if added else "empty",
+                    "result_count": added,
+                }
+            )
         except Exception as err:
-            errors.append(f"exa: {err}")
-
-    if len(collected) < min_results_before_tavily and os.environ.get("TAVILY_API_KEY", "").strip():
-        try:
-            for item in search_tavily(query=query, max_results=max_results_per_provider, include_domains=include_domains):
-                _dedup_append(item, collected, seen_urls, "tavily")
-            providers_used.append("tavily")
-        except Exception as err:
-            errors.append(f"tavily: {err}")
-
-    if len(collected) < min_results_before_tinyfish and os.environ.get("TINYFISH_API_KEY", "").strip():
-        try:
-            for item in search_tinyfish(query=query, max_results=max_results_per_provider, include_domains=include_domains):
-                _dedup_append(item, collected, seen_urls, "tinyfish")
-            providers_used.append("tinyfish")
-        except Exception as err:
-            errors.append(f"tinyfish: {err}")
+            error_kind = classify_provider_error(err)
+            errors.append(f"{provider_name}: {err}")
+            provider_attempts.append(
+                {
+                    "provider": provider_name,
+                    "status": "error",
+                    "result_count": 0,
+                    "error_kind": error_kind,
+                }
+            )
 
     _sort_collected(collected)
+    fallback_used = any(attempt["provider"] != "llmlayer" for attempt in provider_attempts)
     return {
         "query": query,
         "results": collected,
         "errors": errors,
         "provider_count": len(providers_used),
+        "provider_order": list(provider_waterfall("discovery", include_exa=_EXA_ENABLED)),
+        "provider_attempts": provider_attempts,
+        "primary_provider": next(
+            (attempt["provider"] for attempt in provider_attempts if attempt["result_count"]),
+            "",
+        ),
+        "fallback_used": fallback_used,
+        "degraded": bool(errors or fallback_used or not collected),
     }
 
 
@@ -710,18 +750,14 @@ def run_research_query(
     max_results_per_provider: int = 2,
     include_domains: Optional[Sequence[str]] = None,
 ) -> Dict[str, Any]:
-    providers = (
-        ("llmlayer", search_llmlayer),
-        ("tavily", search_tavily),
-        ("tinyfish", search_tinyfish),
-    )
-    if _EXA_ENABLED:
-        providers = (("exa", search_exa),) + providers
+    providers = _configured_providers("discovery")
     collected: List[Dict[str, str]] = []
     errors: List[str] = []
     seen_urls: "set[str]" = set()
+    provider_attempts: List[Dict[str, Any]] = []
 
     for provider_name, provider_fn in providers:
+        before = len(collected)
         try:
             results = provider_fn(
                 query=query,
@@ -730,14 +766,37 @@ def run_research_query(
             )
         except Exception as err:
             errors.append(f"{provider_name}: {err}")
+            provider_attempts.append(
+                {
+                    "provider": provider_name,
+                    "status": "error",
+                    "result_count": 0,
+                    "error_kind": classify_provider_error(err),
+                }
+            )
             continue
         for item in results:
             _dedup_append(item, collected, seen_urls, provider_name)
+        added = len(collected) - before
+        provider_attempts.append(
+            {
+                "provider": provider_name,
+                "status": "ok" if added else "empty",
+                "result_count": added,
+            }
+        )
 
     _sort_collected(collected)
     return {
         "query": query,
         "results": collected,
         "errors": errors,
-        "provider_count": len([name for name, _ in providers if os.environ.get(f"{name.upper()}_API_KEY")]),
+        "provider_count": len(providers),
+        "provider_order": list(provider_waterfall("discovery", include_exa=_EXA_ENABLED)),
+        "provider_attempts": provider_attempts,
+        "primary_provider": next(
+            (attempt["provider"] for attempt in provider_attempts if attempt["result_count"]),
+            "",
+        ),
+        "degraded": bool(errors or not collected),
     }
