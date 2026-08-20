@@ -18,6 +18,7 @@ import re
 import urllib.request
 from datetime import date as _date
 from html.parser import HTMLParser
+from io import BytesIO
 from typing import Any, Dict, List, Optional
 
 
@@ -59,13 +60,25 @@ def _fetch_release_page_text(url: str) -> str:
     try:
         with urllib.request.urlopen(request, timeout=20) as response:
             content_type = str(response.headers.get("content-type") or "").lower()
-            if "html" not in content_type:
-                return ""
-            html = response.read(2_000_000).decode("utf-8", errors="replace")
+            payload = response.read(5_000_000)
     except Exception as exc:
         print(f"[synthesis] Direct official-release fetch failed for {url}: {exc}", flush=True)
         return ""
-    return _html_release_text(html)
+    if "html" in content_type:
+        return _html_release_text(payload.decode("utf-8", errors="replace"))
+    if "pdf" in content_type or url.lower().split("?", 1)[0].endswith(".pdf"):
+        try:
+            from pypdf import PdfReader
+
+            reader = PdfReader(BytesIO(payload))
+            return re.sub(
+                r"\s+",
+                " ",
+                " ".join((page.extract_text() or "") for page in reader.pages),
+            ).strip()[:30_000]
+        except Exception as exc:
+            print(f"[synthesis] Official PDF extraction failed for {url}: {exc}", flush=True)
+    return ""
 
 
 def _normalize_fiscal_period(match: re.Match[str], pattern_index: int) -> str:
@@ -1348,6 +1361,43 @@ def synthesize_earnings_brief_with_review(
     )
     if not brief or not brief.get("sections"):
         return brief
+
+    if mode == "post" and not working_facts.get("official_release_source_text"):
+        release_url = str((brief.get("official_links") or {}).get("press_release") or "").strip()
+        release_text = _fetch_release_page_text(release_url) if release_url else ""
+        if release_text:
+            working_facts["official_release_source_text"] = release_text
+            working_facts["official_release_source_url"] = release_url
+            recovered_period = _extract_official_fiscal_period(
+                [
+                    {
+                        "title": "",
+                        "snippet": release_text,
+                        "url": release_url,
+                        "published_date": working_facts.get("report_date"),
+                    }
+                ],
+                str(working_facts.get("report_date") or ""),
+                company,
+            )
+            if recovered_period:
+                working_facts["official_fiscal_quarter_label"] = recovered_period
+            print(
+                f"[synthesis] Recovered direct issuer release from initial brief for {ticker}: "
+                f"source={release_url} chars={len(release_text)} period={recovered_period or 'unresolved'}",
+                flush=True,
+            )
+            rebuilt = synthesize_earnings_brief_with_web_search(
+                ticker,
+                company,
+                quarter,
+                mode,
+                working_facts,
+                model=model,
+                extra_instructions="Rebuild this draft against the newly fetched direct issuer release.",
+            )
+            if rebuilt and rebuilt.get("sections"):
+                brief = rebuilt
 
     sanity_issues: List[str] = []
     for attempt in range(2):
