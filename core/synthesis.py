@@ -19,6 +19,96 @@ from datetime import date as _date
 from typing import Any, Dict, List, Optional
 
 
+_FISCAL_PERIOD_PATTERNS = (
+    re.compile(r"\bFY\s*['’]?(\d{2,4})\s*[-–—:/ ]*Q([1-4])\b", re.IGNORECASE),
+    re.compile(r"\bQ([1-4])\s*[-–—:/ ]*(?:FY\s*)?['’]?(\d{2,4})\b", re.IGNORECASE),
+)
+
+
+def _normalize_fiscal_period(match: re.Match[str], pattern_index: int) -> str:
+    year, quarter = match.groups() if pattern_index == 0 else (match.group(2), match.group(1))
+    if len(year) == 2:
+        year = f"20{year}"
+    return f"Q{quarter} FY{year}"
+
+
+def _extract_official_fiscal_period(
+    results: List[Dict[str, Any]], report_date: str, company: str
+) -> str:
+    """Pick a fiscal period only when a current, company-specific release result supports it."""
+    company_tokens = {
+        token.lower()
+        for token in re.findall(r"[A-Za-z0-9]+", company)
+        if len(token) >= 4 and token.lower() not in {"company", "corporation", "incorporated", "holdings"}
+    }
+    scores: Dict[str, int] = {}
+    for item in results:
+        title = str(item.get("title") or "")
+        snippet = str(item.get("snippet") or "")
+        url = str(item.get("url") or "")
+        combined = f"{title} {snippet} {url}"
+        lower = combined.lower()
+        if company_tokens and not any(token in lower for token in company_tokens):
+            continue
+        freshness = 0
+        if report_date and (item.get("published_date") == report_date or report_date in combined):
+            freshness += 5
+        if any(term in lower for term in ("earnings release", "financial results", "quarterly results")):
+            freshness += 2
+        if any(token in url.lower() for token in company_tokens):
+            freshness += 2
+        for index, pattern in enumerate(_FISCAL_PERIOD_PATTERNS):
+            for match in pattern.finditer(combined):
+                label = _normalize_fiscal_period(match, index)
+                scores[label] = max(scores.get(label, 0), freshness)
+    if not scores:
+        return ""
+    ranked = sorted(scores.items(), key=lambda pair: pair[1], reverse=True)
+    if ranked[0][1] < 4 or (len(ranked) > 1 and ranked[0][1] == ranked[1][1]):
+        return ""
+    return ranked[0][0]
+
+
+def _official_release_grounding(
+    ticker: str, company: str, report_date: str
+) -> Dict[str, str]:
+    """Run the configured LLMLayer-first discovery cascade for the current release."""
+    try:
+        from core.research import filter_results_for_entity, run_research_query_cascade
+
+        research = run_research_query_cascade(
+            query=(
+                f"{company} ({ticker}) {report_date} official earnings release financial results "
+                "revenue EPS fiscal quarter"
+            ),
+            max_results_per_provider=5,
+            min_results_before_tavily=3,
+        )
+        results = filter_results_for_entity(research.get("results", []), company, ticker)[:6]
+    except Exception as exc:
+        print(f"[synthesis] Official-release discovery failed for {ticker}: {exc}", flush=True)
+        return {}
+
+    evidence_lines = []
+    for item in results:
+        evidence_lines.append(
+            " | ".join(
+                value
+                for value in (
+                    str(item.get("title") or "").strip(),
+                    str(item.get("url") or "").strip(),
+                    str(item.get("snippet") or "").strip(),
+                )
+                if value
+            )
+        )
+    return {
+        "fiscal_period": _extract_official_fiscal_period(results, report_date, company),
+        "evidence": "\n".join(evidence_lines),
+        "provider": str(research.get("primary_provider") or ""),
+    }
+
+
 def _normalize_bullets(items: Any) -> List[Dict[str, Any]]:
     """Normalize a bullets array into a consistent [{"text": str, "children":
     [str...]}] shape, accepting either that shape or plain strings (in case
@@ -556,6 +646,22 @@ def synthesize_earnings_brief_with_web_search(
             "do not restate a different share-price-move percentage from search results "
             "anywhere in the brief, even if you find one."
         )
+    if mode == "post" and facts.get("official_release_evidence"):
+        prompt += (
+            "\n\nCURRENT OFFICIAL-RELEASE DISCOVERY (collected before synthesis through the "
+            f"LLMLayer-first provider cascade; primary provider: "
+            f"{facts.get('official_release_provider') or 'none'}):\n"
+            f"{facts['official_release_evidence']}\n"
+            "Use these current-release results to locate and prefer the issuer's own release. "
+            "Do not reuse figures from a prior quarter merely because they rank higher in search."
+        )
+    if mode == "post" and facts.get("official_fiscal_quarter_label"):
+        prompt += (
+            "\n\nREQUIRED FISCAL-PERIOD GATE: current official-release search evidence identifies "
+            f"this report as {facts['official_fiscal_quarter_label']}. The returned "
+            "fiscal_quarter_label and every actual/consensus figure must belong to that exact "
+            "period; otherwise this draft fails QA."
+        )
     prompt += (
         f"\n\nFiscal period (rough calendar-quarter guess ONLY -- verify and correct via "
         f"research per the fiscal_quarter_label instructions above): {quarter}"
@@ -936,6 +1042,14 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
         except (ValueError, TypeError):
             pass
 
+    official_period = str((facts or {}).get("official_fiscal_quarter_label") or "").strip()
+    reported_period = str(brief.get("fiscal_quarter_label") or "").strip()
+    if official_period and reported_period and official_period.lower() != reported_period.lower():
+        issues.append(
+            f"fiscal_quarter_label ({reported_period}) conflicts with the current official-release "
+            f"evidence ({official_period}). Rebuild the brief using only figures for {official_period}."
+        )
+
     # Caught live against MSFT: a stray, unrelated dollar figure elsewhere in
     # the report (e.g. a backlog/RPO number) got mislabeled as CapEx,
     # producing a CapEx figure wildly out of scale with every other CapEx
@@ -1053,14 +1167,27 @@ def synthesize_earnings_brief_with_review(
     to 2 revision rounds so a stubborn brief can't loop cost/latency indefinitely.
     Same return shape as synthesize_earnings_brief_with_web_search ({} if
     unavailable)."""
-    brief = synthesize_earnings_brief_with_web_search(ticker, company, quarter, mode, facts, model=model)
+    working_facts = dict(facts)
+    if mode == "post":
+        grounding = _official_release_grounding(
+            ticker, company, str(working_facts.get("report_date") or "")
+        )
+        if grounding.get("evidence"):
+            working_facts["official_release_evidence"] = grounding["evidence"]
+            working_facts["official_release_provider"] = grounding.get("provider", "")
+        if grounding.get("fiscal_period"):
+            working_facts["official_fiscal_quarter_label"] = grounding["fiscal_period"]
+
+    brief = synthesize_earnings_brief_with_web_search(
+        ticker, company, quarter, mode, working_facts, model=model
+    )
     if not brief or not brief.get("sections"):
         return brief
 
     sanity_issues: List[str] = []
     for attempt in range(2):
-        review = review_earnings_brief(ticker, company, quarter, mode, facts, brief, model=model)
-        sanity_issues = _sanity_check_brief(brief, mode=mode, facts=facts)
+        review = review_earnings_brief(ticker, company, quarter, mode, working_facts, brief, model=model)
+        sanity_issues = _sanity_check_brief(brief, mode=mode, facts=working_facts)
         issues = list(review.get("issues", [])) + sanity_issues
         if review.get("pass", True) and not issues:
             return brief
@@ -1074,7 +1201,7 @@ def synthesize_earnings_brief_with_review(
         if review.get("follow_up_queries"):
             extra += ". Also specifically research: " + "; ".join(review["follow_up_queries"])
         revised = synthesize_earnings_brief_with_web_search(
-            ticker, company, quarter, mode, facts, model=model, extra_instructions=extra
+            ticker, company, quarter, mode, working_facts, model=model, extra_instructions=extra
         )
         if not revised or not revised.get("sections"):
             return brief
@@ -1085,7 +1212,7 @@ def synthesize_earnings_brief_with_review(
     # figure repeatedly conflated with a one-time equity-investment gain). Don't
     # ship a number this dubious silently; flag it visibly instead of retrying
     # forever.
-    if _sanity_check_brief(brief, mode=mode, facts=facts):
+    if _sanity_check_brief(brief, mode=mode, facts=working_facts):
         caveat = (
             "Note: automated review could not reconcile one or more figures below after multiple "
             "passes (see the note in the metric itself) -- verify these independently before relying "
