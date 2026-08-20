@@ -162,6 +162,11 @@ def _official_release_grounding(
             source_url = str(item.get("url") or "")
             break
 
+    print(
+        f"[synthesis] Official grounding for {ticker}: provider={research.get('primary_provider') or 'none'} "
+        f"period={fiscal_period or 'unresolved'} source={source_url or 'none'} chars={len(source_text)}",
+        flush=True,
+    )
     return {
         "fiscal_period": fiscal_period,
         "evidence": "\n".join(evidence_lines),
@@ -1147,6 +1152,37 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
                     f"financials.eps_actual conflicts with the issuer release: the brief has "
                     f"${financials['eps_actual']:.2f} but the release states adjusted EPS of "
                     f"${official_eps:.2f}."
+                )
+
+        percentage_checks = (
+            (("walmart u.s. comp", "u.s. comparable", "u.s. comp sales"), r"Walmart U\.S\. comp sales\D{0,40}([\d.]+)%"),
+            (("global ecommerce", "ecommerce sales"), r"eCommerce sales\D{0,40}([\d.]+)%"),
+            (("membership fee",), r"Membership fee revenue\D{0,40}([\d.]+)%"),
+            (("operating income",), r"Operating income\D{0,80}([\d.]+)%"),
+        )
+        for aliases, source_pattern in percentage_checks:
+            source_match = re.search(source_pattern, official_text, re.IGNORECASE)
+            if not source_match:
+                continue
+            expected_pct = float(source_match.group(1))
+            for metric in (str(value) for value in brief.get("key_metrics", []) or []):
+                if not any(alias in metric.lower() for alias in aliases):
+                    continue
+                metric_pcts = [float(value) for value in re.findall(r"([\d.]+)%", metric)]
+                if metric_pcts and not any(abs(value - expected_pct) < 0.05 for value in metric_pcts):
+                    issues.append(
+                        f"Key metric '{metric}' conflicts with the issuer release, which states "
+                        f"{expected_pct:g}% for that category."
+                    )
+
+        for metric in (str(value) for value in brief.get("key_metrics", []) or []):
+            if "capex" not in metric.lower() and "capital expenditure" not in metric.lower():
+                continue
+            amount_match = re.search(r"\$([\d,.]+)\s*(?:billion|million|[BM])\b", metric, re.IGNORECASE)
+            if amount_match and amount_match.group(1).replace(",", "") not in official_text.replace(",", ""):
+                issues.append(
+                    f"Key metric '{metric}' states a CapEx amount that does not appear in the direct "
+                    "issuer release text. Remove it or replace it with a source-supported figure."
                 )
 
     # Caught live against MSFT: a stray, unrelated dollar figure elsewhere in
