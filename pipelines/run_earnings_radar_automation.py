@@ -2,9 +2,9 @@
 """
 Cloud-friendly earnings radar automation runner.
 
-This is the Render/Railway counterpart to the local PowerShell scheduler. It
-fetches the latest calendar, selects either today's or this week's report window
-in New York time, and then invokes the weekly earnings email workflow.
+This is the Cloudflare Container entrypoint for scheduled radar jobs. It fetches
+the latest calendar, selects either today's or this week's report window in New
+York time, and then invokes the earnings email workflow.
 """
 
 from __future__ import annotations
@@ -84,6 +84,12 @@ def env_value(name: str, default: str = "") -> str:
     return os.environ.get(name, default).strip()
 
 
+def resolve_recipient(mode: str) -> str:
+    if mode == "daily":
+        return env_value("DEAL_ALERT_EMAIL_TO")
+    return env_value("WEEKLY_BRIEFING_EMAIL_TO") or env_value("DEAL_ALERT_EMAIL_TO")
+
+
 def resolve_today(override: str = ""):
     if override:
         return datetime.strptime(override, "%Y-%m-%d").date()
@@ -132,9 +138,10 @@ def main() -> int:
     run_command(fetch_args)
 
     recipient_env = "DEAL_ALERT_EMAIL_TO" if args.mode == "daily" else "WEEKLY_BRIEFING_EMAIL_TO"
-    recipient = env_value(recipient_env)
+    recipient = resolve_recipient(args.mode)
     if not recipient:
-        raise RuntimeError(f"Missing required recipient env var: {recipient_env}")
+        fallback = " or DEAL_ALERT_EMAIL_TO" if args.mode == "weekly" else ""
+        raise RuntimeError(f"Missing required recipient env var: {recipient_env}{fallback}")
 
     workflow_args = [
         args.python,

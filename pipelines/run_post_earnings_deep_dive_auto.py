@@ -19,12 +19,14 @@ import json
 import os
 import subprocess
 import sys
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
 WORKSPACE_ROOT = PROJECT_ROOT  # core/ and pipelines/ are now siblings under repo root
+NY_TZ = ZoneInfo("America/New_York")
 
 if str(WORKSPACE_ROOT) not in sys.path:
     sys.path.insert(0, str(WORKSPACE_ROOT))
@@ -71,10 +73,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def ensure_calendar_csv(path: str) -> None:
-    # Each Render cron runs in its own fresh, ephemeral container -- there's
-    # no shared filesystem with the daily/weekly radar cron that normally
-    # produces this file. Regenerate it here if it isn't already present
-    # (e.g. from a local run) instead of assuming another job wrote it.
+    # Cloudflare's command contract refreshes this before every scheduled run.
+    # Keep this fallback for direct/local invocations instead of assuming a
+    # different job populated the container filesystem.
     csv_path = Path(path)
     if csv_path.exists():
         return
@@ -238,11 +239,11 @@ def build_brief_context(reporter: dict, report_date: date) -> dict:
     }
 
 
-def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> None:
+def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
     recipient = os.environ.get("DEAL_ALERT_EMAIL_TO", "").strip()
     if not recipient:
         print(f"[post-deep-dive] {context['ticker']}: no DEAL_ALERT_EMAIL_TO set -- skipping send", flush=True)
-        return
+        return False
 
     ticker_dir = output_dir / context["ticker"].lower()
     ticker_dir.mkdir(parents=True, exist_ok=True)
@@ -269,25 +270,29 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> None:
         json.dumps(summary, indent=2), encoding="utf-8"
     )
 
-    # Also archive to Convex -- local disk doesn't persist across separate
-    # Render cron services, so the 10am digest (a different service) can't
-    # read the file above in production. No-ops quietly if Convex isn't
-    # configured.
-    archive_result = archive_post_earnings_summary(
-        ticker=summary["ticker"],
-        company=summary["company"],
-        quarter=summary["quarter"],
-        report_date=summary["report_date"],
-        report_time=summary["report_time"],
-        reaction_pct=summary["reaction_pct"],
-        reaction_line=summary["reaction_line"],
-        key_metrics=summary["key_metrics"],
-        sector=sector_for(context["ticker"]),
-        is_portco=is_portco(context["ticker"]),
-        financials=context.get("financials"),
-    )
-    if archive_result.get("status") != "archived":
-        print(f"[post-deep-dive] {context['ticker']}: Convex archive skipped ({archive_result.get('reason')})", flush=True)
+    # Also archive to Convex -- separate Cloudflare job containers do not
+    # share local disk, so the digest cannot read the file above in production.
+    # No-ops quietly if Convex isn't configured.
+    archive_ok = False
+    try:
+        archive_result = archive_post_earnings_summary(
+            ticker=summary["ticker"],
+            company=summary["company"],
+            quarter=summary["quarter"],
+            report_date=summary["report_date"],
+            report_time=summary["report_time"],
+            reaction_pct=summary["reaction_pct"],
+            reaction_line=summary["reaction_line"],
+            key_metrics=summary["key_metrics"],
+            sector=sector_for(context["ticker"]),
+            is_portco=is_portco(context["ticker"]),
+            financials=context.get("financials"),
+        )
+        archive_ok = archive_result.get("status") == "archived"
+        if not archive_ok:
+            print(f"[post-deep-dive] {context['ticker']}: Convex archive skipped ({archive_result.get('reason')})", flush=True)
+    except Exception as exc:
+        print(f"[post-deep-dive] {context['ticker']}: Convex archive failed: {exc}", flush=True)
 
     subject = build_email_subject(context["company"], context["ticker"], context["quarter"], context["brief_label"])
     recipients = parse_recipients(recipient)
@@ -298,12 +303,12 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> None:
 
     if draft_only:
         print(f"[post-deep-dive] {context['ticker']}: drafted only", flush=True)
-        return
+        return True
 
     api_key = os.environ.get("AGENTMAIL_API_KEY", "").strip()
     if not api_key:
         print(f"[post-deep-dive] {context['ticker']}: no AGENTMAIL_API_KEY set -- skipping send", flush=True)
-        return
+        return False
     try:
         inbox = agentmail_delivery.ensure_inbox(
             api_key=api_key,
@@ -319,13 +324,15 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> None:
             reply_to=reply_to,
         )
         print(f"[post-deep-dive] {context['ticker']}: sent (message_id={result.get('message_id')})", flush=True)
+        return archive_ok
     except Exception as exc:
         print(f"[post-deep-dive] {context['ticker']}: send failed: {exc}", flush=True)
+        return False
 
 
 def main() -> int:
     args = parse_args()
-    today = _parse_date(args.for_date) if args.for_date else date.today()
+    today = _parse_date(args.for_date) if args.for_date else datetime.now(NY_TZ).date()
 
     watchlist = _resolve_watchlist(args.watchlist)
     if not watchlist:
@@ -349,11 +356,16 @@ def main() -> int:
     output_dir = Path(args.output_dir) if args.output_dir else output_root / date_dir
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    succeeded = 0
     for reporter in reporters:
-        context = build_brief_context(reporter, today)
-        send_deep_dive(context, output_dir, args.draft_only)
+        try:
+            context = build_brief_context(reporter, today)
+            if send_deep_dive(context, output_dir, args.draft_only):
+                succeeded += 1
+        except Exception as exc:
+            print(f"[post-deep-dive] {reporter['ticker']}: failed without blocking other reporters: {exc}", flush=True)
 
-    return 0
+    return 0 if succeeded else 1
 
 
 if __name__ == "__main__":

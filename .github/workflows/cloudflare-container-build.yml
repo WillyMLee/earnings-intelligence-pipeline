@@ -1,0 +1,37 @@
+name: Cloudflare Container Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [master]
+    paths:
+      - ".github/workflows/cloudflare-container-build.yml"
+      - ".dockerignore"
+      - "Dockerfile.earnings"
+      - "requirements.txt"
+      - "cloudflare/container_server.py"
+      - "core/**"
+      - "pipelines/**"
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Build the production Python image
+        run: docker build --platform linux/amd64 --file Dockerfile.earnings --tag surocap-earnings-runtime:2026-08-20-v1 .
+      - name: Verify image platform
+        run: test "$(docker image inspect surocap-earnings-runtime:2026-08-20-v1 --format '{{.Os}}/{{.Architecture}}')" = "linux/amd64"
+      - name: Export image
+        run: docker save --output surocap-earnings-runtime.tar surocap-earnings-runtime:2026-08-20-v1
+      - name: Upload image for the authorized Cloudflare release
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: surocap-earnings-runtime-${{ github.sha }}
+          path: surocap-earnings-runtime.tar
+          compression-level: 0
+          retention-days: 1

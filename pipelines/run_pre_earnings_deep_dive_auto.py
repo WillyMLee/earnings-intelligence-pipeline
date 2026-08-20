@@ -17,7 +17,7 @@ import csv
 import os
 import subprocess
 import sys
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
@@ -38,6 +38,7 @@ from core.synthesis import (  # noqa: E402
     synthesize_pre_earnings_brief,
 )
 import agentmail_delivery  # noqa: E402
+from earnings_archive import archive_pre_earnings_snapshot  # noqa: E402
 from render_pre_earnings_deep_dive_email import (  # noqa: E402
     build_email_subject,
     create_email_message,
@@ -59,10 +60,9 @@ def parse_args() -> argparse.Namespace:
 
 
 def ensure_calendar_csv(path: str) -> None:
-    # Each Render cron runs in its own fresh, ephemeral container -- there's
-    # no shared filesystem with the daily/weekly radar cron that normally
-    # produces this file. Regenerate it here if it isn't already present
-    # (e.g. from a local run) instead of assuming another job wrote it.
+    # Cloudflare's command contract refreshes this before every scheduled run.
+    # Keep this fallback for direct/local invocations instead of assuming a
+    # different job populated the container filesystem.
     csv_path = Path(path)
     if csv_path.exists():
         return
@@ -76,6 +76,13 @@ def ensure_calendar_csv(path: str) -> None:
 
 def _parse_date(s: str) -> date:
     return date.fromisoformat(s.split("T")[0])
+
+
+def _next_business_day(today: date) -> date:
+    candidate = today + timedelta(days=1)
+    while candidate.weekday() >= 5:
+        candidate += timedelta(days=1)
+    return candidate
 
 
 def quarter_label(d: date) -> str:
@@ -129,6 +136,12 @@ def build_brief_context(reporter: dict, report_date: date) -> dict:
 
     print(f"[pre-deep-dive] Fetching financial snapshot for {ticker}...", flush=True)
     snap = fetch_financial_snapshot(ticker)
+    try:
+        archive_result = archive_pre_earnings_snapshot(ticker=ticker, report_date=report_date.isoformat(), snap=snap)
+        if archive_result.get("status") != "archived":
+            print(f"[pre-deep-dive] {ticker}: consensus archive skipped ({archive_result.get('reason')})", flush=True)
+    except Exception as exc:
+        print(f"[pre-deep-dive] {ticker}: consensus archive failed: {exc}", flush=True)
 
     facts = {
         "last_q_revenue": snap.get("last_q_revenue"),
@@ -198,11 +211,11 @@ def build_brief_context(reporter: dict, report_date: date) -> dict:
     }
 
 
-def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> None:
+def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
     recipient = os.environ.get("DEAL_ALERT_EMAIL_TO", "").strip()
     if not recipient:
         print(f"[pre-deep-dive] {context['ticker']}: no DEAL_ALERT_EMAIL_TO set -- skipping send", flush=True)
-        return
+        return False
 
     ticker_dir = output_dir / context["ticker"].lower()
     ticker_dir.mkdir(parents=True, exist_ok=True)
@@ -223,12 +236,12 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> None:
 
     if draft_only:
         print(f"[pre-deep-dive] {context['ticker']}: drafted only", flush=True)
-        return
+        return True
 
     api_key = os.environ.get("AGENTMAIL_API_KEY", "").strip()
     if not api_key:
         print(f"[pre-deep-dive] {context['ticker']}: no AGENTMAIL_API_KEY set -- skipping send", flush=True)
-        return
+        return False
     try:
         inbox = agentmail_delivery.ensure_inbox(
             api_key=api_key,
@@ -244,14 +257,16 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> None:
             reply_to=reply_to,
         )
         print(f"[pre-deep-dive] {context['ticker']}: sent (message_id={result.get('message_id')})", flush=True)
+        return True
     except Exception as exc:
         print(f"[pre-deep-dive] {context['ticker']}: send failed: {exc}", flush=True)
+        return False
 
 
 def main() -> int:
     args = parse_args()
-    today = _parse_date(args.for_date) if args.for_date else date.today()
-    tomorrow = today + timedelta(days=1)
+    today = _parse_date(args.for_date) if args.for_date else datetime.now(NY_TZ).date()
+    tomorrow = _next_business_day(today)
 
     watchlist = _resolve_watchlist(args.watchlist)
     if not watchlist:
@@ -270,11 +285,16 @@ def main() -> int:
     output_dir = Path(args.output_dir) if args.output_dir else output_root / tomorrow.isoformat()
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    succeeded = 0
     for reporter in reporters:
-        context = build_brief_context(reporter, tomorrow)
-        send_deep_dive(context, output_dir, args.draft_only)
+        try:
+            context = build_brief_context(reporter, tomorrow)
+            if send_deep_dive(context, output_dir, args.draft_only):
+                succeeded += 1
+        except Exception as exc:
+            print(f"[pre-deep-dive] {reporter['ticker']}: failed without blocking other reporters: {exc}", flush=True)
 
-    return 0
+    return 0 if succeeded else 1
 
 
 if __name__ == "__main__":

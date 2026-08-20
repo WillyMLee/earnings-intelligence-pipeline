@@ -1,0 +1,23 @@
+{
+  "name": "earnings-intelligence-cloudflare-runtime",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "test:cloudflare": "node --test tests/cloudflare/*.test.mjs",
+    "cloudflare:types": "wrangler types --config wrangler.earnings.jsonc cloudflare/worker-configuration.d.ts",
+    "cloudflare:dry-run": "wrangler deploy --config wrangler.earnings.jsonc --dry-run --outdir outputs/cloudflare-earnings-dry-run",
+    "cloudflare:deploy": "wrangler deploy --config wrangler.earnings.jsonc --keep-vars"
+  },
+  "dependencies": {
+    "@cloudflare/containers": "0.3.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "latest",
+    "@types/node": "^26.2.0",
+    "wrangler": "4.124.0"
+  }
+}

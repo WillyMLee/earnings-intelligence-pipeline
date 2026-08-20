@@ -1,0 +1,15 @@
+.git
+.github
+.pytest_cache
+.wrangler
+**/__pycache__
+**/*.pyc
+**/node_modules
+dashboard/dist
+data/*.csv
+outputs
+tmp
+_tmp_*
+.env
+.env.*
+

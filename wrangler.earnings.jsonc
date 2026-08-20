@@ -1,0 +1,81 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "surocap-earnings-orchestrator-preview",
+  "main": "cloudflare/worker.mjs",
+  "compatibility_date": "2026-08-20",
+  "compatibility_flags": ["nodejs_compat"],
+  "workers_dev": true,
+  "preview_urls": true,
+  "containers": [
+    {
+      "class_name": "EarningsContainer",
+      "image": "./Dockerfile.earnings",
+      "instance_type": "standard-1",
+      "max_instances": 12,
+      "rollout_step_percentage": [10, 100]
+    }
+  ],
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "EARNINGS_CONTAINER",
+        "class_name": "EarningsContainer"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "earnings-container-v1",
+      "new_sqlite_classes": ["EarningsContainer"]
+    }
+  ],
+  "workflows": [
+    {
+      "name": "surocap-earnings-jobs-preview",
+      "binding": "EARNINGS_JOB_WORKFLOW",
+      "class_name": "EarningsJobWorkflow"
+    }
+  ],
+  "triggers": {
+    "crons": ["*/30 * * * *"]
+  },
+  "vars": {
+    "ALPHA_VANTAGE_API_KEY": "demo",
+    "CONVEX_URL": "https://honorable-goldfish-309.convex.cloud",
+    "DRY_RUN": "false",
+    "ENVIRONMENT": "production",
+    "NATIVE_SENDS_ENABLED": "true",
+    "EMAIL_PROVIDER": "agentmail",
+    "TINYFISH_LANGUAGE": "en",
+    "TINYFISH_LOCATION": "US",
+    "OPENAI_WEB_SEARCH_MODEL": "gpt-4o-mini",
+    "EARNINGS_TIME_ZONE": "America/New_York",
+    "SCHEDULE_VERSION": "earnings-cloudflare-v2",
+    "RELEASE_TAG": "2026-08-20-cloudflare-cutover-v1"
+  },
+  "secrets": {
+    "required": [
+      "AGENTMAIL_API_KEY",
+      "AGENTMAIL_INBOX_ID",
+      "DEAL_ALERT_EMAIL_TO",
+      "EARNINGS_ARCHIVE_TOKEN",
+      "EXA_API_KEY",
+      "LLMLAYER_API_KEY",
+      "OPENAI_API_KEY",
+      "TAVILY_API_KEY",
+      "TINYFISH_API_KEY"
+    ]
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "invocation_logs": true,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": true,
+      "head_sampling_rate": 0.1
+    }
+  }
+}
+
