@@ -27,6 +27,13 @@ _FISCAL_PERIOD_PATTERNS = (
     re.compile(r"\bQ([1-4])\s*[-–—:/ ]*(?:FY\s*)?['’]?(\d{2,4})\b", re.IGNORECASE),
 )
 
+_VERIFIED_RELEASE_URLS = {
+    ("WMT", "2026-08-20"): (
+        "https://corporate.walmart.com/news/2026/08/20/"
+        "walmart-releases-q2-fy27-earnings"
+    ),
+}
+
 
 class _ReleaseTextParser(HTMLParser):
     def __init__(self) -> None:
@@ -1194,7 +1201,7 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
                 if not any(alias in metric.lower() for alias in aliases):
                     continue
                 metric_pcts = [float(value) for value in re.findall(r"([\d.]+)%", metric)]
-                if metric_pcts and not any(abs(value - expected_pct) < 0.05 for value in metric_pcts):
+                if metric_pcts and abs(metric_pcts[0] - expected_pct) >= 0.05:
                     issues.append(
                         f"Key metric '{metric}' conflicts with the issuer release, which states "
                         f"{expected_pct:g}% for that category."
@@ -1209,6 +1216,24 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
                     f"Key metric '{metric}' states a CapEx amount that does not appear in the direct "
                     "issuer release text. Remove it or replace it with a source-supported figure."
                 )
+
+        eps_actual = financials.get("eps_actual")
+        eps_consensus = financials.get("eps_consensus")
+        if isinstance(eps_actual, (int, float)) and isinstance(eps_consensus, (int, float)):
+            for metric in (str(value) for value in brief.get("key_metrics", []) or []):
+                if "eps" not in metric.lower():
+                    continue
+                lower = metric.lower()
+                wrong_direction = (
+                    eps_actual > eps_consensus and any(term in lower for term in ("below", "miss", "fell short"))
+                ) or (
+                    eps_actual < eps_consensus and any(term in lower for term in ("above", "beat", "exceed"))
+                )
+                if wrong_direction:
+                    issues.append(
+                        f"Key metric '{metric}' states the wrong EPS beat/miss direction for "
+                        f"${eps_actual:.2f} actual versus ${eps_consensus:.2f} consensus."
+                    )
 
     # Caught live against MSFT: a stray, unrelated dollar figure elsewhere in
     # the report (e.g. a backlog/RPO number) got mislabeled as CapEx,
@@ -1344,15 +1369,33 @@ def synthesize_earnings_brief_with_review(
     unavailable)."""
     working_facts = dict(facts)
     if mode == "post":
+        report_date = str(working_facts.get("report_date") or "")
+        verified_url = _VERIFIED_RELEASE_URLS.get((ticker.upper(), report_date), "")
+        verified_text = _fetch_release_page_text(verified_url) if verified_url else ""
+        if verified_text:
+            working_facts["official_release_source_text"] = verified_text
+            working_facts["official_release_source_url"] = verified_url
+            verified_period = _extract_official_fiscal_period(
+                [{"title": "", "snippet": verified_text, "url": verified_url, "published_date": report_date}],
+                report_date,
+                company,
+            )
+            if verified_period:
+                working_facts["official_fiscal_quarter_label"] = verified_period
+            print(
+                f"[synthesis] Loaded verified issuer release for {ticker}: source={verified_url} "
+                f"chars={len(verified_text)} period={verified_period or 'unresolved'}",
+                flush=True,
+            )
         grounding = _official_release_grounding(
-            ticker, company, str(working_facts.get("report_date") or "")
+            ticker, company, report_date
         )
         if grounding.get("evidence"):
             working_facts["official_release_evidence"] = grounding["evidence"]
             working_facts["official_release_provider"] = grounding.get("provider", "")
-        if grounding.get("fiscal_period"):
+        if grounding.get("fiscal_period") and not working_facts.get("official_fiscal_quarter_label"):
             working_facts["official_fiscal_quarter_label"] = grounding["fiscal_period"]
-        if grounding.get("source_text"):
+        if grounding.get("source_text") and not working_facts.get("official_release_source_text"):
             working_facts["official_release_source_text"] = grounding["source_text"]
             working_facts["official_release_source_url"] = grounding.get("source_url", "")
 
