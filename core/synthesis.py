@@ -15,7 +15,9 @@ from __future__ import annotations
 import json
 import os
 import re
+import urllib.request
 from datetime import date as _date
+from html.parser import HTMLParser
 from typing import Any, Dict, List, Optional
 
 
@@ -23,6 +25,47 @@ _FISCAL_PERIOD_PATTERNS = (
     re.compile(r"\bFY\s*['’]?(\d{2,4})\s*[-–—:/ ]*Q([1-4])\b", re.IGNORECASE),
     re.compile(r"\bQ([1-4])\s*[-–—:/ ]*(?:FY\s*)?['’]?(\d{2,4})\b", re.IGNORECASE),
 )
+
+
+class _ReleaseTextParser(HTMLParser):
+    def __init__(self) -> None:
+        super().__init__()
+        self.parts: List[str] = []
+        self.skip_depth = 0
+
+    def handle_starttag(self, tag: str, attrs: List[tuple[str, Optional[str]]]) -> None:
+        if tag.lower() in {"script", "style", "noscript", "svg"}:
+            self.skip_depth += 1
+
+    def handle_endtag(self, tag: str) -> None:
+        if tag.lower() in {"script", "style", "noscript", "svg"} and self.skip_depth:
+            self.skip_depth -= 1
+
+    def handle_data(self, data: str) -> None:
+        if not self.skip_depth and data.strip():
+            self.parts.append(data.strip())
+
+
+def _html_release_text(html: str, limit: int = 30_000) -> str:
+    parser = _ReleaseTextParser()
+    parser.feed(html)
+    return re.sub(r"\s+", " ", " ".join(parser.parts)).strip()[:limit]
+
+
+def _fetch_release_page_text(url: str) -> str:
+    if not url.lower().startswith("https://"):
+        return ""
+    request = urllib.request.Request(url, headers={"User-Agent": "EarningsIntelligence/1.0"})
+    try:
+        with urllib.request.urlopen(request, timeout=20) as response:
+            content_type = str(response.headers.get("content-type") or "").lower()
+            if "html" not in content_type:
+                return ""
+            html = response.read(2_000_000).decode("utf-8", errors="replace")
+    except Exception as exc:
+        print(f"[synthesis] Direct official-release fetch failed for {url}: {exc}", flush=True)
+        return ""
+    return _html_release_text(html)
 
 
 def _normalize_fiscal_period(match: re.Match[str], pattern_index: int) -> str:
@@ -102,10 +145,29 @@ def _official_release_grounding(
                 if value
             )
         )
+    fiscal_period = _extract_official_fiscal_period(results, report_date, company)
+    source_text = ""
+    source_url = ""
+    for item in results:
+        combined = " ".join(str(item.get(key) or "") for key in ("title", "snippet", "url"))
+        is_current = bool(report_date and report_date in combined)
+        is_period_match = bool(fiscal_period and fiscal_period.lower() in combined.lower())
+        if not (is_current or is_period_match):
+            continue
+        candidate_text = str(item.get("raw_content") or "").strip()
+        if len(candidate_text) < 1_000:
+            candidate_text = _fetch_release_page_text(str(item.get("url") or ""))
+        if len(candidate_text) >= 1_000:
+            source_text = candidate_text[:30_000]
+            source_url = str(item.get("url") or "")
+            break
+
     return {
-        "fiscal_period": _extract_official_fiscal_period(results, report_date, company),
+        "fiscal_period": fiscal_period,
         "evidence": "\n".join(evidence_lines),
         "provider": str(research.get("primary_provider") or ""),
+        "source_text": source_text,
+        "source_url": source_url,
     }
 
 
@@ -159,7 +221,11 @@ def synthesize_narrative(
     except Exception:
         return {}
 
-    fact_lines = [f"{key}: {value}" for key, value in facts.items() if value not in (None, "", "N/A")]
+    fact_lines = [
+        f"{key}: {value}"
+        for key, value in facts.items()
+        if value not in (None, "", "N/A") and not key.startswith("official_release_")
+    ]
     snippet_lines = [
         f"- ({item.get('domain', 'unknown')}) {item.get('title', '')}: {item.get('snippet', '')}"
         for item in research_snippets[:6]
@@ -662,6 +728,14 @@ def synthesize_earnings_brief_with_web_search(
             "fiscal_quarter_label and every actual/consensus figure must belong to that exact "
             "period; otherwise this draft fails QA."
         )
+    if mode == "post" and facts.get("official_release_source_text"):
+        prompt += (
+            f"\n\nDIRECT ISSUER RELEASE TEXT ({facts.get('official_release_source_url') or 'official source'}):\n"
+            f"{facts['official_release_source_text']}\n\n--- end issuer release ---\n"
+            "Treat this direct issuer text as the source of truth for actual revenue, EPS, "
+            "growth rates, operating income, margins, cash flow, and guidance. If a search "
+            "result conflicts with it, discard the search result."
+        )
     prompt += (
         f"\n\nFiscal period (rough calendar-quarter guess ONLY -- verify and correct via "
         f"research per the fiscal_quarter_label instructions above): {quarter}"
@@ -792,6 +866,10 @@ Check specifically for:
   specifically for companies whose fiscal year doesn't match the calendar (e.g. Microsoft's fiscal
   year ends in June) -- a report in late July should be labeled that company's fiscal Q4, not a
   calendar Q2/Q3. If the brief's own quarter references are inconsistent with each other, flag it.
+- Official-source conflicts (post-earnings only): when known facts include
+  official_release_source_text, compare every actual result, growth rate, cash-flow figure, and
+  guidance number in the brief against that issuer text. Flag any mismatch; do not accept a stale
+  prior-year or prior-quarter figure just because it appears in another search result.
 - Missing forward estimate (pre-earnings only): if this is a pre-earnings brief, does it actually
   state what the Street/consensus expects for the upcoming report (revenue, EPS), or does it only
   describe the prior quarter's results? A pre-earnings brief with no forward-looking estimate has
@@ -1050,6 +1128,27 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
             f"evidence ({official_period}). Rebuild the brief using only figures for {official_period}."
         )
 
+    official_text = str((facts or {}).get("official_release_source_text") or "")
+    if official_text and financials:
+        revenue_match = re.search(r"\bRevenue\s+of\s+\$([\d,.]+)\s+billion\b", official_text, re.IGNORECASE)
+        if revenue_match and isinstance(financials.get("revenue_actual_usd"), (int, float)):
+            official_revenue = float(revenue_match.group(1).replace(",", "")) * 1_000_000_000
+            if abs(financials["revenue_actual_usd"] - official_revenue) / official_revenue > 0.005:
+                issues.append(
+                    f"financials.revenue_actual_usd conflicts with the issuer release: the brief has "
+                    f"${financials['revenue_actual_usd'] / 1_000_000_000:.2f}B but the release states "
+                    f"${official_revenue / 1_000_000_000:.2f}B."
+                )
+        eps_match = re.search(r"\bAdjusted EPS\d*\s+of\s+\$([\d,.]+)\b", official_text, re.IGNORECASE)
+        if eps_match and isinstance(financials.get("eps_actual"), (int, float)):
+            official_eps = float(eps_match.group(1).replace(",", ""))
+            if abs(financials["eps_actual"] - official_eps) > 0.005:
+                issues.append(
+                    f"financials.eps_actual conflicts with the issuer release: the brief has "
+                    f"${financials['eps_actual']:.2f} but the release states adjusted EPS of "
+                    f"${official_eps:.2f}."
+                )
+
     # Caught live against MSFT: a stray, unrelated dollar figure elsewhere in
     # the report (e.g. a backlog/RPO number) got mislabeled as CapEx,
     # producing a CapEx figure wildly out of scale with every other CapEx
@@ -1177,6 +1276,9 @@ def synthesize_earnings_brief_with_review(
             working_facts["official_release_provider"] = grounding.get("provider", "")
         if grounding.get("fiscal_period"):
             working_facts["official_fiscal_quarter_label"] = grounding["fiscal_period"]
+        if grounding.get("source_text"):
+            working_facts["official_release_source_text"] = grounding["source_text"]
+            working_facts["official_release_source_url"] = grounding.get("source_url", "")
 
     brief = synthesize_earnings_brief_with_web_search(
         ticker, company, quarter, mode, working_facts, model=model

@@ -46,19 +46,27 @@ def _python(*args: str) -> list[str]:
     return [sys.executable, *args]
 
 
-def job_commands(job_name: str, *, for_date: str = "", watchlist: str = "", draft_only: bool = False) -> list[list[str]]:
+def job_commands(
+    job_name: str,
+    *,
+    for_date: str = "",
+    watchlist: str = "",
+    draft_only: bool = False,
+    correction: bool = False,
+) -> list[list[str]]:
     calendar = "data/latest_earnings_calendar.csv"
     date_args = ["--for-date", for_date] if for_date else []
     watchlist_args = ["--watchlist", watchlist] if watchlist else []
     draft_args = ["--draft-only"] if draft_only else []
+    correction_args = ["--correction"] if correction else []
 
     refresh_calendar = _python("pipelines/fetch_earnings_calendar.py", "--output", calendar, "--horizon", "3month")
     commands: dict[str, list[list[str]]] = {
         "daily-radar": [_python("pipelines/run_earnings_radar_automation.py", "--mode", "daily", *(["--today", for_date] if for_date else []), *draft_args)],
         "weekly-radar": [_python("pipelines/run_earnings_radar_automation.py", "--mode", "weekly", *(["--today", for_date] if for_date else []), *draft_args)],
         "pre-earnings": [refresh_calendar, _python("pipelines/run_pre_earnings_deep_dive_auto.py", "--calendar-csv", calendar, *date_args, *watchlist_args, *draft_args)],
-        "post-bmo": [refresh_calendar, _python("pipelines/run_post_earnings_deep_dive_auto.py", "--calendar-csv", calendar, "--session", "bmo", *date_args, *watchlist_args, *draft_args)],
-        "post-amc": [refresh_calendar, _python("pipelines/run_post_earnings_deep_dive_auto.py", "--calendar-csv", calendar, "--session", "amc", *date_args, *watchlist_args, *draft_args)],
+        "post-bmo": [refresh_calendar, _python("pipelines/run_post_earnings_deep_dive_auto.py", "--calendar-csv", calendar, "--session", "bmo", *date_args, *watchlist_args, *draft_args, *correction_args)],
+        "post-amc": [refresh_calendar, _python("pipelines/run_post_earnings_deep_dive_auto.py", "--calendar-csv", calendar, "--session", "amc", *date_args, *watchlist_args, *draft_args, *correction_args)],
         "post-digest-bmo": [refresh_calendar, _python("pipelines/run_post_earnings_digest.py", "--calendar-csv", calendar, "--session", "bmo", *date_args, *watchlist_args, *draft_args)],
         "post-digest-amc": [refresh_calendar, _python("pipelines/run_post_earnings_digest.py", "--calendar-csv", calendar, "--session", "amc", *date_args, *watchlist_args, *draft_args)],
         "input-prefetch": [
@@ -129,20 +137,21 @@ def _run_job(job: Job, commands: list[list[str]]) -> None:
         CURRENT_JOB = None
 
 
-def _validate_body(body: dict[str, Any]) -> tuple[str, str, str, str, bool]:
+def _validate_body(body: dict[str, Any]) -> tuple[str, str, str, str, bool, bool]:
     job_name = str(body.get("jobName") or "")
     run_id = str(body.get("runId") or "")
     for_date = str(body.get("forDate") or "")
     watchlist = str(body.get("watchlist") or "").upper()
     draft_only = body.get("draftOnly") is True
+    correction = body.get("correction") is True
     if not run_id or len(run_id) > 100:
         raise ValueError("runId is required and must be at most 100 characters")
     if for_date and not DATE_RE.fullmatch(for_date):
         raise ValueError("forDate must use YYYY-MM-DD")
     if watchlist and not WATCHLIST_RE.fullmatch(watchlist):
         raise ValueError("invalid watchlist")
-    job_commands(job_name, for_date=for_date, watchlist=watchlist, draft_only=draft_only)
-    return job_name, run_id, for_date, watchlist, draft_only
+    job_commands(job_name, for_date=for_date, watchlist=watchlist, draft_only=draft_only, correction=correction)
+    return job_name, run_id, for_date, watchlist, draft_only, correction
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -189,8 +198,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             length = min(int(self.headers.get("content-length", "0")), 32_768)
             body = json.loads(self.rfile.read(length) or b"{}")
-            job_name, run_id, for_date, watchlist, draft_only = _validate_body(body)
-            commands = job_commands(job_name, for_date=for_date, watchlist=watchlist, draft_only=draft_only)
+            job_name, run_id, for_date, watchlist, draft_only, correction = _validate_body(body)
+            commands = job_commands(job_name, for_date=for_date, watchlist=watchlist, draft_only=draft_only, correction=correction)
         except (ValueError, json.JSONDecodeError) as error:
             self._json(400, {"ok": False, "reason": "invalid_request", "message": str(error)})
             return

@@ -38,3 +38,8 @@ def test_walmart_backfill_arguments_are_scoped():
     assert "fetch_earnings_calendar.py" in commands[0][1]
     command = commands[1]
     assert command[-4:] == ["--for-date", "2026-08-20", "--watchlist", "WMT"]
+
+
+def test_post_correction_is_explicitly_labeled():
+    commands = job_commands("post-bmo", for_date="2026-08-20", watchlist="WMT", correction=True)
+    assert "--correction" in commands[1]

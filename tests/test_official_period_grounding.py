@@ -1,6 +1,6 @@
 import unittest
 
-from core.synthesis import _extract_official_fiscal_period
+from core.synthesis import _extract_official_fiscal_period, _html_release_text, _sanity_check_brief
 
 
 class OfficialPeriodGroundingTests(unittest.TestCase):
@@ -40,6 +40,26 @@ class OfficialPeriodGroundingTests(unittest.TestCase):
         ]
 
         self.assertEqual(_extract_official_fiscal_period(results, "2026-08-20", "Acme Corp"), "")
+
+    def test_issuer_html_is_reduced_to_visible_release_text(self):
+        html = "<html><script>wrong quarter</script><body><h1>Q2 FY27</h1><p>Revenue of $187.9 billion</p></body></html>"
+        self.assertEqual(_html_release_text(html), "Q2 FY27 Revenue of $187.9 billion")
+
+    def test_structured_headlines_must_match_direct_issuer_text(self):
+        brief = {
+            "fiscal_quarter_label": "Q2 FY2027",
+            "financials": {"revenue_actual_usd": 177_000_000_000, "eps_actual": 1.80},
+            "financial_highlights": [],
+            "key_metrics": [],
+            "sections": [],
+        }
+        facts = {
+            "official_fiscal_quarter_label": "Q2 FY2027",
+            "official_release_source_text": "Revenue of $187.9 billion. Adjusted EPS1 of $0.81.",
+        }
+        issues = _sanity_check_brief(brief, facts=facts)
+        self.assertTrue(any("revenue_actual_usd conflicts" in issue for issue in issues))
+        self.assertTrue(any("eps_actual conflicts" in issue for issue in issues))
 
 
 if __name__ == "__main__":

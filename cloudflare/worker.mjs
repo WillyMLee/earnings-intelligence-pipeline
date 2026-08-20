@@ -73,7 +73,14 @@ function validateJobPayload(value) {
   if (forDate && !/^\d{4}-\d{2}-\d{2}$/u.test(forDate)) throw new Error("forDate must use YYYY-MM-DD");
   const watchlist = value.watchlist ? String(value.watchlist).toUpperCase() : "";
   if (watchlist && !/^[A-Z0-9.,-]+$/u.test(watchlist)) throw new Error("watchlist contains invalid characters");
-  return { jobName, runId, forDate, watchlist, draftOnly: value.draftOnly === true };
+  return {
+    jobName,
+    runId,
+    forDate,
+    watchlist,
+    draftOnly: value.draftOnly === true,
+    correction: value.correction === true,
+  };
 }
 
 async function dispatchJob(env, payload) {
@@ -208,6 +215,7 @@ export default {
       forDate: "",
       watchlist: "",
       draftOnly: false,
+      correction: false,
     }));
     ctx.waitUntil(createJobs(env, payloads).then((instances) => {
       console.log(JSON.stringify({ event: "cron_dispatched", scheduledAt, jobs, created: instances.map((instance) => instance.id) }));

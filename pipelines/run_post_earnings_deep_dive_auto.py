@@ -59,6 +59,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--watchlist", default="", help="Comma-separated coverage universe tickers.")
     p.add_argument("--output-dir", default="", help="Root output directory for artifacts.")
     p.add_argument("--draft-only", action="store_true", help="Build email artifacts without sending.")
+    p.add_argument("--correction", action="store_true", help="Label the delivered email as a correction.")
     p.add_argument(
         "--session",
         choices=["all", "bmo", "amc"],
@@ -147,7 +148,7 @@ def _resolve_watchlist(arg_watchlist: str) -> set:
         return set()
 
 
-def build_brief_context(reporter: dict, report_date: date) -> dict:
+def build_brief_context(reporter: dict, report_date: date, correction: bool = False) -> dict:
     ticker = reporter["ticker"]
     company = reporter["company"]
     report_time = reporter.get("report_time", "")
@@ -224,7 +225,7 @@ def build_brief_context(reporter: dict, report_date: date) -> dict:
         "ticker": ticker,
         "company": company,
         "quarter": display_quarter,
-        "brief_label": "Post-Earnings Summary",
+        "brief_label": "Correction: Post-Earnings Summary" if correction else "Post-Earnings Summary",
         "report_date_label": f"Reported {report_date.isoformat()} -- {report_time}",
         "report_date": report_date.isoformat(),
         "report_time": report_time,
@@ -359,7 +360,7 @@ def main() -> int:
     succeeded = 0
     for reporter in reporters:
         try:
-            context = build_brief_context(reporter, today)
+            context = build_brief_context(reporter, today, correction=args.correction)
             if send_deep_dive(context, output_dir, args.draft_only):
                 succeeded += 1
         except Exception as exc:
