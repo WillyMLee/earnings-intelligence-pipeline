@@ -1,6 +1,11 @@
 import unittest
 
-from core.synthesis import _extract_official_fiscal_period, _html_release_text, _sanity_check_brief
+from core.synthesis import (
+    _drop_flagged_key_metrics,
+    _extract_official_fiscal_period,
+    _html_release_text,
+    _sanity_check_brief,
+)
 
 
 class OfficialPeriodGroundingTests(unittest.TestCase):
@@ -68,6 +73,9 @@ class OfficialPeriodGroundingTests(unittest.TestCase):
         self.assertTrue(any("eps_actual conflicts" in issue for issue in issues))
         self.assertTrue(any("2.6% for that category" in issue for issue in issues))
         self.assertTrue(any("CapEx amount" in issue for issue in issues))
+
+        cleaned = _drop_flagged_key_metrics(brief, issues)
+        self.assertEqual(cleaned["key_metrics"], [])
 
 
 if __name__ == "__main__":

@@ -1285,6 +1285,21 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
     return issues
 
 
+def _drop_flagged_key_metrics(brief: Dict[str, Any], issues: List[str]) -> Dict[str, Any]:
+    flagged_metrics = set()
+    for issue in issues:
+        match = re.match(r"Key metric '(.+)' (?:conflicts|states)", issue)
+        if match:
+            flagged_metrics.add(match.group(1))
+    if not flagged_metrics:
+        return brief
+    cleaned = dict(brief)
+    cleaned["key_metrics"] = [
+        metric for metric in brief.get("key_metrics", []) or [] if str(metric) not in flagged_metrics
+    ]
+    return cleaned
+
+
 def synthesize_earnings_brief_with_review(
     ticker: str,
     company: str,
@@ -1350,7 +1365,13 @@ def synthesize_earnings_brief_with_review(
     # figure repeatedly conflated with a one-time equity-investment gain). Don't
     # ship a number this dubious silently; flag it visibly instead of retrying
     # forever.
-    if _sanity_check_brief(brief, mode=mode, facts=working_facts):
+    final_issues = _sanity_check_brief(brief, mode=mode, facts=working_facts)
+    cleaned_brief = _drop_flagged_key_metrics(brief, final_issues)
+    if cleaned_brief is not brief:
+        brief = cleaned_brief
+        final_issues = _sanity_check_brief(brief, mode=mode, facts=working_facts)
+
+    if final_issues:
         caveat = (
             "Note: automated review could not reconcile one or more figures below after multiple "
             "passes (see the note in the metric itself) -- verify these independently before relying "
