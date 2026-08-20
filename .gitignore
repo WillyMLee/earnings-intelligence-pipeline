@@ -16,3 +16,4 @@ tmp/
 **/node_modules/
 .wrangler/
 convex/_generated/
+cloudflare/worker-configuration.d.ts
