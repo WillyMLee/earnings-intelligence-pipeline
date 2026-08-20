@@ -125,7 +125,11 @@ def _official_release_grounding(
                 "revenue EPS fiscal quarter"
             ),
             max_results_per_provider=5,
-            min_results_before_tavily=3,
+            # A provider returning stale prior-quarter rows is not success for
+            # same-day official-release discovery. LLMLayer still runs first,
+            # but keep cascading until a current issuer result is available.
+            min_results_before_tavily=1_000,
+            min_results_before_tinyfish=1_000,
         )
         results = filter_results_for_entity(research.get("results", []), company, ticker)[:6]
     except Exception as exc:
@@ -148,10 +152,18 @@ def _official_release_grounding(
     fiscal_period = _extract_official_fiscal_period(results, report_date, company)
     source_text = ""
     source_url = ""
+    date_variants = {report_date, report_date.replace("-", "/")}
     for item in results:
         combined = " ".join(str(item.get(key) or "") for key in ("title", "snippet", "url"))
-        is_current = bool(report_date and report_date in combined)
-        is_period_match = bool(fiscal_period and fiscal_period.lower() in combined.lower())
+        is_current = bool(
+            report_date
+            and (
+                item.get("published_date") == report_date
+                or any(variant and variant in combined for variant in date_variants)
+            )
+        )
+        item_period = _extract_official_fiscal_period([item], report_date, company)
+        is_period_match = bool(fiscal_period and item_period == fiscal_period)
         if not (is_current or is_period_match):
             continue
         candidate_text = str(item.get("raw_content") or "").strip()
