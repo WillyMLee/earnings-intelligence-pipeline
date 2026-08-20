@@ -9,7 +9,7 @@
   "containers": [
     {
       "class_name": "EarningsContainer",
-      "image": "./Dockerfile.earnings",
+      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime@sha256:0bf9157c6eccebe1d540bf22c1c1c8ba3909956feabf6ba4831a03d6d19e4930",
       "instance_type": "standard-1",
       "max_instances": 12,
       "rollout_step_percentage": [10, 100]
@@ -78,4 +78,3 @@
     }
   }
 }
-
