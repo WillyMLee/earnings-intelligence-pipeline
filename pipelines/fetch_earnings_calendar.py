@@ -171,6 +171,11 @@ def parse_args() -> argparse.Namespace:
         choices=["3month", "6month", "12month"],
         help="Alpha Vantage earnings calendar horizon.",
     )
+    parser.add_argument(
+        "--skip-convex-archive",
+        action="store_true",
+        help="Write the local CSV without publishing the same calendar window to Convex.",
+    )
     return parser.parse_args()
 
 
@@ -178,15 +183,17 @@ def main() -> int:
     args = parse_args()
     if args.input_csv and os.path.exists(args.input_csv):
         count = copy_csv(args.input_csv, args.output)
-        with open(args.output, "r", encoding="utf-8-sig", newline="") as source:
-            archive_earnings_calendar(csv.DictReader(source))
+        if not args.skip_convex_archive:
+            with open(args.output, "r", encoding="utf-8-sig", newline="") as source:
+                archive_earnings_calendar(csv.DictReader(source))
         print(f"[OK] Normalized existing earnings CSV: {args.output} ({count} rows)")
         return 0
 
     payload = fetch_alpha_vantage_csv(args.alpha_vantage_api_key, horizon=args.horizon)
     rows = normalize_alpha_vantage_rows(payload)
     write_rows(args.output, rows)
-    archive_earnings_calendar(rows)
+    if not args.skip_convex_archive:
+        archive_earnings_calendar(rows)
     print(
         f"[OK] Fetched Alpha Vantage earnings calendar: {args.output} ({len(rows)} rows) at {datetime.now().isoformat()}"
     )

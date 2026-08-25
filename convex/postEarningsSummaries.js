@@ -109,10 +109,10 @@ export const listByTicker = query({
     const limit = Math.max(1, Math.min(args.limit ?? 20, 100));
     const rows = await ctx.db
       .query("postEarningsSummaries")
-      .withIndex("by_ticker", (q) => q.eq("ticker", args.ticker))
-      .collect();
-    rows.sort((left, right) => String(right.reportDate).localeCompare(String(left.reportDate)));
-    return rows.slice(0, limit);
+      .withIndex("by_ticker_report_date", (q) => q.eq("ticker", args.ticker))
+      .order("desc")
+      .take(limit);
+    return rows;
   },
 });
 
@@ -120,13 +120,18 @@ export const listRecent = query({
   args: { limit: v.optional(v.float64()), sector: v.optional(v.string()) },
   handler: async (ctx, args) => {
     const limit = Math.max(1, Math.min(args.limit ?? 50, 200));
-    let rows = await ctx.db.query("postEarningsSummaries").collect();
-    if (args.sector) rows = rows.filter((row) => row.sector === args.sector);
-    rows.sort((left, right) => {
-      const byDate = String(right.reportDate).localeCompare(String(left.reportDate));
-      return byDate !== 0 ? byDate : String(right.updatedAt).localeCompare(String(left.updatedAt));
-    });
-    return rows.slice(0, limit);
+    if (args.sector) {
+      return await ctx.db
+        .query("postEarningsSummaries")
+        .withIndex("by_sector_report_date", (q) => q.eq("sector", args.sector))
+        .order("desc")
+        .take(limit);
+    }
+    return await ctx.db
+      .query("postEarningsSummaries")
+      .withIndex("by_report_date")
+      .order("desc")
+      .take(limit);
   },
 });
 

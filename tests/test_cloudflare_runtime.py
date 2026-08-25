@@ -1,6 +1,7 @@
 from datetime import date
 
 from cloudflare.container_server import job_commands
+from pipelines import earnings_archive
 from pipelines.run_earnings_radar_automation import resolve_recipient
 from pipelines.run_pre_earnings_deep_dive_auto import _next_business_day
 
@@ -31,6 +32,43 @@ def test_input_prefetch_rotates_and_every_job_has_a_command():
         "transcript-cache",
     ):
         assert job_commands(name)
+
+
+def test_only_input_prefetch_publishes_the_calendar_to_convex():
+    publishing = job_commands("input-prefetch")[0]
+    assert "--skip-convex-archive" not in publishing
+    for name in (
+        "pre-earnings",
+        "post-bmo",
+        "post-amc",
+        "post-digest-bmo",
+        "post-digest-amc",
+        "transcript-cache",
+    ):
+        assert "--skip-convex-archive" in job_commands(name)[0]
+
+
+def test_calendar_archive_hash_is_stable_across_provider_order(monkeypatch):
+    monkeypatch.setenv("CONVEX_URL", "https://example.convex.cloud")
+    monkeypatch.setenv("EARNINGS_ARCHIVE_TOKEN", "test-token")
+    calls = []
+
+    def fake_request(**kwargs):
+        calls.append(kwargs)
+        return {"ok": True}
+
+    monkeypatch.setattr(earnings_archive, "_convex_request", fake_request)
+    rows = [
+        {"Ticker": "MSFT", "Company Name": "Microsoft", "Report Date": "2026-10-20", "Report Time": "AMC"},
+        {"Ticker": "WMT", "Company Name": "Walmart", "Report Date": "2026-11-19", "Report Time": "BMO"},
+    ]
+    earnings_archive.archive_earnings_calendar(rows)
+    earnings_archive.archive_earnings_calendar(reversed(rows))
+
+    first_args = calls[0]["args"]
+    second_args = calls[1]["args"]
+    assert first_args["contentHash"] == second_args["contentHash"]
+    assert [event["ticker"] for event in first_args["events"]] == ["MSFT", "WMT"]
 
 
 def test_walmart_backfill_arguments_are_scoped():

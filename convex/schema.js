@@ -33,6 +33,15 @@ export default defineSchema({
     .index("by_report_date", ["reportDate"])
     .index("by_ticker_report_date", ["ticker", "reportDate"]),
 
+  earningsCalendarSyncState: defineTable({
+    key: v.string(),
+    contentHash: v.string(),
+    windowStart: v.string(),
+    windowEnd: v.string(),
+    eventCount: v.float64(),
+    updatedAt: v.string(),
+  }).index("by_key", ["key"]),
+
   earningsBriefs: defineTable({
     runKey: v.string(),
     mode: v.string(),
@@ -57,8 +66,7 @@ export default defineSchema({
     updatedAt: v.string(),
   })
     .index("by_run_key", ["runKey"])
-    .index("by_mode", ["mode"])
-    .index("by_period_start", ["periodStart"])
+    .index("by_mode", ["mode", "generatedAt"])
     .index("by_generated_at", ["generatedAt"]),
 
   postEarningsSummaries: defineTable({
@@ -90,5 +98,5 @@ export default defineSchema({
   })
     .index("by_ticker_report_date", ["ticker", "reportDate"])
     .index("by_report_date", ["reportDate"])
-    .index("by_ticker", ["ticker"]),
+    .index("by_sector_report_date", ["sector", "reportDate"]),
 });

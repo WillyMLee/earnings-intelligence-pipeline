@@ -5,6 +5,7 @@ Archive generated earnings radar briefs to Convex.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 import urllib.error
@@ -40,8 +41,12 @@ def archive_earnings_calendar(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
             except ValueError: pass
         events.append(event)
     if not events: return {"status": "skipped", "reason": "No events"}
+    events.sort(key=lambda event: (event["reportDate"], event["ticker"], event["reportTime"], event["company"]))
+    content_hash = hashlib.sha256(
+        json.dumps(events, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
+    ).hexdigest()
     dates=[event["reportDate"] for event in events]
-    result=_convex_request(convex_url=convex_url,kind="mutation",path="earningsCalendar:replaceWindow",args={"adminToken":archive_token,"windowStart":min(dates),"windowEnd":max(dates),"events":events})
+    result=_convex_request(convex_url=convex_url,kind="mutation",path="earningsCalendar:replaceWindow",args={"adminToken":archive_token,"windowStart":min(dates),"windowEnd":max(dates),"contentHash":content_hash,"events":events})
     return {"status":"archived","events":len(events),"result":result}
 
 

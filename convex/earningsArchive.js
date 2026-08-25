@@ -96,12 +96,20 @@ export const listBriefs = query({
   },
   handler: async (ctx, args) => {
     const limit = Math.max(1, Math.min(args.limit ?? 50, 200));
-    let rows = await ctx.db.query("earningsBriefs").withIndex("by_generated_at").collect();
     if (args.mode) {
-      rows = rows.filter((row) => row.mode === args.mode);
+      const rows = await ctx.db
+        .query("earningsBriefs")
+        .withIndex("by_mode", (q) => q.eq("mode", args.mode))
+        .order("desc")
+        .take(limit);
+      return rows.map(listProjection);
     }
-    rows.sort((left, right) => String(right.generatedAt).localeCompare(String(left.generatedAt)));
-    return rows.slice(0, limit).map(listProjection);
+    const rows = await ctx.db
+      .query("earningsBriefs")
+      .withIndex("by_generated_at")
+      .order("desc")
+      .take(limit);
+    return rows.map(listProjection);
   },
 });
 

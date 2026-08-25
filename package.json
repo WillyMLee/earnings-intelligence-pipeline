@@ -13,7 +13,8 @@
     "cloudflare:deploy": "wrangler deploy --config wrangler.earnings.jsonc --keep-vars"
   },
   "dependencies": {
-    "@cloudflare/containers": "0.3.7"
+    "@cloudflare/containers": "0.3.7",
+    "convex": "1.45.0"
   },
   "devDependencies": {
     "@cloudflare/workers-types": "latest",
