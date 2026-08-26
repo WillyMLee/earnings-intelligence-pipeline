@@ -4,6 +4,7 @@ from datetime import date
 from cloudflare.container_server import job_commands
 from core import stock_data
 from pipelines import earnings_archive
+from pipelines.backfill_earnings_inputs import consensus_refresh_due
 from pipelines.build_weekly_earnings_brief import EarningsEvent, enrich_financial_snapshots
 from pipelines.run_earnings_radar_automation import resolve_recipient
 from pipelines.run_pre_earnings_deep_dive_auto import _next_business_day
@@ -214,3 +215,21 @@ def test_daily_enrichment_reuses_complete_convex_snapshot(monkeypatch):
     assert event.financial_snapshot["price"] == 210.56
     assert event.financial_snapshot["last_q_revenue"] == 81_615_000_000
     assert event.financial_snapshot["next_q_revenue_consensus"] == 92_176_624_640
+
+
+def test_consensus_prefetch_refreshes_daily_only_inside_21_day_window():
+    today = date(2026, 8, 26)
+    event = {"report_date": "2026-09-10"}
+    assert consensus_refresh_due(event, {}, today)
+    assert not consensus_refresh_due(
+        event,
+        {"consensus": "archived", "consensusCapturedOn": "2026-08-26"},
+        today,
+    )
+    assert consensus_refresh_due(
+        event,
+        {"consensus": "archived", "consensusCapturedOn": "2026-08-25"},
+        today,
+    )
+    assert not consensus_refresh_due({"report_date": "2026-10-01"}, {}, today)
+    assert not consensus_refresh_due({"report_date": "2026-08-25"}, {}, today)

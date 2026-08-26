@@ -23,6 +23,18 @@ def _optional_number(value):
     except ValueError: return None
 
 
+def consensus_refresh_due(event, prior, today):
+    """Refresh once daily only while the report is close enough to matter."""
+    try:
+        days = (date.fromisoformat(event["report_date"]) - today).days
+    except (KeyError, TypeError, ValueError):
+        return False
+    return 0 <= days <= 21 and (
+        prior.get("consensus") != "archived"
+        or prior.get("consensusCapturedOn") != today.isoformat()
+    )
+
+
 def parse_args():
     p = argparse.ArgumentParser(description="Warm transcript and consensus inputs in small resumable batches.")
     p.add_argument("--calendar-csv", required=True); p.add_argument("--start", default=""); p.add_argument("--end", default="")
@@ -41,7 +53,9 @@ def main():
     state_path=Path(args.resume_file); state=json.loads(state_path.read_text(encoding="utf-8")) if state_path.exists() else {"completed":{}}; completed=state.setdefault("completed",{})
     def needs_work(event):
         prior=completed.get(f"{event['ticker']}:{event['report_date']}",{})
-        return (args.transcripts and "transcript_v2" not in prior) or (args.consensus and "consensus" not in prior)
+        return (args.transcripts and "transcript_v2" not in prior) or (
+            args.consensus and consensus_refresh_due(event, prior, date.today())
+        )
     pending=[e for e in events if needs_work(e)]
     if args.rotate_daily and pending:
         offset=(date.today().toordinal()*max(1,args.batch_size))%len(pending); pending=pending[offset:]+pending[:offset]
@@ -68,6 +82,7 @@ def main():
                 kwargs={"ticker":event["ticker"],"report_date":event["report_date"],"snap":snap,"consensus_source":" + ".join(sources + (["calendar EPS estimate"] if event.get("eps_estimate") is not None else [])),"captured_at":datetime.now().isoformat(timespec="seconds")}
                 if event.get("eps_estimate") is not None: kwargs["eps_consensus"]=event["eps_estimate"]
                 outcome["consensus"]=archive_pre_earnings_snapshot(**kwargs).get("status","unknown")
+                if outcome["consensus"] == "archived": outcome["consensusCapturedOn"] = date.today().isoformat()
             else: outcome["consensus"]="skipped_outside_21_day_window"
         completed[key]=outcome; state_path.parent.mkdir(parents=True,exist_ok=True); state_path.write_text(json.dumps(state,indent=2,sort_keys=True),encoding="utf-8"); print(f"[backfill] {key}: {outcome}")
         if transcript_only and uncached_attempts>=max(1,args.batch_size): break
