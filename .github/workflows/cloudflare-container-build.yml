@@ -32,17 +32,6 @@ jobs:
         run: docker build --platform linux/amd64 --file Dockerfile.earnings --tag "${IMAGE_TAG}" .
       - name: Verify image platform
         run: test "$(docker image inspect "${IMAGE_TAG}" --format '{{.Os}}/{{.Architecture}}')" = "linux/amd64"
-      - name: Sign in to Cloudflare container registry
-        uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772 # v3.4.0
-        with:
-          registry: registry.cloudflare.com
-          username: ${{ secrets.CF_REGISTRY_USERNAME }}
-          password: ${{ secrets.CF_REGISTRY_PASSWORD }}
-      - name: Publish authorized production image
-        run: |
-          RELEASE_IMAGE="registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:snapshot-cache-20260826-v5"
-          docker tag "${IMAGE_TAG}" "${RELEASE_IMAGE}"
-          docker push "${RELEASE_IMAGE}"
       - name: Smoke-test production coverage routing
         run: >-
           docker run --rm --entrypoint python "${IMAGE_TAG}" -c
