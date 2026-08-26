@@ -16,18 +16,36 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: cloudflare-container-build-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   build:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    env:
+      IMAGE_TAG: surocap-earnings-runtime:${{ github.sha }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build the production Python image
-        run: docker build --platform linux/amd64 --file Dockerfile.earnings --tag surocap-earnings-runtime:2026-08-20-v1 .
+        run: docker build --platform linux/amd64 --file Dockerfile.earnings --tag "${IMAGE_TAG}" .
       - name: Verify image platform
-        run: test "$(docker image inspect surocap-earnings-runtime:2026-08-20-v1 --format '{{.Os}}/{{.Architecture}}')" = "linux/amd64"
+        run: test "$(docker image inspect "${IMAGE_TAG}" --format '{{.Os}}/{{.Architecture}}')" = "linux/amd64"
+      - name: Smoke-test production coverage routing
+        run: >-
+          docker run --rm --entrypoint python "${IMAGE_TAG}" -c
+          "from core.earnings_universe import EMAIL_DEEP_DIVE_TICKERS;
+          from core.coverage import EMAIL_DEMOTED_TICKERS, dashboard_only_tickers;
+          from cloudflare.container_server import job_commands;
+          site_only = dashboard_only_tickers();
+          assert len(EMAIL_DEEP_DIVE_TICKERS) == 88;
+          assert EMAIL_DEMOTED_TICKERS <= site_only;
+          assert not (EMAIL_DEEP_DIVE_TICKERS & site_only);
+          assert '--dashboard-only' in job_commands('pre-earnings')[-1];
+          assert '--dashboard-only' in job_commands('post-amc')[-1]"
       - name: Export image
-        run: docker save --output surocap-earnings-runtime.tar surocap-earnings-runtime:2026-08-20-v1
+        run: docker save --output surocap-earnings-runtime.tar "${IMAGE_TAG}"
       - name: Upload image for the authorized Cloudflare release
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
