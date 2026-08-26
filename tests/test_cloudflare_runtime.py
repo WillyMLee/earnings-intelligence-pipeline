@@ -66,6 +66,8 @@ def test_calendar_archive_hash_is_stable_across_provider_order(monkeypatch):
 
     def fake_request(**kwargs):
         calls.append(kwargs)
+        if kwargs["kind"] == "query":
+            return []
         return {"ok": True}
 
     monkeypatch.setattr(earnings_archive, "_convex_request", fake_request)
@@ -76,20 +78,48 @@ def test_calendar_archive_hash_is_stable_across_provider_order(monkeypatch):
     earnings_archive.archive_earnings_calendar(rows)
     earnings_archive.archive_earnings_calendar(reversed(rows))
 
-    midpoint = len(calls) // 2
-    first_archive = calls[:midpoint]
-    second_archive = calls[midpoint:]
+    mutation_calls = [call for call in calls if call["kind"] == "mutation"]
+    midpoint = len(mutation_calls) // 2
+    first_archive = mutation_calls[:midpoint]
+    second_archive = mutation_calls[midpoint:]
     assert len(first_archive) == len(second_archive)
     assert len(first_archive) > 1
-    assert all("contentHash" not in call["args"] for call in calls)
+    assert all("contentHash" not in call["args"] for call in mutation_calls)
     assert all(
         (date.fromisoformat(call["args"]["windowEnd"]) - date.fromisoformat(call["args"]["windowStart"])).days < 7
-        for call in calls
+        for call in mutation_calls
     )
     first_events = [event for call in first_archive for event in call["args"]["events"]]
     second_events = [event for call in second_archive for event in call["args"]["events"]]
     assert [event["ticker"] for event in first_events] == ["MSFT", "WMT"]
     assert first_events == second_events
+
+
+def test_calendar_archive_preserves_tracked_history_and_removes_untracked_rows(monkeypatch):
+    monkeypatch.setenv("CONVEX_URL", "https://example.convex.cloud")
+    monkeypatch.setenv("EARNINGS_ARCHIVE_TOKEN", "test-token")
+    calls = []
+
+    def fake_request(**kwargs):
+        calls.append(kwargs)
+        if kwargs["kind"] == "query":
+            return [
+                {"ticker": "MSFT", "company": "Microsoft", "reportDate": "2026-07-30", "reportTime": "AMC"},
+                {"ticker": "NOTREAL", "company": "Legacy Name", "reportDate": "2026-07-30", "reportTime": "AMC"},
+            ]
+        return {"ok": True}
+
+    monkeypatch.setattr(earnings_archive, "_convex_request", fake_request)
+    earnings_archive.archive_earnings_calendar(
+        [{"Ticker": "WMT", "Company Name": "Walmart", "Report Date": "2026-11-19", "Report Time": "BMO"}]
+    )
+    archived = [
+        event
+        for call in calls
+        if call["kind"] == "mutation"
+        for event in call["args"]["events"]
+    ]
+    assert {event["ticker"] for event in archived} == {"MSFT", "WMT"}
 
 
 def test_daily_and_weekly_email_fetches_do_not_depend_on_convex_calendar_archive():

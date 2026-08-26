@@ -44,7 +44,8 @@ function containerEnvironment(env) {
 }
 
 function containerForJob(env, jobName) {
-  return env.EARNINGS_CONTAINER.getByName(`earnings-${jobName}`);
+  const release = String(env.RELEASE_TAG || "default").replaceAll(/[^A-Za-z0-9_-]/gu, "-").slice(0, 48);
+  return env.EARNINGS_CONTAINER.getByName(`earnings-${release}-${jobName}`);
 }
 
 async function startContainer(env, jobName) {

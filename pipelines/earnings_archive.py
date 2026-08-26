@@ -56,14 +56,45 @@ def archive_earnings_calendar(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     content_hash = hashlib.sha256(
         json.dumps(events, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
     ).hexdigest()
-    first_date = date.fromisoformat(events[0]["reportDate"])
-    last_date = date.fromisoformat(events[-1]["reportDate"])
+    existing = _convex_request(
+        convex_url=convex_url,
+        kind="query",
+        path="earningsCalendar:listWindow",
+        args={"start": "0001-01-01", "end": "9999-12-31"},
+    )
+    existing_rows = existing if isinstance(existing, list) else []
+    retained_by_key: Dict[str, Dict[str, Any]] = {}
+    for row in existing_rows:
+        ticker = normalize_ticker(row.get("ticker", ""))
+        report_date = str(row.get("reportDate", "")).strip()
+        if ticker not in TRACKED_TICKERS or not report_date:
+            continue
+        retained = {
+            "ticker": ticker,
+            "company": str(row.get("company", "") or ticker),
+            "reportDate": report_date,
+            "reportTime": str(row.get("reportTime", "") or "TBD"),
+        }
+        for field in ("sector", "epsEstimate", "revenueEstimateUsd"):
+            if row.get(field) is not None:
+                retained[field] = row[field]
+        retained_by_key[f"{ticker}:{report_date}"] = retained
+    for event in events:
+        retained_by_key[f"{event['ticker']}:{event['reportDate']}"] = event
+    archived_events = sorted(
+        retained_by_key.values(),
+        key=lambda event: (event["reportDate"], event["ticker"], event["reportTime"], event["company"]),
+    )
+    all_dates = [str(row.get("reportDate", "")) for row in existing_rows if row.get("reportDate")]
+    all_dates.extend(event["reportDate"] for event in archived_events)
+    first_date = date.fromisoformat(min(all_dates))
+    last_date = date.fromisoformat(max(all_dates))
     results = []
     window_start = first_date
     while window_start <= last_date:
         window_end = min(window_start + timedelta(days=CALENDAR_ARCHIVE_WINDOW_DAYS - 1), last_date)
         start_text, end_text = window_start.isoformat(), window_end.isoformat()
-        window_events = [event for event in events if start_text <= event["reportDate"] <= end_text]
+        window_events = [event for event in archived_events if start_text <= event["reportDate"] <= end_text]
         results.append(
             _convex_request(
                 convex_url=convex_url,
@@ -80,7 +111,8 @@ def archive_earnings_calendar(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
         window_start = window_end + timedelta(days=1)
     return {
         "status": "archived",
-        "events": len(events),
+        "events": len(archived_events),
+        "currentEvents": len(events),
         "contentHash": content_hash,
         "windows": len(results),
         "results": results,
@@ -130,7 +162,7 @@ def _convex_request(convex_url: str, kind: str, path: str, args: Dict[str, Any])
 
     if payload.get("status") != "success":
         raise RuntimeError(payload.get("errorMessage") or f"Convex {kind} {path} failed")
-    return payload.get("value") or {}
+    return payload["value"] if "value" in payload else {}
 
 
 def build_archive_payload(

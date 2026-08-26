@@ -51,6 +51,7 @@ test("Wrangler config is production, scheduled, and has no Render dependency", a
   assert.equal(config.workflows[0].class_name, "EarningsJobWorkflow");
   assert.equal(config.containers[0].class_name, "EarningsContainer");
   assert.match(worker, /createBatch/u);
+  assert.match(worker, /env\.RELEASE_TAG/u);
   assert.doesNotMatch(`${configText}\n${worker}`, /onrender\.com|RENDER_FALLBACK|MIGRATION_ADAPTER_URL/iu);
 });
 
