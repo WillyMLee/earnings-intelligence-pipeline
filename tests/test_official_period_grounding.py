@@ -1,10 +1,12 @@
 import unittest
+from unittest.mock import patch
 
 from core.synthesis import (
     _drop_flagged_key_metrics,
     _extract_official_fiscal_period,
     _html_release_text,
     _sanity_check_brief,
+    synthesize_earnings_brief_with_review,
 )
 
 
@@ -76,6 +78,31 @@ class OfficialPeriodGroundingTests(unittest.TestCase):
 
         cleaned = _drop_flagged_key_metrics(brief, issues)
         self.assertEqual(cleaned["key_metrics"], [])
+
+    def test_unresolved_reviewer_findings_block_delivery(self):
+        brief = {
+            "fiscal_quarter_label": "Q2 FY2027",
+            "reporting_period_end": "2026-07-26",
+            "intro": "A concise preview.",
+            "financial_highlights": [{"text": "Revenue setup: $92.2B", "children": []}],
+            "sections": [{"heading": "Demand", "bullets": [{"text": "Watch demand", "children": []}]}],
+            "key_metrics": ["Revenue: $92.2B"],
+            "official_links": {"press_release": "https://issuer.example/results"},
+            "financials": {"revenue_consensus_usd": 92_200_000_000},
+        }
+        review = {
+            "pass": False,
+            "issues": ["The period comparison remains unresolved."],
+            "follow_up_queries": [],
+        }
+        with patch("core.synthesis.synthesize_earnings_brief_with_web_search", return_value=brief), patch(
+            "core.synthesis.review_earnings_brief", return_value=review
+        ):
+            result = synthesize_earnings_brief_with_review(
+                "NVDA", "NVIDIA", "Q2 2026", "pre", {"report_date": "2026-08-26"}
+            )
+        self.assertFalse(result["_qa_approved"])
+        self.assertIn("The period comparison remains unresolved.", result["_qa_issues"])
 
 
 if __name__ == "__main__":

@@ -137,3 +137,8 @@ def test_walmart_backfill_arguments_are_scoped():
 def test_post_correction_is_explicitly_labeled():
     commands = job_commands("post-bmo", for_date="2026-08-20", watchlist="WMT", correction=True)
     assert "--correction" in commands[1]
+
+
+def test_pre_correction_is_explicitly_labeled():
+    commands = job_commands("pre-earnings", for_date="2026-08-25", watchlist="NVDA", correction=True)
+    assert "--correction" in commands[1]

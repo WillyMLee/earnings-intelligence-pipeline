@@ -498,12 +498,15 @@ an assumption:
   quarter THIS report covers -- e.g. "2026-06-30" for a Microsoft fiscal Q4 2026 report. This is
   checked against an independently-computed estimate, so it must be your real, researched answer,
   not a copy of any hint given to you.
-- intro: 2-4 sentences. Fold in the report date/timing naturally as part of the prose (don't
-  assume it will be shown separately). Frame {intro_focus}.
-- financial_highlights: 4-8 bullets with specific figures (revenue, EPS, segment
-  breakdowns, margins, backlog/bookings). {financial_highlights_instruction} Always include a
-  specific CapEx figure if the company reports one (actual spend and/or updated full-year
-  guidance) -- don't leave this as a vague "significant increases" line. If CapEx guidance changed
+- intro: 2-3 sentences and no more than 110 words. Return one plain-text paragraph only: no
+  Markdown headings, lists, finance-tool output, live quote dump, or generic agenda. Fold in the
+  report date/timing naturally and frame {intro_focus}.
+- financial_highlights: 4-6 bullets with specific figures (revenue, EPS, segment
+  breakdowns, margins, backlog/bookings). {financial_highlights_instruction} Include a specific
+  CapEx figure only when the company reports one and it is material to the investment setup. Do
+  not substitute customer, industry, facility-announcement, or unrelated infrastructure spending
+  for the company's own CapEx; omit CapEx entirely when no decision-useful company figure is
+  available. If CapEx guidance changed
   this quarter (raised, lowered, or reaffirmed with a new number), state BOTH the previous
   guidance figure and the new/updated one, e.g. "CapEx guidance raised to $145B for FY2026, up
   from $125B previously" -- not just the new number alone, and per point 4 above, say explicitly
@@ -515,10 +518,10 @@ an assumption:
   operating income (e.g. a large one-time gain/charge, tax item, or equity investment
   mark-to-market), state the specific driver by name and its dollar size -- never present a net
   income figure that implies an unusual margin without explaining why.
-- sections: 3-6 objects, each a distinct business theme SPECIFIC to this company (a named
+- sections: 2-4 objects, each a distinct business theme SPECIFIC to this company (a named
   product line, segment, acquisition, or initiative -- not generic filler like "Overall
   performance"). heading is a short theme name (e.g. "Google Cloud", "AI monetization").
-  bullets are 3-6 items, each with a specific figure or fact you found -- end the list with
+  bullets are 2-4 items, each with a specific figure or fact you found -- end the list with
   one final bullet (empty children) framed as "The next test is whether..." -- {next_test_focus}
   Segment/business-line revenue figures (e.g. a cloud division, a specific product line) need
   their OWN specific search -- do not state a segment figure from general recall/training
@@ -531,7 +534,8 @@ an assumption:
   segments, they should roughly account for the total (not obviously sum to far more or far
   less) -- if a figure you're about to use doesn't reconcile, that's a sign it's wrong or from
   the wrong period; search again rather than including it anyway.
-- key_metrics: 4-8 short strings summarizing what matters most. {key_metrics_instruction}
+- key_metrics: 4-6 short strings summarizing what matters most. Do not repeat a metric unless the
+  second mention adds a distinct comparison or decision threshold. {key_metrics_instruction}
 - official_links: press_release/investor_deck/transcript, each a URL you found via search,
   or null if you couldn't find one.
 - financials: the same revenue/EPS/net income/CapEx figures already stated in prose above,
@@ -551,7 +555,7 @@ monetization", not "AI Monetization"; "Q2 2026 revenue guidance: $13.8B-$14.8B",
 2026 Revenue Guidance"). Avoid Title Case throughout.
 
 Ground every claim in what you actually find via search -- never invent a number, metric,
-or URL. If you can't find enough for 3 distinct sections, return fewer rather than inventing
+or URL. If you can't find enough for 2 distinct sections, return fewer rather than inventing
 content.
 """
 
@@ -571,22 +575,22 @@ _DEEP_DIVE_JSON_SCHEMA = {
         "fiscal_quarter_label": {"type": "string"},
         "reporting_period_end": {"type": "string"},
         "intro": {"type": "string"},
-        "financial_highlights": {"type": "array", "minItems": 4, "maxItems": 8, "items": _BULLET_JSON_SCHEMA},
+        "financial_highlights": {"type": "array", "minItems": 4, "maxItems": 6, "items": _BULLET_JSON_SCHEMA},
         "sections": {
             "type": "array",
-            "minItems": 3,
-            "maxItems": 6,
+            "minItems": 2,
+            "maxItems": 4,
             "items": {
                 "type": "object",
                 "properties": {
                     "heading": {"type": "string"},
-                    "bullets": {"type": "array", "items": _BULLET_JSON_SCHEMA},
+                    "bullets": {"type": "array", "minItems": 2, "maxItems": 4, "items": _BULLET_JSON_SCHEMA},
                 },
                 "required": ["heading", "bullets"],
                 "additionalProperties": False,
             },
         },
-        "key_metrics": {"type": "array", "minItems": 4, "maxItems": 8, "items": {"type": "string"}},
+        "key_metrics": {"type": "array", "minItems": 4, "maxItems": 6, "items": {"type": "string"}},
         "qa_highlights": {
             "type": "array", "maxItems": 4,
             "items": {"type": "object", "properties": {
@@ -1350,6 +1354,13 @@ def _drop_flagged_key_metrics(brief: Dict[str, Any], issues: List[str]) -> Dict[
     return cleaned
 
 
+def earnings_brief_delivery_issues(
+    brief: Dict[str, Any], mode: str, facts: Dict[str, Any]
+) -> List[str]:
+    """Public deterministic delivery check for non-web-search fallbacks."""
+    return _sanity_check_brief(brief, mode=mode, facts=facts)
+
+
 def synthesize_earnings_brief_with_review(
     ticker: str,
     company: str,
@@ -1448,6 +1459,9 @@ def synthesize_earnings_brief_with_review(
         sanity_issues = _sanity_check_brief(brief, mode=mode, facts=working_facts)
         issues = list(review.get("issues", [])) + sanity_issues
         if review.get("pass", True) and not issues:
+            brief = dict(brief)
+            brief["_qa_approved"] = True
+            brief["_qa_issues"] = []
             return brief
 
         print(
@@ -1462,36 +1476,34 @@ def synthesize_earnings_brief_with_review(
             ticker, company, quarter, mode, working_facts, model=model, extra_instructions=extra
         )
         if not revised or not revised.get("sections"):
-            return brief
+            blocked = dict(brief)
+            blocked["_qa_approved"] = False
+            blocked["_qa_issues"] = issues or ["revision failed after review"]
+            return blocked
         brief = revised
 
-    # The deterministic sanity check survived every revision round -- the model
-    # keeps regenerating the same implausible figure (observed live: a net income
-    # figure repeatedly conflated with a one-time equity-investment gain). Don't
-    # ship a number this dubious silently; flag it visibly instead of retrying
-    # forever.
-    final_issues = _sanity_check_brief(brief, mode=mode, facts=working_facts)
+    # Re-review the final revision. Previously, only the deterministic subset
+    # was checked here, which meant unresolved reviewer findings could be lost
+    # and a questionable brief could still be sent with a caveat.
+    final_review = review_earnings_brief(ticker, company, quarter, mode, working_facts, brief, model=model)
+    final_issues = list(final_review.get("issues", [])) + _sanity_check_brief(
+        brief, mode=mode, facts=working_facts
+    )
     cleaned_brief = _drop_flagged_key_metrics(brief, final_issues)
     if cleaned_brief is not brief:
         brief = cleaned_brief
-        final_issues = _sanity_check_brief(brief, mode=mode, facts=working_facts)
+        final_review = review_earnings_brief(ticker, company, quarter, mode, working_facts, brief, model=model)
+        final_issues = list(final_review.get("issues", [])) + _sanity_check_brief(
+            brief, mode=mode, facts=working_facts
+        )
 
+    brief = dict(brief)
+    brief["_qa_approved"] = not final_issues and final_review.get("pass", True)
+    brief["_qa_issues"] = final_issues
     if final_issues:
-        caveat = (
-            "Note: automated review could not reconcile one or more figures below after multiple "
-            "passes (see the note in the metric itself) -- verify these independently before relying "
-            "on this brief."
-        )
-        brief = dict(brief)
-        brief["financial_highlights"] = [{"text": caveat, "children": []}] + list(
-            brief.get("financial_highlights", [])
-        )
-        # Don't archive structured numbers the reader is being told not to
-        # trust -- the caveat above only lives in the rendered email, and
-        # Convex has no way to know a stored number is flagged unless we
-        # simply don't store it. Null out revenue/net income specifically
-        # (the pair the sanity check actually judges); EPS is left alone
-        # since it isn't part of that check and is usually unaffected.
+        # Keep dubious structured figures out of Convex, and let the caller's
+        # delivery gate block the email entirely instead of asking the reader
+        # to sort out an automated warning.
         financials = dict(brief.get("financials") or {})
         for key in ("revenue_actual_usd", "revenue_consensus_usd", "revenue_yoy_pct", "net_income_actual_usd"):
             financials[key] = None

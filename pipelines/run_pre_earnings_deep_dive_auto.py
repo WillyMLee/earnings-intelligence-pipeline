@@ -34,6 +34,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from core.stock_data import fetch_financial_snapshot  # noqa: E402
 from core.research import run_research_query_cascade  # noqa: E402
 from core.synthesis import (  # noqa: E402
+    earnings_brief_delivery_issues,
     synthesize_earnings_brief_with_review,
     synthesize_pre_earnings_brief,
 )
@@ -56,6 +57,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--watchlist", default="", help="Comma-separated coverage universe tickers.")
     p.add_argument("--output-dir", default="", help="Root output directory for artifacts.")
     p.add_argument("--draft-only", action="store_true", help="Build email artifacts without sending.")
+    p.add_argument("--correction", action="store_true", help="Label the delivered email as a correction.")
     p.add_argument(
         "--dashboard-only",
         action="store_true",
@@ -134,7 +136,45 @@ def _resolve_watchlist(arg_watchlist: str) -> set:
         return set()
 
 
-def build_brief_context(reporter: dict, report_date: date) -> dict:
+def _fmt_billions(value: object, digits: int = 1) -> str:
+    if not isinstance(value, (int, float)):
+        return ""
+    return f"${value / 1_000_000_000:,.{digits}f}B"
+
+
+def _fmt_pct(value: object) -> str:
+    if not isinstance(value, (int, float)):
+        return ""
+    return f"{value:+.0f}%"
+
+
+def _build_key_figures(snap: dict, brief: dict) -> list[dict]:
+    financials = brief.get("financials") or {}
+    consensus = financials.get("revenue_consensus_usd") or snap.get("next_q_revenue_consensus")
+    eps_consensus = financials.get("eps_consensus")
+    prior_growth = _fmt_pct(snap.get("last_q_yoy_pct"))
+    figures = [
+        {"label": "Street revenue", "value": _fmt_billions(consensus)},
+        {"label": "Street EPS", "value": f"${eps_consensus:.2f}" if isinstance(eps_consensus, (int, float)) else ""},
+        {
+            "label": "Prior qtr revenue",
+            "value": " ".join(filter(None, [_fmt_billions(snap.get("last_q_revenue")), f"({prior_growth} YoY)" if prior_growth else ""])),
+        },
+        {"label": "TTM gross margin", "value": f"{snap['gross_margin_pct']:.1f}%" if isinstance(snap.get("gross_margin_pct"), (int, float)) else ""},
+        {"label": "Price", "value": f"${snap['price']:,.2f}" if isinstance(snap.get("price"), (int, float)) else ""},
+        {
+            "label": "Market cap",
+            "value": (
+                f"${snap['market_cap_b'] / 1000:,.2f}T"
+                if isinstance(snap.get("market_cap_b"), (int, float)) and snap["market_cap_b"] >= 1000
+                else (f"${snap['market_cap_b']:,.1f}B" if isinstance(snap.get("market_cap_b"), (int, float)) else "")
+            ),
+        },
+    ]
+    return [item for item in figures if item["value"]]
+
+
+def build_brief_context(reporter: dict, report_date: date, correction: bool = False) -> dict:
     ticker = reporter["ticker"]
     company = reporter["company"]
     quarter = quarter_label(report_date)
@@ -165,6 +205,8 @@ def build_brief_context(reporter: dict, report_date: date) -> dict:
         "fy_capex_qtd_quarters": snap.get("fy_capex_qtd_quarters"),
         "report_date": report_date.isoformat(),
         "report_time": reporter.get("report_time", ""),
+        "price": snap.get("price"),
+        "market_cap_b": snap.get("market_cap_b"),
     }
 
     # Primary: OpenAI's web_search tool researches and writes in one grounded
@@ -191,6 +233,14 @@ def build_brief_context(reporter: dict, report_date: date) -> dict:
                 seen.add(key)
                 snippets.append(item)
         brief = synthesize_pre_earnings_brief(ticker, company, quarter, facts, snippets)
+        fallback_issues = earnings_brief_delivery_issues(brief, "pre", facts)
+        brief = dict(brief)
+        brief["_qa_approved"] = not fallback_issues
+        brief["_qa_issues"] = fallback_issues
+
+    if brief.get("_qa_approved") is False:
+        issues = brief.get("_qa_issues") or ["unresolved factual review"]
+        raise RuntimeError(f"delivery blocked by earnings QA: {'; '.join(str(issue) for issue in issues[:5])}")
 
     report_time_label = reporter.get("report_time", "TBD")
 
@@ -206,13 +256,14 @@ def build_brief_context(reporter: dict, report_date: date) -> dict:
         "ticker": ticker,
         "company": company,
         "quarter": display_quarter,
-        "brief_label": "Pre-Earnings Summary",
+        "brief_label": "Correction: Pre-Earnings Summary" if correction else "Pre-Earnings Summary",
         "report_date_label": f"Reports {report_date.isoformat()} -- {report_time_label}",
         "intro": brief.get("intro", ""),
         "financial_highlights": brief.get("financial_highlights", []),
         "sections": brief.get("sections", []),
         "key_metrics": brief.get("key_metrics", []),
         "official_links": brief.get("official_links", {}),
+        "key_figures": _build_key_figures(snap, brief),
     }
 
 
@@ -298,7 +349,7 @@ def main() -> int:
     succeeded = 0
     for reporter in reporters:
         try:
-            context = build_brief_context(reporter, tomorrow)
+            context = build_brief_context(reporter, tomorrow, correction=args.correction)
             if send_deep_dive(context, output_dir, args.draft_only or args.dashboard_only):
                 succeeded += 1
         except Exception as exc:
