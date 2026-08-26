@@ -1,7 +1,10 @@
+import json
 from datetime import date
 
 from cloudflare.container_server import job_commands
+from core import stock_data
 from pipelines import earnings_archive
+from pipelines.build_weekly_earnings_brief import EarningsEvent, enrich_financial_snapshots
 from pipelines.run_earnings_radar_automation import resolve_recipient
 from pipelines.run_pre_earnings_deep_dive_auto import _next_business_day
 
@@ -142,3 +145,72 @@ def test_post_correction_is_explicitly_labeled():
 def test_pre_correction_is_explicitly_labeled():
     commands = job_commands("pre-earnings", for_date="2026-08-25", watchlist="NVDA", correction=True)
     assert "--correction" in commands[1]
+
+
+def test_pre_snapshot_archives_reusable_daily_card_fields(monkeypatch):
+    monkeypatch.setenv("CONVEX_URL", "https://example.convex.cloud")
+    monkeypatch.setenv("EARNINGS_ARCHIVE_TOKEN", "test-token")
+    calls = []
+    monkeypatch.setattr(earnings_archive, "_convex_request", lambda **kwargs: calls.append(kwargs) or {"ok": True})
+    earnings_archive.archive_pre_earnings_snapshot(
+        ticker="NVDA",
+        report_date="2026-08-26",
+        snap={
+            "price": 210.56,
+            "market_cap_b": 5099.97,
+            "last_q_revenue": 81_615_000_000,
+            "last_q_yoy_pct": 85.2,
+            "last_q_label": "Apr 2026",
+            "last_q_period_end": "2026-04-26",
+            "gross_margin_pct": 74.1,
+            "next_q_revenue_consensus": 92_176_624_640,
+            "next_q_yoy_pct": 97.2,
+            "fy_revenue_consensus": 395_728_233_370,
+            "fy_yoy_pct": 83.3,
+        },
+    )
+    assert calls[0]["path"] == "preEarningsSnapshots:upsertSnapshot"
+    assert calls[0]["args"]["revenueConsensusUsd"] == 92_176_624_640
+    assert calls[1]["path"] == "researchArtifacts:upsertArtifact"
+    payload = json.loads(calls[1]["args"]["text"])
+    assert payload["price"] == 210.56
+    assert payload["market_cap_b"] == 5099.97
+    assert payload["last_q_revenue"] == 81_615_000_000
+    assert payload["gross_margin_pct"] == 74.1
+    assert payload["next_q_revenue_consensus"] == 92_176_624_640
+    assert payload["_captured_at"].startswith(date.today().isoformat())
+
+
+def test_daily_enrichment_reuses_complete_convex_snapshot(monkeypatch):
+    today = date.today()
+    event = EarningsEvent(
+        ticker="NVDA",
+        company="Nvidia",
+        report_date=today,
+        report_time="After Close",
+        sector="",
+        eps_estimate="2.09",
+        revenue_estimate="",
+        implied_move_pct=None,
+        market_cap_b=None,
+        score_reasons="coverage universe",
+    )
+    stored = {
+        "_captured_at": f"{today.isoformat()}T04:31:00",
+        "price": 210.56,
+        "market_cap_b": 5099.97,
+        "last_q_revenue": 81_615_000_000,
+        "last_q_yoy_pct": 85.2,
+        "gross_margin_pct": 74.1,
+        "next_q_revenue_consensus": 92_176_624_640,
+        "next_q_yoy_pct": 97.2,
+        "fy_revenue_consensus": 395_728_233_370,
+        "fy_yoy_pct": 83.3,
+    }
+    monkeypatch.setattr(earnings_archive, "load_financial_snapshot_artifact", lambda **_kwargs: stored)
+    monkeypatch.setattr(stock_data, "fetch_financial_snapshot", lambda _ticker: (_ for _ in ()).throw(AssertionError("live fetch should be skipped")))
+    enrich_financial_snapshots([event])
+    assert event.market_cap_b == 5099.97
+    assert event.financial_snapshot["price"] == 210.56
+    assert event.financial_snapshot["last_q_revenue"] == 81_615_000_000
+    assert event.financial_snapshot["next_q_revenue_consensus"] == 92_176_624_640

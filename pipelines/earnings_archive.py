@@ -23,6 +23,7 @@ from core.earnings_universe import TRACKED_TICKERS, normalize_ticker
 
 
 CALENDAR_ARCHIVE_WINDOW_DAYS = 7
+FINANCIAL_SNAPSHOT_ARTIFACT_KIND = "financial_snapshot_v1"
 
 
 def _iso(value: Any) -> str:
@@ -339,7 +340,9 @@ _UNSET = object()
 
 
 def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = None, eps_consensus: Any = _UNSET, consensus_source: str = "", captured_at: str = "") -> Dict[str, Any]:
-    """Persist period-matched consensus before the provider rolls to the next quarter."""
+    """Persist the reusable pre-earnings market snapshot before providers roll
+    forward. Daily/weekly radar reads this first so a transient live-data miss
+    does not turn a previously captured figure back into N/A."""
     convex_url = os.environ.get("CONVEX_URL", "").strip()
     archive_token = os.environ.get("EARNINGS_ARCHIVE_TOKEN", "").strip() or os.environ.get("ADMIN_TOKEN", "").strip()
     if not convex_url or not archive_token:
@@ -355,9 +358,55 @@ def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = 
     if eps_consensus is not _UNSET:
         args["epsConsensus"] = eps_consensus
     if consensus_source: args["consensusSource"] = consensus_source
-    if captured_at: args["capturedAt"] = captured_at
+    args["capturedAt"] = captured_at or datetime.now().isoformat(timespec="seconds")
     result = _convex_request(convex_url=convex_url, kind="mutation", path="preEarningsSnapshots:upsertSnapshot", args=args)
-    return {"status": "archived", "result": result}
+    artifact_result = None
+    if snap is not None:
+        artifact_payload = dict(snap)
+        artifact_payload["_captured_at"] = args["capturedAt"]
+        artifact_result = _convex_request(
+            convex_url=convex_url,
+            kind="mutation",
+            path="researchArtifacts:upsertArtifact",
+            args={
+                "adminToken": archive_token,
+                "kind": FINANCIAL_SNAPSHOT_ARTIFACT_KIND,
+                "ticker": normalize_ticker(ticker),
+                "reportDate": report_date,
+                "title": "Reusable financial snapshot",
+                "text": json.dumps(artifact_payload, ensure_ascii=False, sort_keys=True, default=str),
+                "provider": consensus_source or "market-data snapshot",
+            },
+        )
+    return {"status": "archived", "result": result, "artifact": artifact_result}
+
+
+def load_financial_snapshot_artifact(*, ticker: str, report_date: str) -> Dict[str, Any]:
+    """Read the complete reusable card snapshot from the existing artifact store."""
+    convex_url = os.environ.get("CONVEX_URL", "").strip()
+    normalized = normalize_ticker(ticker)
+    if not convex_url or not normalized or not report_date:
+        return {}
+    try:
+        result = _convex_request(
+            convex_url=convex_url,
+            kind="query",
+            path="researchArtifacts:getArtifact",
+            args={"kind": FINANCIAL_SNAPSHOT_ARTIFACT_KIND, "ticker": normalized, "reportDate": report_date},
+        )
+    except RuntimeError as exc:
+        print(f"[earnings-archive] Convex financial-snapshot lookup failed: {exc}", flush=True)
+        return {}
+    if not isinstance(result, dict) or not result.get("text"):
+        return {}
+    try:
+        payload = json.loads(result["text"])
+    except (TypeError, ValueError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    payload.setdefault("_captured_at", result.get("updatedAt", ""))
+    return payload
 
 
 def archive_weekly_brief(

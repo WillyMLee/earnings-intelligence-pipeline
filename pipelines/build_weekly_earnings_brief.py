@@ -131,28 +131,58 @@ def enrich_market_caps(events: List["EarningsEvent"]) -> None:
         pass
 
 
+def _snapshot_is_fresh_and_complete(snap: Dict[str, Any]) -> bool:
+    required = (
+        "price", "market_cap_b", "last_q_revenue", "last_q_yoy_pct",
+        "gross_margin_pct", "next_q_revenue_consensus", "fy_revenue_consensus",
+    )
+    return str(snap.get("_captured_at") or "")[:10] == date.today().isoformat() and all(
+        snap.get(key) is not None for key in required
+    )
+
+
 def enrich_financial_snapshots(events: List["EarningsEvent"]) -> None:
-    """Fetch revenue/margin/guidance snapshots for coverage-universe events only
-    (bounded set, unlike the full calendar) so the notable table can show real
-    numbers instead of narrative research."""
+    """Reuse the Convex snapshot captured by input-prefetch, then ask the live
+    provider only for missing/stale fields. This keeps daily and weekly cards
+    populated when Yahoo has a transient partial response and avoids repeating
+    the same expensive statements requests across workflows."""
     targets = [e for e in events if "coverage universe" in e.score_reasons.lower() and e.ticker]
     if not targets:
         return
     try:
         import sys
-        workspace_root = Path(__file__).resolve().parents[2]
+        workspace_root = Path(__file__).resolve().parents[1]
         if str(workspace_root) not in sys.path:
             sys.path.insert(0, str(workspace_root))
         from core.stock_data import fetch_financial_snapshot
+        from pipelines.earnings_archive import archive_pre_earnings_snapshot, load_financial_snapshot_artifact
     except Exception:
         return
     for event in targets:
+        persisted = load_financial_snapshot_artifact(
+            ticker=event.ticker,
+            report_date=event.report_date.isoformat(),
+        )
+        merged = {
+            key: value for key, value in persisted.items()
+            if not key.startswith("_") and value is not None
+        }
         try:
-            event.financial_snapshot = fetch_financial_snapshot(event.ticker)
-            if event.market_cap_b is None and event.financial_snapshot.get("market_cap_b") is not None:
-                event.market_cap_b = event.financial_snapshot["market_cap_b"]
+            if not _snapshot_is_fresh_and_complete(persisted):
+                live = fetch_financial_snapshot(event.ticker)
+                merged.update({key: value for key, value in live.items() if value is not None})
+                if merged:
+                    archive_pre_earnings_snapshot(
+                        ticker=event.ticker,
+                        report_date=event.report_date.isoformat(),
+                        snap=merged,
+                        captured_at=datetime.now().isoformat(timespec="seconds"),
+                    )
         except Exception:
             pass
+        event.financial_snapshot = merged
+        if event.market_cap_b is None and merged.get("market_cap_b") is not None:
+            event.market_cap_b = merged["market_cap_b"]
 
 
 def enrich_notable_what_matters(events: List["EarningsEvent"]) -> None:

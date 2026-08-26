@@ -240,6 +240,25 @@ def fetch_financial_snapshot(ticker: str) -> Dict[str, Any]:
             info = t.info or {}
             result["price"] = info.get("currentPrice") or info.get("regularMarketPrice")
             market_cap = info.get("marketCap")
+            if result.get("price") is None or not market_cap:
+                try:
+                    fast = t.fast_info
+                    result["price"] = (
+                        result.get("price")
+                        or fast.get("last_price")
+                        or fast.get("lastPrice")
+                    )
+                    market_cap = (
+                        market_cap
+                        or fast.get("market_cap")
+                        or fast.get("marketCap")
+                    )
+                except Exception:
+                    pass
+            if not market_cap and result.get("price"):
+                shares = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+                if shares:
+                    market_cap = float(result["price"]) * float(shares)
             if market_cap:
                 result["market_cap_b"] = round(market_cap / 1_000_000_000, 2)
             gross_margin = info.get("grossMargins")
