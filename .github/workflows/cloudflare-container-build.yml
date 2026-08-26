@@ -26,16 +26,6 @@ jobs:
         run: docker build --platform linux/amd64 --file Dockerfile.earnings --tag surocap-earnings-runtime:2026-08-20-v1 .
       - name: Verify image platform
         run: test "$(docker image inspect surocap-earnings-runtime:2026-08-20-v1 --format '{{.Os}}/{{.Architecture}}')" = "linux/amd64"
-      - name: Publish the authorized Cloudflare image
-        env:
-          REGISTRY_ACCOUNT_ID: ${{ secrets.CF_REGISTRY_ACCOUNT_ID }}
-          REGISTRY_USERNAME: ${{ secrets.CF_REGISTRY_USERNAME }}
-          REGISTRY_PASSWORD: ${{ secrets.CF_REGISTRY_PASSWORD }}
-        run: |
-          IMAGE="registry.cloudflare.com/${REGISTRY_ACCOUNT_ID}/surocap-earnings-runtime:coverage-20260826"
-          printf '%s' "${REGISTRY_PASSWORD}" | docker login registry.cloudflare.com --username "${REGISTRY_USERNAME}" --password-stdin
-          docker tag surocap-earnings-runtime:2026-08-20-v1 "${IMAGE}"
-          docker push "${IMAGE}"
       - name: Export image
         run: docker save --output surocap-earnings-runtime.tar surocap-earnings-runtime:2026-08-20-v1
       - name: Upload image for the authorized Cloudflare release
