@@ -59,6 +59,11 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--watchlist", default="", help="Comma-separated coverage universe tickers.")
     p.add_argument("--output-dir", default="", help="Root output directory for artifacts.")
     p.add_argument("--draft-only", action="store_true", help="Build email artifacts without sending.")
+    p.add_argument(
+        "--dashboard-only",
+        action="store_true",
+        help="Analyze and archive focused site-only names without sending email.",
+    )
     p.add_argument("--correction", action="store_true", help="Label the delivered email as a correction.")
     p.add_argument(
         "--session",
@@ -335,7 +340,12 @@ def main() -> int:
     args = parse_args()
     today = _parse_date(args.for_date) if args.for_date else datetime.now(NY_TZ).date()
 
-    watchlist = _resolve_watchlist(args.watchlist)
+    if args.dashboard_only:
+        from core.coverage import dashboard_only_tickers
+
+        watchlist = set(dashboard_only_tickers())
+    else:
+        watchlist = _resolve_watchlist(args.watchlist)
     if not watchlist:
         print("[post-deep-dive] No watchlist resolved -- nothing to do", flush=True)
         return 0
@@ -361,7 +371,7 @@ def main() -> int:
     for reporter in reporters:
         try:
             context = build_brief_context(reporter, today, correction=args.correction)
-            if send_deep_dive(context, output_dir, args.draft_only):
+            if send_deep_dive(context, output_dir, args.draft_only or args.dashboard_only):
                 succeeded += 1
         except Exception as exc:
             print(f"[post-deep-dive] {reporter['ticker']}: failed without blocking other reporters: {exc}", flush=True)

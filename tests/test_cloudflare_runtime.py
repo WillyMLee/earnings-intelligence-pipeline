@@ -48,6 +48,17 @@ def test_only_input_prefetch_publishes_the_calendar_to_convex():
         assert "--skip-convex-archive" in job_commands(name)[0]
 
 
+def test_scheduled_deep_dives_analyze_site_only_names_without_email():
+    for name in ("pre-earnings", "post-bmo", "post-amc"):
+        commands = job_commands(name)
+        assert "--dashboard-only" in commands[-1]
+        assert "--dashboard-only" not in commands[1]
+
+    targeted = job_commands("post-bmo", watchlist="WMT")
+    assert len(targeted) == 2
+    assert "--dashboard-only" not in targeted[-1]
+
+
 def test_calendar_archive_hash_is_stable_across_provider_order(monkeypatch):
     monkeypatch.setenv("CONVEX_URL", "https://example.convex.cloud")
     monkeypatch.setenv("EARNINGS_ARCHIVE_TOKEN", "test-token")

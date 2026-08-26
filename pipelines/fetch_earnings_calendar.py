@@ -14,11 +14,18 @@ import csv
 import io
 import os
 import re
+import sys
 import urllib.parse
 import urllib.request
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, Iterable, List
 
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from core.earnings_universe import filter_tracked_rows
 from earnings_archive import archive_earnings_calendar
 
 
@@ -151,7 +158,7 @@ def fetch_alpha_vantage_csv(api_key: str, horizon: str = "3month") -> str:
 def copy_csv(input_csv: str, output: str) -> int:
     with open(input_csv, "r", encoding="utf-8-sig", newline="") as src:
         text = src.read()
-    rows = list(csv.DictReader(io.StringIO(text)))
+    rows = filter_tracked_rows(csv.DictReader(io.StringIO(text)))
     write_rows(output, rows)
     return len(rows)
 
@@ -190,12 +197,14 @@ def main() -> int:
         return 0
 
     payload = fetch_alpha_vantage_csv(args.alpha_vantage_api_key, horizon=args.horizon)
-    rows = normalize_alpha_vantage_rows(payload)
+    provider_rows = normalize_alpha_vantage_rows(payload)
+    rows = filter_tracked_rows(provider_rows)
     write_rows(args.output, rows)
     if not args.skip_convex_archive:
         archive_earnings_calendar(rows)
     print(
-        f"[OK] Fetched Alpha Vantage earnings calendar: {args.output} ({len(rows)} rows) at {datetime.now().isoformat()}"
+        f"[OK] Fetched Alpha Vantage earnings calendar: {args.output} "
+        f"({len(rows)} tracked of {len(provider_rows)} provider rows) at {datetime.now().isoformat()}"
     )
     return 0
 

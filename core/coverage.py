@@ -23,10 +23,12 @@ from typing import Dict
 _SECTOR_GROUPS: Dict[str, str] = {
     "AI Infrastructure & Semis": (
         "NVDA,AMD,AVGO,MRVL,INTC,QCOM,SMCI,DELL,HPE,ANET,CSCO,ORCL,IBM,MSFT,AMZN,GOOGL,META,"
-        "TSM,ASML,ARM,AMAT,LRCX,KLAC,MU,WDC,STX,SNDK,VRT,ETN,CRWV,NBIS,IREN,CORZ"
+        "TSM,ASML,ARM,AMAT,LRCX,KLAC,MU,WDC,STX,SNDK,VRT,ETN,CRWV,NBIS,IREN,CORZ,"
+        "ALAB,CRDO,CLS,LITE,PSTG"
     ),
-    "Vertical SaaS & Cybersecurity": "VEEV,AXON,APP,SHOP,ADBE,CRM,NOW,SNOW,PANW,CRWD,DDOG,NET,TEAM,INTU,FTNT,S",
+    "Vertical SaaS & Cybersecurity": "VEEV,AXON,APP,SHOP,ADBE,CRM,NOW,SNOW,PANW,CRWD,DDOG,NET,TEAM,INTU,FTNT,S,RBRK,IOT,PCOR",
     "SaaS Expansion": "ZS,OKTA,HUBS,GTLB,WDAY,TOST,BILL,MNDY,TTD",
+    "Customer Engagement & Ad Tech": "BRZE,KVYO,ZETA",
     "Data Platforms": "MDB,CFLT,PLTR,ESTC",
     "Banks & Financials": "JPM,BAC,WFC,C,GS,MS,USB,AXP",
     "Payments & Fintech": "V,MA,PYPL,FIS,ADYEN",
@@ -77,9 +79,10 @@ def is_portco(ticker: str) -> bool:
 DASHBOARD_THEME_TICKERS = frozenset({
     "MSFT", "AMZN", "GOOGL", "META", "ORCL", "AAPL", "NVDA", "TSLA",
     "AMD", "AVGO", "ANET", "ARM", "MU", "LRCX", "KLAC", "WDC", "STX", "SNDK", "DELL",
+    "ALAB", "CRDO", "CLS", "LITE", "PSTG",
     "CRM", "NOW", "SNOW", "ADBE", "TEAM", "HUBS", "WDAY", "GTLB", "MNDY", "BILL", "SHOP", "TOST",
-    "PANW", "CRWD", "ZS", "FTNT", "OKTA", "NET", "S",
-    "PLTR", "DDOG", "MDB", "ESTC",
+    "PANW", "CRWD", "ZS", "FTNT", "OKTA", "NET", "S", "RBRK", "IOT", "PCOR",
+    "PLTR", "DDOG", "MDB", "CFLT", "ESTC",
     "APP", "TTD", "ZETA", "BRZE", "KVYO", "MGNI", "PUBM", "RDDT",
     "LIME", "PEW", "CRWV", "PSQH", "SKIL",
     "VST", "CEG", "ETN", "NRG", "OKLO", "GEV",
@@ -88,3 +91,21 @@ DASHBOARD_THEME_TICKERS = frozenset({
     "BA", "CAT", "HON", "GE", "RTX", "LMT", "NOC", "UPS", "FDX", "UNP", "DE",
     "LLY", "UNH", "JNJ", "ABBV", "MRK", "TMO", "ISRG", "AMGN", "GILD", "PFE",
 })
+
+# Companies moved out of dedicated pre/post email delivery while retaining
+# full pre/post research and Convex archival for the website.
+EMAIL_DEMOTED_TICKERS = frozenset({
+    "AAL", "AXP", "BA", "BAC", "BILL", "C", "CAT", "DE", "EMR", "ESTC",
+    "FDX", "FIS", "GE", "GS", "HON", "HUBS", "IBM", "JPM", "KO", "LMT",
+    "MA", "MCD", "MS", "NKE", "OKTA", "PG", "PYPL", "RTX", "S", "SBUX",
+    "SHOP", "TOST", "UAL", "USB", "V", "VEEV", "WFC",
+})
+
+
+def dashboard_only_tickers() -> frozenset[str]:
+    """Focused site-analysis universe that never receives dedicated email."""
+    from core.earnings_universe import EMAIL_DEEP_DIVE_TICKERS
+
+    return frozenset(
+        (DASHBOARD_THEME_TICKERS | EMAIL_DEMOTED_TICKERS) - EMAIL_DEEP_DIVE_TICKERS
+    )

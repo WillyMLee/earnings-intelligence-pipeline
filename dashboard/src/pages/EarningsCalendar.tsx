@@ -7,6 +7,7 @@ import { CompanyLogo } from "../components/CompanyLogo";
 
 type Season = "q2" | "q3";
 type StatusFilter = "all" | "reported" | "upcoming";
+const CALENDAR_PAGE_SIZE = 100;
 
 const SEASONS = {
   q2: { label: "Q2 2026 earnings", note: "Reports scheduled July–September", ...Q2_2026_WINDOW },
@@ -19,6 +20,7 @@ export function EarningsCalendar({ onOpenCompany }: { onOpenCompany: (ticker: st
   const [season, setSeason] = useState<Season>("q2");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [query, setQuery] = useState("");
+  const [visibleLimit, setVisibleLimit] = useState(CALENDAR_PAGE_SIZE);
 
   useEffect(() => {
     Promise.all([
@@ -50,6 +52,12 @@ export function EarningsCalendar({ onOpenCompany }: { onOpenCompany: (ticker: st
     const estimated = allSeasonRows.length - confirmed;
     return { rows, uniqueTickers, reported, upcoming, captured, confirmed, estimated };
   }, [events, seasonDef, statusFilter, query, summaries]);
+
+  useEffect(() => {
+    setVisibleLimit(CALENDAR_PAGE_SIZE);
+  }, [query, season, statusFilter]);
+
+  const visibleRows = view.rows.slice(0, visibleLimit);
 
   return (
     <div className="mx-auto max-w-[1500px] px-4 py-6 sm:px-8 sm:py-14">
@@ -90,7 +98,7 @@ export function EarningsCalendar({ onOpenCompany }: { onOpenCompany: (ticker: st
       <div className="space-y-2 md:hidden">
         {events === null && <div className="rounded-card border border-black/[0.06] bg-white px-4 py-10 text-center text-[13px] text-[#9a9ea8] dark:border-white/[0.08] dark:bg-[#121317]">Loading calendar…</div>}
         {events !== null && view.rows.length === 0 && <div className="rounded-card border border-black/[0.06] bg-white px-4 py-10 text-center text-[13px] text-[#9a9ea8] dark:border-white/[0.08] dark:bg-[#121317]">No calendar events match this view.</div>}
-        {view.rows.map((event) => {
+        {visibleRows.map((event) => {
           const status = eventStatus(event);
           const captured = briefCaptured(event, summaries);
           const themes = COVERAGE_GROUPS.filter((group) => group.tickers.has(event.ticker)).map((group) => group.shortName);
@@ -116,7 +124,7 @@ export function EarningsCalendar({ onOpenCompany }: { onOpenCompany: (ticker: st
           <tbody>
             {events === null && <tr><td colSpan={6} className="px-4 py-12 text-center text-[13px] text-[#9a9ea8]">Loading calendar…</td></tr>}
             {events !== null && view.rows.length === 0 && <tr><td colSpan={6} className="px-4 py-12 text-center text-[13px] text-[#9a9ea8]">No calendar events match this view.</td></tr>}
-            {view.rows.map((event, index) => {
+            {visibleRows.map((event, index) => {
               const status = eventStatus(event);
               const captured = briefCaptured(event, summaries);
               const themes = COVERAGE_GROUPS.filter((group) => group.tickers.has(event.ticker)).map((group) => group.shortName);
@@ -134,6 +142,20 @@ export function EarningsCalendar({ onOpenCompany }: { onOpenCompany: (ticker: st
           </tbody>
         </table>
       </div>
+      {visibleRows.length < view.rows.length && (
+        <div className="mt-4 text-center">
+          <p className="mb-2 text-[11px] text-[#9a9ea8]">
+            Showing {visibleRows.length.toLocaleString()} of {view.rows.length.toLocaleString()} matching companies.
+          </p>
+          <button
+            type="button"
+            onClick={() => setVisibleLimit((limit) => Math.min(limit + CALENDAR_PAGE_SIZE, view.rows.length))}
+            className="rounded-lg border border-black/[0.08] bg-white px-4 py-2 text-[12px] font-semibold text-[#5b5f6b] hover:border-accent/40 hover:text-accent dark:border-white/[0.1] dark:bg-[#121317] dark:text-[#b8bbc3]"
+          >
+            Show {Math.min(CALENDAR_PAGE_SIZE, view.rows.length - visibleRows.length).toLocaleString()} more
+          </button>
+        </div>
+      )}
     </div>
   );
 }

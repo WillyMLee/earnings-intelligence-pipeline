@@ -24,35 +24,10 @@ PROJECT_ROOT = SCRIPT_DIR.parent
 WORKSPACE_ROOT = PROJECT_ROOT  # core/ and pipelines/ are now siblings under repo root
 NY_TZ = ZoneInfo("America/New_York")
 
-DEFAULT_COVERAGE_UNIVERSE = (
-    # AI infrastructure, semis, neoclouds
-    "NVDA,AMD,AVGO,MRVL,INTC,QCOM,SMCI,DELL,HPE,ANET,CSCO,ORCL,IBM,MSFT,AMZN,GOOGL,META,"
-    "TSM,ASML,ARM,AMAT,LRCX,KLAC,MU,WDC,STX,SNDK,VRT,ETN,CRWV,NBIS,IREN,CORZ,"
-    # vertical SaaS + cybersecurity + internet
-    "VEEV,AXON,APP,SHOP,ADBE,CRM,NOW,SNOW,PANW,CRWD,DDOG,NET,TEAM,INTU,FTNT,S,"
-    # SaaS expansion: identity, devops, HR/ops, ad-tech
-    "ZS,OKTA,HUBS,GTLB,WDAY,TOST,BILL,MNDY,TTD,"
-    # database and data platforms
-    "MDB,PLTR,ESTC,"
-    # banks and financial services — NIM, credit quality, capital markets
-    "JPM,BAC,WFC,C,GS,MS,USB,AXP,"
-    # payments and fintech
-    "V,MA,PYPL,FIS,ADYEN,"
-    # industrials — demand cycles, supply chain, capex trends
-    "CAT,DE,HON,EMR,"
-    # defense and aerospace — defense budgets, program execution
-    "RTX,LMT,BA,GE,"
-    # AI power and grid — generators and storage serving data center demand
-    "GEV,VST,CEG,NRG,OKLO,"
-    # airlines — consumer travel demand, fare pricing, cost trends
-    "DAL,UAL,AAL,"
-    # consumer bellwethers: discretionary + staples + restaurants + logistics
-    "AAPL,TSLA,NFLX,WMT,COST,HD,MCD,SBUX,NKE,PG,KO,FDX,UPS,"
-    # Neostellar portfolio companies
-    "LIME,SKIL,PSQH,PEW,"
-    # notable recent IPOs being tracked separately (not portco holdings)
-    "SPCX,CBRS,QNT,XNDU"
-)
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from core.earnings_universe import DEFAULT_COVERAGE_UNIVERSE
 DEFAULT_FOCUS_SECTORS = (
     "AI Infrastructure,Neocloud,Vertical SaaS,Semis,Data Centers,Cloud,"
     "Enterprise Software,Internet,Cybersecurity,Ad Tech,"

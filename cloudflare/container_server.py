@@ -92,6 +92,28 @@ def job_commands(
             _python("pipelines/backfill_earnings_inputs.py", "--calendar-csv", calendar, "--start", "2026-07-01", "--transcripts", "--batch-size", "12", "--pause-seconds", "1.0", "--rotate-daily", "--resume-file", "/tmp/earnings-transcript-cache-state.json"),
         ],
     }
+    if not watchlist and job_name == "pre-earnings":
+        commands[job_name].append(
+            _python(
+                "pipelines/run_pre_earnings_deep_dive_auto.py",
+                "--calendar-csv",
+                calendar,
+                *date_args,
+                "--dashboard-only",
+            )
+        )
+    if not watchlist and job_name in {"post-bmo", "post-amc"}:
+        commands[job_name].append(
+            _python(
+                "pipelines/run_post_earnings_deep_dive_auto.py",
+                "--calendar-csv",
+                calendar,
+                "--session",
+                "bmo" if job_name == "post-bmo" else "amc",
+                *date_args,
+                "--dashboard-only",
+            )
+        )
     if job_name not in commands:
         raise ValueError(f"unknown job: {job_name}")
     return commands[job_name]

@@ -8,10 +8,18 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import sys
 import urllib.error
 import urllib.request
 from datetime import date, datetime
+from pathlib import Path
 from typing import Any, Dict, Iterable, List
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from core.earnings_universe import TRACKED_TICKERS, normalize_ticker
 
 
 def _iso(value: Any) -> str:
@@ -32,8 +40,8 @@ def archive_earnings_calendar(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
         return {"status": "skipped", "reason": "Convex archive credentials not configured"}
     events = []
     for row in rows:
-        ticker, report_date = str(row.get("Ticker", "")).strip().upper(), str(row.get("Report Date", "")).strip()
-        if not ticker or not report_date: continue
+        ticker, report_date = normalize_ticker(row.get("Ticker", "")), str(row.get("Report Date", "")).strip()
+        if ticker not in TRACKED_TICKERS or not report_date: continue
         event = {"ticker": ticker, "company": str(row.get("Company Name", "") or ticker), "reportDate": report_date, "reportTime": str(row.get("Report Time", "") or "TBD")}
         for source, target in (("EPS Estimate", "epsEstimate"), ("Revenue Estimate", "revenueEstimateUsd")):
             try:

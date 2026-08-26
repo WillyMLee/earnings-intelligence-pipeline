@@ -2,11 +2,12 @@ import { useMemo, useState } from "react";
 import type { CalendarEvent, CompanyListing } from "../lib/convex";
 import type { Route } from "../lib/router";
 import { CompanyLogo } from "./CompanyLogo";
-import { MAG7_TICKERS, TOP100_TICKERS, TICKER_FILTER_LABEL, type TickerFilter } from "../lib/tickerGroups";
+import { MAG7_TICKERS, NEOSTELLAR_THEME_TICKERS, SP500_TICKERS, TICKER_FILTER_LABEL, type TickerFilter } from "../lib/tickerGroups";
 import { COVERAGE_GROUPS } from "../lib/coverageGroups";
 import { eventStatus } from "../lib/earningsStatus";
 
 type GroupMode = "alphabetical" | "sector";
+const INITIAL_COMPANY_LIMIT = 240;
 
 export function Sidebar({
   companies,
@@ -30,12 +31,14 @@ export function Sidebar({
   const [groupMode, setGroupMode] = useState<GroupMode>("alphabetical");
   const [tickerFilter, setTickerFilter] = useState<TickerFilter>("all");
   const [query, setQuery] = useState("");
+  const [showAllCompanies, setShowAllCompanies] = useState(false);
   const calendarByTicker = useMemo(() => new Map(calendarEvents.map((event) => [event.ticker, event])), [calendarEvents]);
 
   const filtered = useMemo(() => {
     let list = companies;
     if (tickerFilter === "mag7") list = list.filter((c) => MAG7_TICKERS.has(c.ticker));
-    if (tickerFilter === "top100") list = list.filter((c) => TOP100_TICKERS.has(c.ticker));
+    if (tickerFilter === "sp500") list = list.filter((c) => SP500_TICKERS.has(c.ticker));
+    if (tickerFilter === "themes") list = list.filter((c) => NEOSTELLAR_THEME_TICKERS.has(c.ticker));
     const q = query.trim().toLowerCase();
     if (!q) return list;
     return list.filter(
@@ -64,6 +67,25 @@ export function Sidebar({
     }
     return Array.from(bySector.entries()).sort(([a], [b]) => a.localeCompare(b));
   }, [filtered, groupMode]);
+
+  const visibleGroups = useMemo(() => {
+    const sorted = groups.map(([label, items]) => [
+      label,
+      items.slice().sort((a, b) => a.company.localeCompare(b.company)),
+    ] as [string, CompanyListing[]]);
+    const shouldLimit = tickerFilter === "all" && !query.trim() && !showAllCompanies;
+    if (!shouldLimit || filtered.length <= INITIAL_COMPANY_LIMIT) return sorted;
+
+    let remaining = INITIAL_COMPANY_LIMIT;
+    return sorted.flatMap(([label, items]) => {
+      if (remaining <= 0) return [];
+      const visibleItems = items.slice(0, remaining);
+      remaining -= visibleItems.length;
+      return visibleItems.length ? [[label, visibleItems] as [string, CompanyListing[]]] : [];
+    });
+  }, [filtered.length, groups, query, showAllCompanies, tickerFilter]);
+
+  const visibleCompanyCount = visibleGroups.reduce((total, [, items]) => total + items.length, 0);
 
   return (
     <>
@@ -119,15 +141,12 @@ export function Sidebar({
         {groups.length === 0 && (
           <div className="px-3 py-6 text-center text-[12px] text-[#9a9ea8]">No matches.</div>
         )}
-        {groups.map(([label, items]) => (
+        {visibleGroups.map(([label, items]) => (
           <div key={label} className="mb-3">
             <div className="px-2 py-1 text-[10px] font-bold uppercase tracking-wide text-[#9a9ea8]">
               {label}
             </div>
-            {items
-              .slice()
-              .sort((a, b) => a.company.localeCompare(b.company))
-              .map((c) => (
+            {items.map((c) => (
                 <button
                   key={c.ticker}
                   onClick={() => onSelect(c.ticker)}
@@ -149,6 +168,20 @@ export function Sidebar({
               ))}
           </div>
         ))}
+        {visibleCompanyCount < filtered.length && (
+          <div className="px-2 pb-4 text-center">
+            <p className="mb-2 text-[11px] leading-relaxed text-[#9a9ea8]">
+              Showing {visibleCompanyCount.toLocaleString()} of {filtered.length.toLocaleString()} companies. Search to reach any company instantly.
+            </p>
+            <button
+              type="button"
+              onClick={() => setShowAllCompanies(true)}
+              className="w-full rounded-lg border border-black/[0.08] px-3 py-2 text-[12px] font-semibold text-[#5b5f6b] hover:border-accent/40 hover:text-accent dark:border-white/[0.1] dark:text-[#b8bbc3]"
+            >
+              Show all {filtered.length.toLocaleString()} companies
+            </button>
+          </div>
+        )}
       </nav>
       </aside>
     </>

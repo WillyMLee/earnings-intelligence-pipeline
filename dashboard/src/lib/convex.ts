@@ -1,4 +1,5 @@
 import { displayCompanyName } from "./companyNames";
+import { isTrackedTicker, normalizeAndFilterTracked, normalizeTicker, TRACKED_TICKER_LIST } from "./earningsUniverse";
 
 // Thin, dependency-free client for Convex's HTTP query API -- avoids
 // pulling in the full convex-react SDK for what is, from this dashboard's
@@ -162,7 +163,7 @@ export function listRecentEarnings(limit = 50, sector?: string) {
   return convexQuery<PostEarningsSummary[]>("postEarningsSummaries:listRecent", {
     limit,
     ...(sector ? { sector } : {}),
-  }).then((rows) => rows.map(normalizeSummary));
+  }).then((rows) => normalizeAndFilterTracked(rows).map(normalizeSummary));
 }
 
 export function listSectors() {
@@ -171,12 +172,13 @@ export function listSectors() {
 
 export function listCompanies() {
   return convexQuery<CompanyListing[]>("postEarningsSummaries:listCompanies", {}).then((rows) =>
-    rows.map((row) => ({ ...row, company: displayCompanyName(row.ticker, row.company) }))
+    normalizeAndFilterTracked(rows).map((row) => ({ ...row, company: displayCompanyName(row.ticker, row.company) }))
   );
 }
 
 export function listByTicker(ticker: string, limit = 20) {
-  return convexQuery<PostEarningsSummary[]>("postEarningsSummaries:listByTicker", { ticker, limit }).then((rows) =>
+  if (!isTrackedTicker(ticker)) return Promise.resolve([]);
+  return convexQuery<PostEarningsSummary[]>("postEarningsSummaries:listByTicker", { ticker: normalizeTicker(ticker), limit }).then((rows) =>
     rows.map(normalizeSummary)
   );
 }
@@ -185,14 +187,14 @@ export function listCalendarEvents(start: string, end: string, tickers?: string[
   return convexQuery<CalendarEvent[]>("earningsCalendar:listWindow", {
     start,
     end,
-    ...(tickers ? { tickers } : {}),
-  }).then((rows) => rows.map((row) => ({ ...row, company: displayCompanyName(row.ticker, row.company) })));
+    tickers: tickers ?? TRACKED_TICKER_LIST,
+  }).then((rows) => normalizeAndFilterTracked(rows).map((row) => ({ ...row, company: displayCompanyName(row.ticker, row.company) })));
 }
 
 export function getReportingProgress(start: string, end: string, tickers?: string[]) {
   return convexQuery<ReportingProgress>("earningsCalendar:reportingProgress", {
     start,
     end,
-    ...(tickers ? { tickers } : {}),
+    tickers: tickers ?? TRACKED_TICKER_LIST,
   });
 }
