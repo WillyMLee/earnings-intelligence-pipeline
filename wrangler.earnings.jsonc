@@ -9,7 +9,7 @@
   "containers": [
     {
       "class_name": "EarningsContainer",
-      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:coverage-20260826",
+      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:delivery-20260826-v1",
       "instance_type": "basic",
       "max_instances": 12,
       "rollout_step_percentage": [10, 100]
