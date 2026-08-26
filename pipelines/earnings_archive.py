@@ -11,7 +11,7 @@ import os
 import sys
 import urllib.error
 import urllib.request
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
 
@@ -20,6 +20,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.earnings_universe import TRACKED_TICKERS, normalize_ticker
+
+
+CALENDAR_ARCHIVE_WINDOW_DAYS = 7
 
 
 def _iso(value: Any) -> str:
@@ -53,9 +56,35 @@ def archive_earnings_calendar(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     content_hash = hashlib.sha256(
         json.dumps(events, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode("utf-8")
     ).hexdigest()
-    dates=[event["reportDate"] for event in events]
-    result=_convex_request(convex_url=convex_url,kind="mutation",path="earningsCalendar:replaceWindow",args={"adminToken":archive_token,"windowStart":min(dates),"windowEnd":max(dates),"contentHash":content_hash,"events":events})
-    return {"status":"archived","events":len(events),"result":result}
+    first_date = date.fromisoformat(events[0]["reportDate"])
+    last_date = date.fromisoformat(events[-1]["reportDate"])
+    results = []
+    window_start = first_date
+    while window_start <= last_date:
+        window_end = min(window_start + timedelta(days=CALENDAR_ARCHIVE_WINDOW_DAYS - 1), last_date)
+        start_text, end_text = window_start.isoformat(), window_end.isoformat()
+        window_events = [event for event in events if start_text <= event["reportDate"] <= end_text]
+        results.append(
+            _convex_request(
+                convex_url=convex_url,
+                kind="mutation",
+                path="earningsCalendar:replaceWindow",
+                args={
+                    "adminToken": archive_token,
+                    "windowStart": start_text,
+                    "windowEnd": end_text,
+                    "events": window_events,
+                },
+            )
+        )
+        window_start = window_end + timedelta(days=1)
+    return {
+        "status": "archived",
+        "events": len(events),
+        "contentHash": content_hash,
+        "windows": len(results),
+        "results": results,
+    }
 
 
 def _event_payload(event: Any) -> Dict[str, Any]:

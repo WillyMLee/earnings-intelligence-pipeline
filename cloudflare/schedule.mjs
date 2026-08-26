@@ -42,6 +42,7 @@ export function jobsForEasternSlot(scheduledTime) {
 }
 
 export function scheduledRunId(jobName, scheduledTime) {
-  return `scheduled-${jobName}-${new Date(scheduledTime).toISOString().replaceAll(":", "-")}`;
+  const safeTimestamp = new Date(scheduledTime).toISOString().replaceAll(/[:.]/gu, "-");
+  return `scheduled-${jobName}-${safeTimestamp}`;
 }
 

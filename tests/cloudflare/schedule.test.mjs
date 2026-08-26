@@ -35,6 +35,8 @@ test("schedule covers every production job and deterministic IDs fit Workflow li
   assert.deepEqual([...observed].sort(), [...JOB_NAMES].sort());
   const runId = scheduledRunId("post-digest-amc", Date.parse("2026-08-20T23:30:00Z"));
   assert.ok(runId.length <= 100);
+  assert.match(runId, /^[A-Za-z0-9_][A-Za-z0-9_-]*$/u);
+  assert.equal(runId, "scheduled-post-digest-amc-2026-08-20T23-30-00-000Z");
   assert.equal(runId, scheduledRunId("post-digest-amc", Date.parse("2026-08-20T23:30:00Z")));
 });
 

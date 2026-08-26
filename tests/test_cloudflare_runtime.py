@@ -76,10 +76,25 @@ def test_calendar_archive_hash_is_stable_across_provider_order(monkeypatch):
     earnings_archive.archive_earnings_calendar(rows)
     earnings_archive.archive_earnings_calendar(reversed(rows))
 
-    first_args = calls[0]["args"]
-    second_args = calls[1]["args"]
-    assert first_args["contentHash"] == second_args["contentHash"]
-    assert [event["ticker"] for event in first_args["events"]] == ["MSFT", "WMT"]
+    midpoint = len(calls) // 2
+    first_archive = calls[:midpoint]
+    second_archive = calls[midpoint:]
+    assert len(first_archive) == len(second_archive)
+    assert len(first_archive) > 1
+    assert all("contentHash" not in call["args"] for call in calls)
+    assert all(
+        (date.fromisoformat(call["args"]["windowEnd"]) - date.fromisoformat(call["args"]["windowStart"])).days < 7
+        for call in calls
+    )
+    first_events = [event for call in first_archive for event in call["args"]["events"]]
+    second_events = [event for call in second_archive for event in call["args"]["events"]]
+    assert [event["ticker"] for event in first_events] == ["MSFT", "WMT"]
+    assert first_events == second_events
+
+
+def test_daily_and_weekly_email_fetches_do_not_depend_on_convex_calendar_archive():
+    source = (earnings_archive.PROJECT_ROOT / "pipelines" / "run_earnings_radar_automation.py").read_text(encoding="utf-8")
+    assert '"--skip-convex-archive"' in source
 
 
 def test_walmart_backfill_arguments_are_scoped():

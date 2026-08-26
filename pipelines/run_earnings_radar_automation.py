@@ -106,6 +106,7 @@ def main() -> int:
         str(SCRIPT_DIR / "fetch_earnings_calendar.py"),
         "--output",
         str(calendar_output),
+        "--skip-convex-archive",
     ]
     calendar_input = env_value("EARNINGS_CALENDAR_CSV")
     if calendar_input and Path(calendar_input).exists():
