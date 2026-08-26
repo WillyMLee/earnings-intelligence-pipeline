@@ -26,7 +26,6 @@ jobs:
     timeout-minutes: 45
     env:
       IMAGE_TAG: surocap-earnings-runtime:${{ github.sha }}
-      REGISTRY_IMAGE: registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:pre-template-20260826-v3
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build the production Python image
@@ -45,15 +44,6 @@ jobs:
           assert not (EMAIL_DEEP_DIVE_TICKERS & site_only);
           assert '--dashboard-only' in job_commands('pre-earnings')[-1];
           assert '--dashboard-only' in job_commands('post-amc')[-1]"
-      - name: Log in to the Cloudflare registry
-        env:
-          CF_REGISTRY_USERNAME: ${{ secrets.CF_REGISTRY_USERNAME }}
-          CF_REGISTRY_PASSWORD: ${{ secrets.CF_REGISTRY_PASSWORD }}
-        run: echo "${CF_REGISTRY_PASSWORD}" | docker login registry.cloudflare.com --username "${CF_REGISTRY_USERNAME}" --password-stdin
-      - name: Publish the authorized production image
-        run: |
-          docker tag "${IMAGE_TAG}" "${REGISTRY_IMAGE}"
-          docker push "${REGISTRY_IMAGE}"
       - name: Export image
         run: docker save --output surocap-earnings-runtime.tar "${IMAGE_TAG}"
       - name: Upload image for the authorized Cloudflare release
