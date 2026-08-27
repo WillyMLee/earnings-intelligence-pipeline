@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { guessLogoUrl } from "../lib/logo";
+import { logoUrl } from "../lib/logo";
 
 export function CompanyLogo({ ticker, company, size = 32 }: { ticker: string; company: string; size?: number }) {
   const [failed, setFailed] = useState(false);
@@ -18,7 +18,7 @@ export function CompanyLogo({ ticker, company, size = 32 }: { ticker: string; co
 
   return (
     <img
-      src={guessLogoUrl(company)}
+      src={logoUrl(ticker, company)}
       alt=""
       width={size}
       height={size}

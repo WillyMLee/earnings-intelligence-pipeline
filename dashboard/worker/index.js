@@ -7,11 +7,29 @@
  * assets binding, same as before this file existed.
  */
 
+import companyIdentities from "../src/data/companyIdentities.json" with { type: "json" };
+
 const INDEX_SYMBOLS = [
   { symbol: "^GSPC", name: "S&P 500 Index" },
   { symbol: "^IXIC", name: "NASDAQ" },
   { symbol: "^DJI", name: "Dow Jones" },
 ];
+
+function normalizeTicker(value) {
+  return String(value ?? "").trim().toUpperCase().replaceAll(".", "-");
+}
+
+export function companyIdentity(ticker) {
+  const normalizedTicker = normalizeTicker(ticker);
+  const identity = companyIdentities[normalizedTicker];
+  if (!identity) return null;
+  return {
+    ticker: normalizedTicker,
+    name: identity.name,
+    domain: identity.domain,
+    logoUrl: `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(`https://${identity.domain}`)}&sz=128`,
+  };
+}
 
 async function fetchIndex({ symbol, name }) {
   const url = `https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?interval=5m&range=1d`;
@@ -64,6 +82,22 @@ export default {
           headers: { "Content-Type": "application/json" },
         });
       }
+    }
+
+    if (url.pathname === "/api/company-identity") {
+      const requested = (url.searchParams.get("tickers") ?? "")
+        .split(",")
+        .map(normalizeTicker)
+        .filter(Boolean);
+      const tickers = requested.length ? [...new Set(requested)].slice(0, 100) : Object.keys(companyIdentities);
+      const companies = tickers.map(companyIdentity).filter(Boolean);
+      return new Response(JSON.stringify({ companies }), {
+        headers: {
+          "Content-Type": "application/json",
+          "Cache-Control": "public, max-age=3600",
+          "Access-Control-Allow-Origin": "*",
+        },
+      });
     }
 
     return env.ASSETS.fetch(request);

@@ -1,0 +1,9 @@
+{
+  "ADSK": { "domain": "autodesk.com", "name": "Autodesk" },
+  "BBY": { "domain": "bestbuy.com", "name": "Best Buy" },
+  "DG": { "domain": "dollargeneral.com", "name": "Dollar General" },
+  "DLTR": { "domain": "dollartree.com", "name": "Dollar Tree" },
+  "NVDA": { "domain": "nvidia.com", "name": "Nvidia" },
+  "OKTA": { "domain": "okta.com", "name": "Okta" },
+  "VEEV": { "domain": "veeva.com", "name": "Veeva Systems" }
+}

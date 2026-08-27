@@ -1,14 +1,22 @@
-// No ticker->domain mapping is archived anywhere in this pipeline, so this
-// is a best-effort guess (strip legal suffixes, lowercase, append .com) fed
-// to Clearbit's free public logo API. It's wrong often enough on purpose --
-// callers must render a fallback (e.g. the ticker-initial badge already
-// used in EarningsCard) on image error, never assume this resolves.
+import companyIdentities from "../data/companyIdentities.json";
+
+type CompanyIdentity = { domain: string; name: string };
+
 const LEGAL_SUFFIXES = / (inc|incorporated|corp|corporation|co|company|group|holdings|holding|ltd|limited|plc|llc|technologies|financial)\.?$/i;
 
-export function guessLogoUrl(company: string): string {
+export function companyDomain(ticker: string, company: string): string {
+  const normalizedTicker = ticker.trim().toUpperCase().replace(/\./g, "-");
+  const identity = (companyIdentities as Record<string, CompanyIdentity>)[normalizedTicker];
+  if (identity) return identity.domain;
+
   const cleaned = company.replace(LEGAL_SUFFIXES, "").trim();
   const slug = cleaned
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
-  return `https://logo.clearbit.com/${slug}.com`;
+  return `${slug}.com`;
+}
+
+export function logoUrl(ticker: string, company: string): string {
+  const domain = companyDomain(ticker, company);
+  return `https://www.google.com/s2/favicons?domain_url=${encodeURIComponent(`https://${domain}`)}&sz=128`;
 }
