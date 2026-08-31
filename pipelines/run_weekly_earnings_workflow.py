@@ -26,6 +26,7 @@ from build_weekly_earnings_brief import (
     enrich_financial_snapshots,
     enrich_market_caps,
     enrich_notable_what_matters,
+    financial_snapshot_quality,
     load_agentmail_notes,
     load_events,
     monday_of_week,
@@ -306,6 +307,8 @@ def run_workflow(args: argparse.Namespace) -> Dict[str, Any]:
             watchlist=parse_csv_list(args.watchlist),
             focus_sectors=parse_csv_list(args.focus_sectors),
         )
+        print("[workflow] Enriching financial snapshots for weekly coverage events...", flush=True)
+        enrich_financial_snapshots(week_events)
         research_summary = {"enabled": bool(args.live_research), "tickers": {}}
         if args.live_research and week_events:
             research_summary["tickers"] = enrich_notable_events_with_research(
@@ -314,6 +317,24 @@ def run_workflow(args: argparse.Namespace) -> Dict[str, Any]:
                 research_limit=args.research_limit,
                 coverage_tickers=coverage_tickers,
             )
+
+    metric_quality = financial_snapshot_quality(week_events)
+    if metric_quality["missing_tickers"]:
+        warnings.append(
+            "Company metrics unavailable for: "
+            + ", ".join(metric_quality["missing_tickers"])
+            + "."
+        )
+    if (
+        args.send_email
+        and not args.daily
+        and metric_quality["coverage_event_count"] > 0
+        and metric_quality["events_with_company_metrics"] == 0
+    ):
+        raise RuntimeError(
+            "Weekly email blocked: no company-specific financial metrics were available "
+            "from the live provider or either cached Convex snapshot."
+        )
 
     today_override = parse_date(args.today) if args.today else start
     context = build_weekly_context(
@@ -413,6 +434,7 @@ def run_workflow(args: argparse.Namespace) -> Dict[str, Any]:
         "week_start": start.isoformat(),
         "week_end": end.isoformat(),
         "event_count": len(week_events),
+        "metric_quality": metric_quality,
         "delivery": delivery,
         "research": {
             "enabled": research_summary["enabled"],

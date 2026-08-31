@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import math
 import os
 import sys
 import urllib.error
@@ -140,9 +141,23 @@ def _event_payload(event: Any) -> Dict[str, Any]:
     }
 
 
+def _json_safe(value: Any) -> Any:
+    """Convert non-finite provider values to JSON/Convex-safe nulls."""
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, dict):
+        return {key: _json_safe(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_json_safe(item) for item in value]
+    return value
+
+
 def _convex_request(convex_url: str, kind: str, path: str, args: Dict[str, Any]) -> Dict[str, Any]:
     url = f"{convex_url.rstrip('/')}/api/{kind}"
-    body = json.dumps({"path": path, "args": args, "format": "json"}).encode("utf-8")
+    body = json.dumps(
+        _json_safe({"path": path, "args": args, "format": "json"}),
+        allow_nan=False,
+    ).encode("utf-8")
     request = urllib.request.Request(
         url,
         data=body,
@@ -407,6 +422,29 @@ def load_financial_snapshot_artifact(*, ticker: str, report_date: str) -> Dict[s
         return {}
     payload.setdefault("_captured_at", result.get("updatedAt", ""))
     return payload
+
+
+def fetch_pre_earnings_snapshot(ticker: str, report_date: str) -> Dict[str, Any]:
+    """Read the report-date-specific consensus snapshot from Convex."""
+    convex_url = os.environ.get("CONVEX_URL", "").strip()
+    normalized = normalize_ticker(ticker)
+    if not convex_url or not normalized or not report_date:
+        return {}
+    try:
+        result = _convex_request(
+            convex_url=convex_url,
+            kind="query",
+            path="preEarningsSnapshots:getSnapshot",
+            args={"ticker": normalized, "reportDate": report_date},
+        )
+    except RuntimeError as exc:
+        print(
+            f"[earnings-archive] Pre-earnings snapshot lookup failed for "
+            f"{normalized}/{report_date}: {exc}",
+            flush=True,
+        )
+        return {}
+    return result if isinstance(result, dict) else {}
 
 
 def archive_weekly_brief(

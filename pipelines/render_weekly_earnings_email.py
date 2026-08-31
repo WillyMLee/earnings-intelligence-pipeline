@@ -334,9 +334,21 @@ def _render_event_block(event: Any) -> str:
     if event.implied_move_pct is not None:
         meta_parts.append(f"Impl. move {event.implied_move_pct:.1f}%")
     meta_line = " · ".join(meta_parts)
+    snap = getattr(event, "financial_snapshot", None) or {}
+    stat_grid = render_stat_grid(
+        available_stat_fields(build_stat_grid_fields(snap, mcap), limit=3),
+        margin="6px 0 10px 0",
+    )
+    what_matters = str(getattr(event, "what_matters", "") or "").strip()
+    what_matters_html = (
+        f'<div style="padding-bottom:10px;font-size:12px;line-height:18px;color:{INK};">{esc(what_matters)}</div>'
+        if what_matters else ""
+    )
     return (
         f'<div style="padding:0 0 24px 0;">'
         f'<div style="font-size:11px;font-weight:700;color:{MUTED};text-transform:uppercase;letter-spacing:0.4px;padding-bottom:6px;">{esc(meta_line)}</div>'
+        + stat_grid
+        + what_matters_html
         + render_newsletter_digest(event.newsletter_digest or {})
         + "</div>"
     )
@@ -366,36 +378,57 @@ def _yoy_suffix(pct: Optional[float]) -> str:
     return f" ({pct:+.0f}%)" if pct is not None else ""
 
 
-def render_notable_row(event: Any) -> str:
-    snap = event.financial_snapshot or {}
-    mcap = event.market_cap_b
-    mcap_str = (
-        f"{mcap:.0f}B" if mcap is not None and mcap < 1000
-        else (f"{mcap / 1000:.1f}T" if mcap is not None else "N/A")
+def build_stat_grid_fields(snapshot: Dict[str, Any], market_cap_b: Optional[float]) -> List[tuple]:
+    mcap_value = (
+        f"{market_cap_b:.0f}B" if market_cap_b is not None and market_cap_b < 1000
+        else (f"{market_cap_b / 1000:.1f}T" if market_cap_b is not None else "N/A")
+    )
+    revenue_value = "N/A"
+    if snapshot.get("last_q_revenue") is not None:
+        revenue_value = fmt_revenue_compact(snapshot["last_q_revenue"]) + _yoy_suffix(snapshot.get("last_q_yoy_pct"))
+    gross_margin_value = (
+        f"{snapshot['gross_margin_pct']:.0f}%" if snapshot.get("gross_margin_pct") is not None else "N/A"
+    )
+    next_quarter_value = "N/A"
+    if snapshot.get("next_q_revenue_consensus") is not None:
+        next_quarter_value = fmt_revenue_compact(snapshot["next_q_revenue_consensus"]) + _yoy_suffix(snapshot.get("next_q_yoy_pct"))
+    fiscal_year_value = "N/A"
+    if snapshot.get("fy_revenue_consensus") is not None:
+        fiscal_year_value = fmt_revenue_compact(snapshot["fy_revenue_consensus"]) + _yoy_suffix(snapshot.get("fy_yoy_pct"))
+    return [
+        ("Price", fmt_price(snapshot.get("price"))),
+        ("Mkt Cap", mcap_value),
+        ("Revenue (YoY)", revenue_value),
+        ("Gross Margin", gross_margin_value),
+        ("Next Qtr Est (YoY)", next_quarter_value),
+        ("FY Est (YoY)", fiscal_year_value),
+    ]
+
+
+def available_stat_fields(fields: List[tuple], limit: Optional[int] = None) -> List[tuple]:
+    available = [(label, value) for label, value in fields if value != "N/A"]
+    return available[:limit] if limit is not None else available
+
+
+def render_stat_grid(fields: List[tuple], margin: str = "8px 0 0 0") -> str:
+    if not fields:
+        return ""
+    rows = []
+    for start in range(0, len(fields), 3):
+        row = fields[start:start + 3]
+        rows.append("<tr>" + "".join(render_stat_cell(label, value) for label, value in row) + "</tr>")
+    return (
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'style="margin:{margin};border:1px solid {BORDER};border-radius:10px;background:{PANEL_ALT};overflow:hidden;">'
+        + "".join(rows)
+        + "</table>"
     )
 
-    rev_value = "N/A"
-    if snap.get("last_q_revenue") is not None:
-        rev_value = fmt_revenue_compact(snap["last_q_revenue"]) + _yoy_suffix(snap.get("last_q_yoy_pct"))
-    gm_value = f"{snap['gross_margin_pct']:.0f}%" if snap.get("gross_margin_pct") is not None else "N/A"
-    qtr_value = "N/A"
-    if snap.get("next_q_revenue_consensus") is not None:
-        qtr_value = fmt_revenue_compact(snap["next_q_revenue_consensus"]) + _yoy_suffix(snap.get("next_q_yoy_pct"))
-    fy_value = "N/A"
-    if snap.get("fy_revenue_consensus") is not None:
-        fy_value = fmt_revenue_compact(snap["fy_revenue_consensus"]) + _yoy_suffix(snap.get("fy_yoy_pct"))
 
-    stat_grid = (
-        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:8px;">'
-        "<tr>"
-        + render_stat_cell("Price", fmt_price(snap.get("price")))
-        + render_stat_cell("Mkt Cap", mcap_str)
-        + render_stat_cell("Revenue (YoY)", rev_value)
-        + "</tr><tr>"
-        + render_stat_cell("Gross Margin", gm_value)
-        + render_stat_cell("Qtr Est (YoY)", qtr_value)
-        + render_stat_cell("FY Est (YoY)", fy_value)
-        + "</tr></table>"
+def render_notable_row(event: Any) -> str:
+    snap = event.financial_snapshot or {}
+    stat_grid = render_stat_grid(
+        available_stat_fields(build_stat_grid_fields(snap, event.market_cap_b))
     )
 
     what_matters = str(getattr(event, "what_matters", "") or "").strip()

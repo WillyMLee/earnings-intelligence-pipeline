@@ -155,34 +155,86 @@ def enrich_financial_snapshots(events: List["EarningsEvent"]) -> None:
         if str(workspace_root) not in sys.path:
             sys.path.insert(0, str(workspace_root))
         from core.stock_data import fetch_financial_snapshot
-        from pipelines.earnings_archive import archive_pre_earnings_snapshot, load_financial_snapshot_artifact
-    except Exception:
+        from pipelines.earnings_archive import (
+            archive_pre_earnings_snapshot,
+            fetch_pre_earnings_snapshot,
+            load_financial_snapshot_artifact,
+        )
+    except Exception as exc:
+        print(f"[workflow] Financial enrichment dependencies unavailable: {exc}", flush=True)
         return
+    cached_field_map = {
+        "revenueConsensusUsd": "next_q_revenue_consensus",
+        "revenueConsensusYoyPct": "next_q_yoy_pct",
+        "fyRevenueConsensusUsd": "fy_revenue_consensus",
+        "fyRevenueConsensusYoyPct": "fy_yoy_pct",
+        "epsConsensus": "eps_consensus",
+    }
+    consensus_keys = tuple(cached_field_map.values())
     for event in targets:
+        report_date = event.report_date.isoformat()
         persisted = load_financial_snapshot_artifact(
             ticker=event.ticker,
-            report_date=event.report_date.isoformat(),
+            report_date=report_date,
         )
         merged = {
             key: value for key, value in persisted.items()
             if not key.startswith("_") and value is not None
         }
+        refreshed = False
         try:
             if not _snapshot_is_fresh_and_complete(persisted):
-                live = fetch_financial_snapshot(event.ticker)
+                live = fetch_financial_snapshot(event.ticker) or {}
                 merged.update({key: value for key, value in live.items() if value is not None})
-                if merged:
-                    archive_pre_earnings_snapshot(
-                        ticker=event.ticker,
-                        report_date=event.report_date.isoformat(),
-                        snap=merged,
-                        captured_at=datetime.now().isoformat(timespec="seconds"),
-                    )
-        except Exception:
-            pass
+                refreshed = bool(live)
+        except Exception as exc:
+            print(f"[workflow] Live financial snapshot failed for {event.ticker}: {exc}", flush=True)
+
+        if any(merged.get(key) is None for key in consensus_keys):
+            cached = fetch_pre_earnings_snapshot(event.ticker, report_date)
+            for cached_key, snapshot_key in cached_field_map.items():
+                cached_value = cached.get(cached_key)
+                if merged.get(snapshot_key) is None and cached_value is not None:
+                    merged[snapshot_key] = cached_value
+
+        if refreshed and merged:
+            try:
+                archive_pre_earnings_snapshot(
+                    ticker=event.ticker,
+                    report_date=report_date,
+                    snap=merged,
+                    captured_at=datetime.now().isoformat(timespec="seconds"),
+                )
+            except Exception as exc:
+                print(f"[workflow] Financial snapshot archive failed for {event.ticker}: {exc}", flush=True)
         event.financial_snapshot = merged
         if event.market_cap_b is None and merged.get("market_cap_b") is not None:
             event.market_cap_b = merged["market_cap_b"]
+
+
+def financial_snapshot_quality(events: List["EarningsEvent"]) -> Dict[str, Any]:
+    """Measure company-specific metric coverage for the reader-facing set."""
+    metric_keys = (
+        "price",
+        "last_q_revenue",
+        "gross_margin_pct",
+        "next_q_revenue_consensus",
+        "fy_revenue_consensus",
+        "eps_consensus",
+    )
+    targets = [e for e in events if "coverage universe" in e.score_reasons.lower() and e.ticker]
+    populated = [
+        event.ticker
+        for event in targets
+        if any((event.financial_snapshot or {}).get(key) is not None for key in metric_keys)
+    ]
+    missing = [event.ticker for event in targets if event.ticker not in populated]
+    return {
+        "coverage_event_count": len(targets),
+        "events_with_company_metrics": len(populated),
+        "completion_rate": round(len(populated) / len(targets), 3) if targets else 1.0,
+        "missing_tickers": missing,
+    }
 
 
 def enrich_notable_what_matters(events: List["EarningsEvent"]) -> None:
