@@ -85,11 +85,11 @@ def job_commands(
         "post-digest-amc": [refresh_calendar, _python("pipelines/run_post_earnings_digest.py", "--calendar-csv", calendar, "--session", "amc", *date_args, *watchlist_args, *draft_args)],
         "input-prefetch": [
             refresh_and_publish_calendar,
-            _python("pipelines/backfill_earnings_inputs.py", "--calendar-csv", calendar, "--consensus", "--batch-size", "150", "--rotate-daily", "--resume-file", "/tmp/earnings-input-prefetch-state.json"),
+            _python("pipelines/backfill_earnings_inputs.py", "--calendar-csv", calendar, "--consensus", "--batch-size", "150", *watchlist_args, "--rotate-daily", "--resume-file", "/tmp/earnings-input-prefetch-state.json"),
         ],
         "transcript-cache": [
             refresh_calendar,
-            _python("pipelines/backfill_earnings_inputs.py", "--calendar-csv", calendar, "--start", "2026-07-01", "--transcripts", "--batch-size", "12", "--pause-seconds", "1.0", "--rotate-daily", "--resume-file", "/tmp/earnings-transcript-cache-state.json"),
+            _python("pipelines/backfill_earnings_inputs.py", "--calendar-csv", calendar, "--start", "2026-07-01", "--transcripts", "--batch-size", "12", "--pause-seconds", "1.0", *watchlist_args, "--rotate-daily", "--resume-file", "/tmp/earnings-transcript-cache-state.json"),
         ],
     }
     if not watchlist and job_name == "pre-earnings":

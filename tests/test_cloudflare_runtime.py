@@ -38,6 +38,13 @@ def test_input_prefetch_rotates_and_every_job_has_a_command():
         assert job_commands(name)
 
 
+def test_prefetch_and_transcript_canaries_honor_a_targeted_watchlist():
+    for name in ("input-prefetch", "transcript-cache"):
+        command = job_commands(name, watchlist="PANW")[-1]
+        assert "--watchlist" in command
+        assert command[command.index("--watchlist") + 1] == "PANW"
+
+
 def test_only_input_prefetch_publishes_the_calendar_to_convex():
     publishing = job_commands("input-prefetch")[0]
     assert "--skip-convex-archive" not in publishing
