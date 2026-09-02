@@ -52,6 +52,11 @@ test("Wrangler config is production, scheduled, and has no Render dependency", a
   assert.equal(config.containers[0].class_name, "EarningsContainer");
   assert.match(worker, /createBatch/u);
   assert.match(worker, /env\.RELEASE_TAG/u);
+  assert.match(worker, /sleepAfter = "2m"/u);
+  assert.match(worker, /async onActivityExpired\(\)/u);
+  assert.match(worker, /health\?\.currentJob/u);
+  assert.match(worker, /this\.renewActivityTimeout\(\)/u);
+  assert.match(worker, /await this\.destroy\(\)/u);
   assert.doesNotMatch(`${configText}\n${worker}`, /onrender\.com|RENDER_FALLBACK|MIGRATION_ADAPTER_URL/iu);
 });
 

@@ -7,6 +7,7 @@ import hmac
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import threading
@@ -40,6 +41,31 @@ class Job:
 LOCK = threading.Lock()
 CURRENT_JOB: Job | None = None
 LAST_JOB: Job | None = None
+SHUTDOWN_TIMER: threading.Timer | None = None
+
+
+def _cancel_idle_shutdown() -> None:
+    global SHUTDOWN_TIMER
+    if SHUTDOWN_TIMER is not None:
+        SHUTDOWN_TIMER.cancel()
+    SHUTDOWN_TIMER = None
+
+
+def _schedule_idle_shutdown(delay_seconds: int = 60) -> None:
+    global SHUTDOWN_TIMER
+
+    def shutdown_if_idle() -> None:
+        global SHUTDOWN_TIMER
+        with LOCK:
+            SHUTDOWN_TIMER = None
+            if CURRENT_JOB is not None:
+                return
+        os.kill(os.getpid(), signal.SIGTERM)
+
+    _cancel_idle_shutdown()
+    SHUTDOWN_TIMER = threading.Timer(delay_seconds, shutdown_if_idle)
+    SHUTDOWN_TIMER.daemon = True
+    SHUTDOWN_TIMER.start()
 
 
 def _python(*args: str) -> list[str]:
@@ -171,6 +197,7 @@ def _run_job(job: Job, commands: list[list[str]]) -> None:
     with LOCK:
         LAST_JOB = job
         CURRENT_JOB = None
+    _schedule_idle_shutdown()
 
 
 def _validate_body(body: dict[str, Any]) -> tuple[str, str, str, str, bool, bool]:
@@ -253,6 +280,7 @@ class Handler(BaseHTTPRequestHandler):
             job = Job(runId=run_id, jobName=job_name, status="running", startedAt=datetime.now(timezone.utc).isoformat())
             CURRENT_JOB = job
 
+        _cancel_idle_shutdown()
         threading.Thread(target=_run_job, args=(job, commands), daemon=True).start()
         self._json(202, {"ok": True, "accepted": True, "job": asdict(job)})
 

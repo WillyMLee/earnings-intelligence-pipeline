@@ -1,6 +1,7 @@
 import json
 from datetime import date
 
+from cloudflare import container_server
 from cloudflare.container_server import job_commands
 from core import stock_data
 from pipelines import earnings_archive
@@ -240,3 +241,47 @@ def test_consensus_prefetch_refreshes_daily_only_inside_21_day_window():
     )
     assert not consensus_refresh_due({"report_date": "2026-10-01"}, {}, today)
     assert not consensus_refresh_due({"report_date": "2026-08-25"}, {}, today)
+
+
+def test_idle_shutdown_only_terminates_a_container_without_a_current_job(monkeypatch):
+    timers = []
+    kills = []
+
+    class FakeTimer:
+        def __init__(self, delay, callback):
+            self.delay = delay
+            self.callback = callback
+            self.daemon = False
+            self.cancelled = False
+            timers.append(self)
+
+        def start(self):
+            return None
+
+        def cancel(self):
+            self.cancelled = True
+
+    monkeypatch.setattr(container_server.threading, "Timer", FakeTimer)
+    monkeypatch.setattr(container_server.os, "kill", lambda pid, sig: kills.append((pid, sig)))
+    monkeypatch.setattr(container_server.os, "getpid", lambda: 1234)
+    container_server.CURRENT_JOB = None
+    container_server.SHUTDOWN_TIMER = None
+
+    container_server._schedule_idle_shutdown(60)
+    assert timers[-1].delay == 60
+    assert timers[-1].daemon is True
+    timers[-1].callback()
+    assert kills == [(1234, container_server.signal.SIGTERM)]
+
+    container_server.CURRENT_JOB = container_server.Job(
+        runId="run-1",
+        jobName="daily-radar",
+        status="running",
+        startedAt="2026-09-02T00:00:00+00:00",
+    )
+    container_server._schedule_idle_shutdown(60)
+    timers[-1].callback()
+    assert kills == [(1234, container_server.signal.SIGTERM)]
+
+    container_server.CURRENT_JOB = None
+    container_server.SHUTDOWN_TIMER = None

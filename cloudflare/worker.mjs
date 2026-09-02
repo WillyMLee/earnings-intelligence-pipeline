@@ -10,7 +10,23 @@ const POLL_DELAY = "30 seconds";
 
 export class EarningsContainer extends Container {
   defaultPort = 8080;
-  sleepAfter = "5m";
+  sleepAfter = "2m";
+
+  async onActivityExpired() {
+    let health = null;
+    try {
+      const response = await this.containerFetch("http://container/health");
+      health = await response.json().catch(() => null);
+    } catch (error) {
+      console.error(JSON.stringify({ event: "idle_health_failed", message: error instanceof Error ? error.message : String(error) }));
+    }
+    if (health?.currentJob) {
+      this.renewActivityTimeout();
+      return;
+    }
+    console.log(JSON.stringify({ event: "idle_container_destroyed" }));
+    await this.destroy();
+  }
 }
 
 function json(body, status = 200) {
