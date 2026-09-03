@@ -228,14 +228,19 @@ def _estimate_scoreboard_html(items: List[Dict[str, Any]]) -> str:
         )
         period = esc(item.get("period", ""))
         estimate_as_of = esc(item.get("estimate_as_of", ""))
+        period_html = (
+            f' <span style="color:{MUTED};font-size:10px;font-weight:700;">&nbsp;&middot;&nbsp; {period}</span>'
+            if period else ""
+        )
+        estimate_as_of_html = f" &nbsp;&middot;&nbsp; {estimate_as_of}" if estimate_as_of else ""
         divider = f"border-bottom:1px solid {BORDER};" if index < len(comparisons) - 1 else ""
         rows.append(
             f'<table class="comparison-row" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed;{divider}">'
             '<tr><td style="padding:14px 0 15px 0;">'
             f'<div style="font-size:13px;line-height:18px;color:{INK};font-weight:800;">{esc(item.get("metric", ""))}'
-            f'{f" <span style=\"color:{MUTED};font-size:10px;font-weight:700;\">&nbsp;&middot;&nbsp; {period}</span>" if period else ""}</div>'
+            f'{period_html}</div>'
             f'<div style="padding-top:3px;font-size:10px;line-height:15px;color:{MUTED};">{source_html}'
-            f'{f" &nbsp;&middot;&nbsp; {estimate_as_of}" if estimate_as_of else ""}</div>'
+            f'{estimate_as_of_html}</div>'
             '<table class="comparison-values" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed;margin-top:10px;">'
             '<tr>'
             f'<td class="comparison-cell" width="32%" valign="top" bgcolor="{SOFT}" style="width:32%;padding:10px 11px;background:{SOFT};">'
