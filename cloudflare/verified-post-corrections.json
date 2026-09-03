@@ -1,0 +1,220 @@
+{
+  "2026-09-02": {
+    "AVGO": {
+      "ticker": "AVGO",
+      "company": "Broadcom Inc.",
+      "quarter": "Q3 FY2026",
+      "reportDate": "2026-09-02",
+      "reportTime": "After Close",
+      "reactionPct": 0.7,
+      "reactionLine": "Shares are up 0.7% in after-hours trading following the print.",
+      "intro": "Broadcom delivered another sharp step-up in AI semiconductor revenue, with record consolidated revenue, profit, and free cash flow. The muted initial share move despite the size of the growth and outlook underscores how demanding expectations had become before the release.",
+      "keyFigures": [
+        {"label": "Revenue", "value": "$29.6B (+86%)"},
+        {"label": "AI semiconductor", "value": "$16.7B (+221%)"},
+        {"label": "Free cash flow", "value": "$13.7B"},
+        {"label": "Non-GAAP EPS", "value": "$3.32"},
+        {"label": "Q4 revenue guide", "value": "$34.8B"},
+        {"label": "Q4 AI guide", "value": "$21.7B"}
+      ],
+      "financialHighlights": [
+        {"text": "Revenue: $29.591 billion, up 86% year over year; semiconductor solutions grew 127% to $20.839 billion and infrastructure software grew 29% to $8.752 billion.", "children": []},
+        {"text": "AI semiconductor revenue: $16.7 billion, up 221% year over year and 54% sequentially, accounting for more than half of consolidated revenue.", "children": []},
+        {"text": "Profitability: GAAP operating income was $15.955 billion; non-GAAP operating income was $20.095 billion, or about 68% of revenue.", "children": []},
+        {"text": "Earnings: GAAP diluted EPS was $2.68 and non-GAAP diluted EPS was $3.32.", "children": []},
+        {"text": "Cash generation: Operating cash flow was $14.197 billion and free cash flow was $13.665 billion, equal to 46% of revenue.", "children": []},
+        {"text": "Outlook: Fiscal Q4 revenue is guided to approximately $34.8 billion, with non-GAAP operating income near 66% of projected revenue.", "children": []}
+      ],
+      "sections": [
+        {
+          "heading": "Demand and mix",
+          "bullets": [
+            {"text": "AI remains the center of gravity: Custom accelerators and networking drove AI semiconductor revenue to $16.7 billion, while total semiconductor solutions reached 70% of company revenue.", "children": []},
+            {"text": "Infrastructure software also expanded: Revenue rose 29% to $8.752 billion, providing a profitable recurring-revenue counterweight to the faster-growing semiconductor business.", "children": []}
+          ]
+        },
+        {
+          "heading": "Guidance and read-through",
+          "bullets": [
+            {"text": "Management expects Q4 AI semiconductor revenue of $21.7 billion, up 236% year over year, implying another substantial sequential increase.", "children": []},
+            {"text": "The $34.8 billion Q4 revenue guide implies 93% year-over-year growth while holding the non-GAAP operating margin near 66%.", "children": []},
+            {"text": "The modest after-hours gain suggests investors were already positioned for a very strong AI result; continued upside will depend on converting the Q4 acceleration into durable growth.", "children": []}
+          ]
+        },
+        {
+          "heading": "What to track next",
+          "bullets": [
+            {"text": "Monitor the pace and customer breadth of custom AI accelerator deployments, plus networking attach, because the AI revenue base is now large enough to dominate quarterly comparisons.", "children": []},
+            {"text": "Watch whether infrastructure software can sustain growth and margins as VMware integration progresses, and whether consolidated free-cash-flow conversion remains near current levels.", "children": []}
+          ]
+        }
+      ],
+      "keyMetrics": [
+        "Revenue: $29.591B, +86% YoY",
+        "AI semiconductor revenue: $16.7B, +221% YoY and +54% QoQ",
+        "Semiconductor solutions revenue: $20.839B, +127% YoY",
+        "Infrastructure software revenue: $8.752B, +29% YoY",
+        "Free cash flow: $13.665B, 46% of revenue",
+        "Q4 revenue guide: approximately $34.8B; Q4 AI semiconductor guide: $21.7B"
+      ],
+      "officialLinks": {
+        "press_release": "https://investors.broadcom.com/news-releases/news-release-details/broadcom-inc-announces-third-quarter-fiscal-year-2026-financial"
+      },
+      "financials": {
+        "revenue_actual_usd": 29591000000,
+        "revenue_consensus_usd": null,
+        "revenue_yoy_pct": 86.0,
+        "net_income_actual_usd": 13088000000,
+        "eps_actual": 2.68,
+        "eps_consensus": null,
+        "eps_surprise_pct": null,
+        "capex_actual_usd": 532000000
+      }
+    },
+    "HPE": {
+      "ticker": "HPE",
+      "company": "Hewlett Packard Enterprise",
+      "quarter": "Q3 FY2026",
+      "reportDate": "2026-09-02",
+      "reportTime": "After Close",
+      "reactionPct": -4.15,
+      "reactionLine": "Shares are down 4.2% in after-hours trading following the print.",
+      "intro": "HPE reported record revenue and profitability, driven by both the acquired networking portfolio and accelerating AI infrastructure demand, then raised its fiscal 2026 and 2027 outlooks. The negative share reaction indicates that investors focused on the quality and durability of the growth rather than the headline beat alone.",
+      "keyFigures": [
+        {"label": "Revenue", "value": "$12.2B (+34%)"},
+        {"label": "Non-GAAP EPS", "value": "$1.11"},
+        {"label": "Non-GAAP op. margin", "value": "16.2%"},
+        {"label": "Free cash flow", "value": "$1.0B"},
+        {"label": "AI backlog", "value": "$7.6B"},
+        {"label": "FY26 EPS guide", "value": "$3.75-$3.85"}
+      ],
+      "financialHighlights": [
+        {"text": "Revenue: $12.213 billion, up 33.7% year over year and above the prior $11.5-$12.1 billion guidance range.", "children": []},
+        {"text": "Margins: GAAP gross margin was 40.1%; non-GAAP gross margin was 40.4%, up 10.5 percentage points year over year.", "children": []},
+        {"text": "Profitability: Non-GAAP operating profit reached a record $1.979 billion and non-GAAP operating margin expanded to 16.2%.", "children": []},
+        {"text": "Earnings: GAAP diluted EPS was $1.06 and non-GAAP diluted EPS was $1.11, both above the company's guidance ranges.", "children": []},
+        {"text": "Cash generation: Operating cash flow was $1.641 billion and free cash flow was $958 million, a record fiscal Q3.", "children": []},
+        {"text": "Outlook: HPE raised fiscal 2026 non-GAAP EPS guidance by $0.40 to $3.75-$3.85 and lifted free-cash-flow guidance to at least $3.75 billion.", "children": []}
+      ],
+      "sections": [
+        {
+          "heading": "Portfolio and demand",
+          "bullets": [
+            {"text": "Networking revenue was $2.893 billion, up 74.9% as reported and 10% on a normalized basis; normalized orders grew 36% and Networks-for-AI cumulative orders reached $2.2 billion.", "children": []},
+            {"text": "Cloud & AI revenue was $9.042 billion, up 25.4%, led by server revenue of $6.766 billion, up 35.3%.", "children": []},
+            {"text": "AI Systems orders were $2.4 billion in the quarter and AI backlog exited Q3 at a record $7.6 billion; HPE also disclosed a $3.5 billion hyperscaler inference award after quarter-end.", "children": []}
+          ]
+        },
+        {
+          "heading": "Guidance and capital allocation",
+          "bullets": [
+            {"text": "Fiscal Q4 revenue is guided to $13.9-$14.8 billion, with non-GAAP EPS of $1.20-$1.30.", "children": []},
+            {"text": "HPE raised fiscal 2026 revenue growth guidance to 34%-37%, non-GAAP EPS to $3.75-$3.85, and free cash flow to at least $3.75 billion.", "children": []},
+            {"text": "The fiscal 2027 framework now calls for 13%-17% revenue growth, 16%-20% non-GAAP EPS growth, and at least $5.0 billion of free cash flow.", "children": []}
+          ]
+        },
+        {
+          "heading": "What to track next",
+          "bullets": [
+            {"text": "Separate reported networking growth from normalized organic growth as Juniper comparisons become cleaner, and monitor whether the record order backlog converts without margin leakage.", "children": []},
+            {"text": "Watch working capital and cash conversion as large AI systems and hyperscaler projects scale; the after-hours decline suggests execution and mix remain central investor concerns.", "children": []}
+          ]
+        }
+      ],
+      "keyMetrics": [
+        "Revenue: $12.213B, +33.7% YoY",
+        "Non-GAAP operating profit: $1.979B; margin: 16.2%",
+        "Non-GAAP diluted EPS: $1.11, +152% YoY",
+        "Networking revenue: $2.893B, +74.9% reported / +10% normalized",
+        "Cloud & AI revenue: $9.042B, +25.4% YoY; AI backlog: $7.6B",
+        "FY26 non-GAAP EPS guide: $3.75-$3.85; FCF guide: at least $3.75B"
+      ],
+      "officialLinks": {
+        "press_release": "https://www.sec.gov/Archives/edgar/data/1645590/000164559026000078/ex-991x922026x8k.htm",
+        "investor_deck": "https://investors.hpe.com/~/media/Files/H/HP-Enterprise-IR/documents/q3-2026/q3-2026-earnings-presentation.pdf"
+      },
+      "financials": {
+        "revenue_actual_usd": 12213000000,
+        "revenue_consensus_usd": null,
+        "revenue_yoy_pct": 33.7,
+        "net_income_actual_usd": 1511000000,
+        "eps_actual": 1.06,
+        "eps_consensus": null,
+        "eps_surprise_pct": null,
+        "capex_actual_usd": null
+      }
+    },
+    "SNOW": {
+      "ticker": "SNOW",
+      "company": "Snowflake Inc.",
+      "quarter": "Q2 FY2027",
+      "reportDate": "2026-09-02",
+      "reportTime": "After Close",
+      "reactionPct": 21.94,
+      "reactionLine": "Shares are up 21.9% in after-hours trading following the print.",
+      "intro": "Snowflake posted a third consecutive quarter of accelerating product-revenue growth, exceeded its prior product-revenue outlook, and raised both growth and operating-margin guidance. The sharp after-hours rally reflects a meaningful reset higher in expectations for consumption growth and AI-driven workloads.",
+      "keyFigures": [
+        {"label": "Revenue", "value": "$1.55B (+35%)"},
+        {"label": "Product revenue", "value": "$1.49B (+37%)"},
+        {"label": "RPO", "value": "$9.0B (+30%)"},
+        {"label": "NRR", "value": "126%"},
+        {"label": "Q3 product guide", "value": "$1.588-$1.593B"},
+        {"label": "FY27 product guide", "value": "$6.07B"}
+      ],
+      "financialHighlights": [
+        {"text": "Revenue: $1.547 billion, up 35% year over year; product revenue was $1.492 billion, up 37%.", "children": []},
+        {"text": "Execution versus outlook: Product revenue exceeded the prior $1.415-$1.420 billion guidance range by roughly 5%.", "children": []},
+        {"text": "Customer economics: Net revenue retention was 126%, while 828 customers generated more than $1 million of trailing-12-month product revenue, up 27% year over year.", "children": []},
+        {"text": "Backlog: Remaining performance obligations reached $9.00 billion, up 30% year over year.", "children": []},
+        {"text": "Margins: Non-GAAP product gross margin was 74.7% and non-GAAP operating margin was 15.3%; adjusted free-cash-flow margin was 6.0% in the seasonally investment-heavy quarter.", "children": []},
+        {"text": "Outlook: Fiscal Q3 product revenue is guided to $1.588-$1.593 billion, up 37%-38%, and full-year product revenue guidance rose to $6.070 billion, up 36%.", "children": []}
+      ],
+      "sections": [
+        {
+          "heading": "Growth and AI adoption",
+          "bullets": [
+            {"text": "Product growth accelerated to 37%, supported by strength in the core data platform and a step-up in AI revenue, according to management.", "children": []},
+            {"text": "CoCo surpassed 9,100 accounts, adding more than 2,000 in the quarter, while CoWork expanded to 5,800 accounts.", "children": []},
+            {"text": "Snowflake added 692 net new customers, up 32% year over year, including 14 net new Forbes Global 2000 customers.", "children": []}
+          ]
+        },
+        {
+          "heading": "Guidance and operating leverage",
+          "bullets": [
+            {"text": "The fiscal Q3 product-revenue guide of $1.588-$1.593 billion implies 37%-38% growth, sustaining rather than immediately surrendering the Q2 acceleration.", "children": []},
+            {"text": "Full-year product-revenue guidance increased by $230 million to $6.070 billion, while non-GAAP operating-margin guidance rose to 14.5% from 13.5%.", "children": []},
+            {"text": "The combination of faster growth and a higher margin outlook is the central positive read-through; full-year non-GAAP adjusted free-cash-flow margin remains 23%.", "children": []}
+          ]
+        },
+        {
+          "heading": "What to track next",
+          "bullets": [
+            {"text": "Monitor whether AI products create incremental consumption across the broader platform rather than shifting existing workloads, and whether NRR can remain stable as growth scales.", "children": []},
+            {"text": "Watch product gross margin, stock-based compensation, and cash conversion alongside the raised operating-margin target; GAAP operating loss remained $263 million in Q2.", "children": []}
+          ]
+        }
+      ],
+      "keyMetrics": [
+        "Revenue: $1.547B, +35% YoY",
+        "Product revenue: $1.492B, +37% YoY",
+        "RPO: $9.00B, +30% YoY; NRR: 126%",
+        "$1M-plus customers: 828, +27% YoY",
+        "Q3 product revenue guide: $1.588-$1.593B, +37%-38% YoY",
+        "FY27 product revenue guide: $6.070B, +36%; non-GAAP operating margin: 14.5%"
+      ],
+      "officialLinks": {
+        "press_release": "https://www.sec.gov/Archives/edgar/data/1640147/000164014726000033/fy2027q2earnings.htm"
+      },
+      "financials": {
+        "revenue_actual_usd": 1546793000,
+        "revenue_consensus_usd": null,
+        "revenue_yoy_pct": 35.1,
+        "net_income_actual_usd": -191720000,
+        "eps_actual": null,
+        "eps_consensus": null,
+        "eps_surprise_pct": null,
+        "capex_actual_usd": null
+      }
+    }
+  }
+}

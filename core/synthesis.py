@@ -32,6 +32,18 @@ _VERIFIED_RELEASE_URLS = {
         "https://corporate.walmart.com/news/2026/08/20/"
         "walmart-releases-q2-fy27-earnings"
     ),
+    ("AVGO", "2026-09-02"): (
+        "https://investors.broadcom.com/news-releases/news-release-details/"
+        "broadcom-inc-announces-third-quarter-fiscal-year-2026-financial"
+    ),
+    ("HPE", "2026-09-02"): (
+        "https://www.sec.gov/Archives/edgar/data/1645590/"
+        "000164559026000078/ex-991x922026x8k.htm"
+    ),
+    ("SNOW", "2026-09-02"): (
+        "https://www.sec.gov/Archives/edgar/data/1640147/"
+        "000164014726000033/fy2027q2earnings.htm"
+    ),
 }
 
 

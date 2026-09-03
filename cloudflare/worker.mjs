@@ -3,8 +3,10 @@ import { WorkflowEntrypoint } from "cloudflare:workers";
 import { NonRetryableError } from "cloudflare:workflows";
 
 import { JOB_NAMES, jobsForEasternSlot, scheduledRunId } from "./schedule.mjs";
+import { deliverVerifiedCorrection, hasVerifiedCorrection } from "./verified-correction-delivery.mjs";
 
 const JOB_NAME_SET = new Set(JOB_NAMES);
+const VERIFIED_CORRECTION_JOB = "verified-post-correction";
 const POLL_LIMIT = 240;
 const POLL_DELAY = "30 seconds";
 
@@ -83,13 +85,17 @@ async function containerRequest(env, jobName, path, init = {}) {
 function validateJobPayload(value) {
   if (!value || typeof value !== "object") throw new Error("JSON object required");
   const jobName = String(value.jobName || "");
-  if (!JOB_NAME_SET.has(jobName)) throw new Error(`Unknown job: ${jobName}`);
+  if (!JOB_NAME_SET.has(jobName) && jobName !== VERIFIED_CORRECTION_JOB) throw new Error(`Unknown job: ${jobName}`);
   const runId = String(value.runId || "");
   if (!runId || runId.length > 100) throw new Error("runId is required and must be at most 100 characters");
   const forDate = value.forDate ? String(value.forDate) : "";
   if (forDate && !/^\d{4}-\d{2}-\d{2}$/u.test(forDate)) throw new Error("forDate must use YYYY-MM-DD");
   const watchlist = value.watchlist ? String(value.watchlist).toUpperCase() : "";
   if (watchlist && !/^[A-Z0-9.,-]+$/u.test(watchlist)) throw new Error("watchlist contains invalid characters");
+  const correctionId = value.correctionId ? String(value.correctionId) : "";
+  if (jobName === VERIFIED_CORRECTION_JOB && !hasVerifiedCorrection(correctionId)) {
+    throw new Error(`Unknown verified correction: ${correctionId || "missing"}`);
+  }
   return {
     jobName,
     runId,
@@ -97,6 +103,7 @@ function validateJobPayload(value) {
     watchlist,
     draftOnly: value.draftOnly === true,
     correction: value.correction === true,
+    correctionId,
   };
 }
 
@@ -125,6 +132,10 @@ export class EarningsJobWorkflow extends WorkflowEntrypoint {
       payload = validateJobPayload(event.payload);
     } catch (error) {
       throw new NonRetryableError(error instanceof Error ? error.message : "Invalid workflow payload");
+    }
+
+    if (payload.jobName === VERIFIED_CORRECTION_JOB) {
+      return deliverVerifiedCorrection(this.env, step, payload.correctionId, payload.watchlist);
     }
 
     await step.do(

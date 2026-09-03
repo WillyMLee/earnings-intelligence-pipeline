@@ -36,6 +36,7 @@ if str(SCRIPT_DIR) not in sys.path:
 from core.stock_data import fetch_financial_snapshot, fetch_live_reaction_move  # noqa: E402
 from core.research import run_research_query_cascade  # noqa: E402
 from core.coverage import sector_for, is_portco  # noqa: E402
+from core.verified_post_earnings import verified_post_earnings_brief  # noqa: E402
 from core.synthesis import (  # noqa: E402
     synthesize_earnings_brief_with_review,
     synthesize_pre_earnings_brief,
@@ -204,29 +205,36 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     brief = synthesize_earnings_brief_with_review(ticker, company, quarter, "post", facts)
 
     if not brief or not brief.get("sections"):
-        print(f"[post-deep-dive] Web search unavailable/empty for {ticker}, falling back to snippet research...", flush=True)
-        r1 = run_research_query_cascade(
-            query=f"{company} ({ticker}) {quarter} earnings results reaction analysis",
-            max_results_per_provider=5,
-        )
-        r2 = run_research_query_cascade(
-            query=f"{company} ({ticker}) earnings call guidance next quarter",
-            max_results_per_provider=5,
-        )
-        seen = set()
-        snippets = []
-        for item in r1.get("results", []) + r2.get("results", []):
-            key = item.get("url") or item.get("title")
-            if key and key not in seen:
-                seen.add(key)
-                snippets.append(item)
-        brief = synthesize_pre_earnings_brief(ticker, company, quarter, facts, snippets, mode="post")
+        brief = verified_post_earnings_brief(ticker, report_date.isoformat())
+        if brief:
+            print(
+                f"[post-deep-dive] {ticker}: using issuer-release-verified fallback after provider failure",
+                flush=True,
+            )
+        else:
+            print(f"[post-deep-dive] Web search unavailable/empty for {ticker}, falling back to snippet research...", flush=True)
+            r1 = run_research_query_cascade(
+                query=f"{company} ({ticker}) {quarter} earnings results reaction analysis",
+                max_results_per_provider=5,
+            )
+            r2 = run_research_query_cascade(
+                query=f"{company} ({ticker}) earnings call guidance next quarter",
+                max_results_per_provider=5,
+            )
+            seen = set()
+            snippets = []
+            for item in r1.get("results", []) + r2.get("results", []):
+                key = item.get("url") or item.get("title")
+                if key and key not in seen:
+                    seen.add(key)
+                    snippets.append(item)
+            brief = synthesize_pre_earnings_brief(ticker, company, quarter, facts, snippets, mode="post")
 
     # Prefer the model's own researched fiscal-quarter label over our
     # calendar-based guess -- see run_pre_earnings_deep_dive_auto.py for why.
     display_quarter = str(brief.get("fiscal_quarter_label") or "").strip() or quarter
 
-    return {
+    context = {
         "ticker": ticker,
         "company": company,
         "quarter": display_quarter,
@@ -240,16 +248,40 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "financial_highlights": brief.get("financial_highlights", []),
         "sections": brief.get("sections", []),
         "key_metrics": brief.get("key_metrics", []),
+        "key_figures": brief.get("key_figures", []),
         "official_links": brief.get("official_links", {}),
         "financials": brief.get("financials", {}),
+        "qa_approved": brief.get("_qa_approved") is True,
+        "qa_issues": brief.get("_qa_issues", []),
     }
+    issues = delivery_context_issues(context)
+    if issues:
+        raise ValueError("delivery blocked: " + "; ".join(issues))
+    return context
+
+
+def delivery_context_issues(context: dict) -> list[str]:
+    """Fail closed instead of emailing a structurally empty or unreviewed brief."""
+    issues: list[str] = []
+    if context.get("qa_approved") is not True:
+        qa_issues = context.get("qa_issues") or []
+        issues.append("automated review did not approve the brief" + (f" ({'; '.join(map(str, qa_issues))})" if qa_issues else ""))
+    if len(context.get("financial_highlights") or []) < 3:
+        issues.append("fewer than three financial highlights")
+    sections = context.get("sections") or []
+    if not sections or not any(section.get("bullets") for section in sections if isinstance(section, dict)):
+        issues.append("no substantive analysis section")
+    if len(context.get("key_metrics") or []) < 3:
+        issues.append("fewer than three key metrics")
+    if not (context.get("official_links") or {}).get("press_release"):
+        issues.append("no official press-release source")
+    return issues
 
 
 def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
-    recipient = os.environ.get("DEAL_ALERT_EMAIL_TO", "").strip()
-    if not recipient:
-        print(f"[post-deep-dive] {context['ticker']}: no DEAL_ALERT_EMAIL_TO set -- skipping send", flush=True)
-        return False
+    issues = delivery_context_issues(context)
+    if issues:
+        raise ValueError("delivery blocked: " + "; ".join(issues))
 
     ticker_dir = output_dir / context["ticker"].lower()
     ticker_dir.mkdir(parents=True, exist_ok=True)
@@ -276,9 +308,19 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
         json.dumps(summary, indent=2), encoding="utf-8"
     )
 
+    if draft_only:
+        print(f"[post-deep-dive] {context['ticker']}: drafted only", flush=True)
+        return True
+
+    recipient = os.environ.get("DEAL_ALERT_EMAIL_TO", "").strip()
+    if not recipient:
+        print(f"[post-deep-dive] {context['ticker']}: no DEAL_ALERT_EMAIL_TO set -- skipping send", flush=True)
+        return False
+
     # Also archive to Convex -- separate Cloudflare job containers do not
     # share local disk, so the digest cannot read the file above in production.
-    # No-ops quietly if Convex isn't configured.
+    # No-ops quietly if Convex isn't configured. Drafts intentionally stop
+    # before this point so validation cannot overwrite the production digest.
     archive_ok = False
     try:
         archive_result = archive_post_earnings_summary(
@@ -306,10 +348,6 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
     reply_to = os.environ.get("EARNINGS_EMAIL_REPLY_TO", "")
     message = create_email_message(subject, html_body, markdown, sender, recipients, reply_to)
     save_email_message(message, str(ticker_dir / f"{context['ticker'].lower()}_post_deep_dive.eml"))
-
-    if draft_only:
-        print(f"[post-deep-dive] {context['ticker']}: drafted only", flush=True)
-        return True
 
     api_key = os.environ.get("AGENTMAIL_API_KEY", "").strip()
     if not api_key:
