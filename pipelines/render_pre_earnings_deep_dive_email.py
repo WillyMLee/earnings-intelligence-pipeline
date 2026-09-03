@@ -148,10 +148,11 @@ def _section_heading(text: str) -> str:
 def _section_card(title: str, body: str, accent: str = BRAND, content_class: str = "") -> str:
     if not body:
         return ""
+    class_attr = f' class="{content_class}"' if content_class else ""
     return (
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
         f'style="width:100%;border:1px solid {BORDER};border-radius:14px;background:#ffffff;">'
-        f'<tr><td{f" class=\"{content_class}\"" if content_class else ""} style="padding:20px 22px 11px 22px;border-left:4px solid {accent};border-radius:14px;">'
+        f'<tr><td{class_attr} style="padding:20px 22px 11px 22px;border-left:4px solid {accent};border-radius:14px;">'
         f'{_section_heading(title)}{body}</td></tr></table>'
     )
 
