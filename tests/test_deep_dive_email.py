@@ -8,6 +8,8 @@ def _context():
         "quarter": "Q2 FY2027",
         "brief_label": "Correction: Pre-Earnings Summary",
         "report_date_label": "Reports 2026-08-26 -- AMC",
+        "reaction_pct": 5.25,
+        "reaction_line": "Shares are up 5.3% following the print.",
         "key_figures": [
             {"label": "Street revenue", "value": "$92.2B"},
             {"label": "Street EPS", "value": "$2.09"},
@@ -31,6 +33,12 @@ def _context():
 
 def test_email_restores_key_figures_and_hides_raw_tool_output():
     html = render_deep_dive_email(_context())
+    assert "Earnings intelligence" in html
+    assert "Executive read" in html
+    assert "CORRECTION" in html
+    assert "Positive reaction" in html
+    assert "email-shell" in html
+    assert "metric-cell" in html
     assert "Key figures" in html
     assert "Reports 2026-08-26 -- AMC" in html
     assert "Street revenue" in html
@@ -56,3 +64,21 @@ def test_markdown_matches_compact_email_contract():
     assert "**Street revenue:** $92.2B" in markdown
     assert "Stock market information" not in markdown
     assert "Section 3" not in markdown
+
+
+def test_email_uses_negative_reaction_treatment():
+    context = _context()
+    context["reaction_pct"] = -4.2
+    context["reaction_line"] = "Shares are down 4.2% after hours."
+    html = render_deep_dive_email(context)
+    assert "Negative reaction" in html
+    assert "#fbe9ec" in html
+
+
+def test_email_renders_collected_citations_in_additional_sources_card():
+    context = _context()
+    context["intro"] = "Useful context ([Example](https://example.com/results))."
+    html = render_deep_dive_email(context)
+    assert "Additional sources" in html
+    assert "https://example.com/results" in html
+    assert "example.com" in html

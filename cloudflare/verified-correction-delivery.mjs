@@ -12,14 +12,27 @@ function escapeHtml(value) {
 }
 
 function bulletHtml(items, limit = 6) {
-  return `<ul style="margin:0;padding-left:22px;">${items.slice(0, limit).map((item) => `<li style="padding:0 0 7px 0;">${escapeHtml(item.text)}</li>`).join("")}</ul>`;
+  const rows = items.slice(0, limit).map((item) => (
+    `<tr><td valign="top" style="width:12px;padding:3px 9px 7px 0;color:#3454f4;font-size:10px;line-height:21px;">&#9632;</td>` +
+    `<td valign="top" style="padding:0 0 9px;color:#0b0d12;font-size:13px;line-height:21px;">${escapeHtml(item.text)}</td></tr>`
+  )).join("");
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0">${rows}</table>`;
+}
+
+function sectionHeading(title) {
+  return `<div style="padding:0 0 11px;margin-bottom:14px;border-bottom:1px solid #e3e5ea;"><span style="font-size:11px;line-height:16px;color:#63697a;text-transform:uppercase;font-weight:800;letter-spacing:.8px;">${escapeHtml(title)}</span></div>`;
+}
+
+function sectionCard(title, body, accent = "#3454f4") {
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e3e5ea;border-radius:14px;background:#fff;"><tr><td style="padding:20px 22px 11px;border-left:4px solid ${accent};border-radius:14px;">${sectionHeading(title)}${body}</td></tr></table>`;
 }
 
 function renderHtml(item) {
   const figures = (item.keyFigures || []).slice(0, 6).map((figure) => (
-    `<td width="33%" valign="top" style="padding:10px 12px;border:1px solid #e3e5ea;">` +
-    `<div style="font-size:9pt;color:#4b4f58;text-transform:uppercase;">${escapeHtml(figure.label)}</div>` +
-    `<div style="padding-top:3px;font-weight:700;white-space:nowrap;">${escapeHtml(figure.value)}</div></td>`
+    `<td class="metric-cell" width="33.33%" valign="top" style="padding:0 6px 12px;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f7f8fa;border:1px solid #e3e5ea;border-radius:12px;"><tr><td valign="top" style="height:76px;padding:15px 14px 13px;">` +
+    `<div style="font-size:10px;line-height:14px;color:#63697a;text-transform:uppercase;font-weight:800;letter-spacing:.5px;">${escapeHtml(figure.label)}</div>` +
+    `<div style="padding-top:7px;font-size:18px;line-height:23px;font-weight:750;color:#0b0d12;letter-spacing:-.2px;">${escapeHtml(figure.value)}</div></td></tr></table></td>`
   ));
   const figureRows = [];
   for (let index = 0; index < figures.length; index += 3) {
@@ -28,27 +41,31 @@ function renderHtml(item) {
     figureRows.push(`<tr>${row.join("")}</tr>`);
   }
   const sections = item.sections.slice(0, 3).map((section) => (
-    `<div style="margin-top:18px;padding:14px 0 6px;border-top:1px solid #e3e5ea;font-weight:700;">${escapeHtml(section.heading)}</div>` +
-    bulletHtml(section.bullets, 4)
+    `<div style="height:14px;line-height:14px;">&nbsp;</div>${sectionCard(section.heading, bulletHtml(section.bullets, 4))}`
   )).join("");
   const links = Object.entries(item.officialLinks).map(([key, url]) => {
     const label = key === "investor_deck" ? "Investor Deck" : "Press Release";
-    return `<a href="${escapeHtml(url)}" style="color:#3454f4;text-decoration:none;font-weight:700;">${label}</a>`;
-  }).join(" &nbsp;&middot;&nbsp; ");
+    return `<a href="${escapeHtml(url)}" style="display:inline-block;margin:0 7px 7px 0;padding:8px 12px;border:1px solid #e3e5ea;border-radius:8px;background:#fff;color:#3454f4;text-decoration:none;font-size:12px;line-height:16px;font-weight:750;">${label} &nbsp;&#8594;</a>`;
+  }).join("");
+  const reaction = Number(item.reactionPct);
+  const reactionStyle = reaction >= 2
+    ? { label: "Positive reaction", color: "#12805c", soft: "#e3f5ee" }
+    : reaction <= -2
+      ? { label: "Negative reaction", color: "#c23b4b", soft: "#fbe9ec" }
+      : { label: "Muted reaction", color: "#a56b00", soft: "#faf1de" };
+  const reactionHtml = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:${reactionStyle.soft};border-radius:12px;"><tr><td style="padding:15px 18px;border-left:4px solid ${reactionStyle.color};border-radius:12px;"><div style="font-size:10px;line-height:14px;color:${reactionStyle.color};font-weight:800;text-transform:uppercase;letter-spacing:.6px;">${reactionStyle.label}</div><div style="padding-top:4px;font-size:14px;line-height:21px;color:#0b0d12;font-weight:750;">${escapeHtml(item.reactionLine)}</div></td></tr></table>`;
+  const metricsHtml = figures.length
+    ? `${sectionHeading("Key figures")}<table class="metric-grid" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 -6px;">${figureRows.join("")}</table>`
+    : "";
 
-  return `<!doctype html><html><body style="margin:0;background:#fff;font-family:Aptos,Calibri,'Segoe UI',Arial,sans-serif;font-size:11pt;color:#0b0d12;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center" style="padding:20px 16px;">
-  <table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:640px;max-width:640px;">
-  <tr><td style="padding-bottom:8px;font-weight:700;">${escapeHtml(item.ticker)} ${escapeHtml(item.quarter)} Correction: Post-Earnings Summary</td></tr>
-  <tr><td style="padding-bottom:10px;color:#4b4f58;">Reported ${escapeHtml(item.reportDate)} -- ${escapeHtml(item.reportTime)}</td></tr>
-  <tr><td style="padding-bottom:10px;">${links}</td></tr>
-  <tr><td style="padding-bottom:14px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0">${figureRows.join("")}</table></td></tr>
-  <tr><td style="padding-bottom:7px;font-weight:700;">${escapeHtml(item.reactionLine)}</td></tr>
-  <tr><td style="padding-bottom:4px;line-height:16pt;">${escapeHtml(item.intro)}</td></tr>
-  <tr><td><div style="margin-top:18px;padding:14px 0 6px;border-top:1px solid #e3e5ea;font-weight:700;">Financial highlights</div>${bulletHtml(item.financialHighlights)}</td></tr>
-  <tr><td>${sections}</td></tr>
-  <tr><td><div style="margin-top:18px;padding:14px 0 6px;border-top:1px solid #e3e5ea;font-weight:700;">Key highlights</div>${bulletHtml(item.keyMetrics.map((text) => ({ text })))}</td></tr>
-  <tr><td style="padding-top:18px;margin-top:12px;border-top:1px solid #e3e5ea;color:#4b4f58;">Figures are reported by the company unless noted otherwise. This is not investment advice.</td></tr>
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+  @media only screen and (max-width:620px){.email-shell{width:100%!important}.outer-pad{padding:0!important}.header-pad{padding:24px 20px 22px!important}.body-pad{padding:22px 16px 24px!important}.metric-cell{display:block!important;width:100%!important;box-sizing:border-box!important}.metric-grid{margin:0!important}.email-title{font-size:25px!important;line-height:30px!important}}
+  </style></head><body style="margin:0;padding:0;background:#f5f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#0b0d12;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"><tr><td class="outer-pad" align="center" style="padding:24px 12px 32px;">
+  <table class="email-shell" role="presentation" align="center" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:680px;margin:0 auto;">
+  <tr><td class="header-pad" style="background:#0b0d12;border-radius:16px 16px 0 0;padding:28px 32px 25px;"><div style="font-size:10px;line-height:16px;color:#9aa3b2;text-transform:uppercase;font-weight:800;letter-spacing:1px;">Earnings intelligence &nbsp;&middot;&nbsp; Post-earnings <span style="display:inline-block;margin-left:8px;padding:3px 8px;border-radius:999px;background:#3454f4;color:#fff;font-size:9px;line-height:13px;font-weight:800;letter-spacing:.6px;vertical-align:middle;">CORRECTION</span></div><div class="email-title" style="padding-top:9px;font-size:30px;line-height:36px;color:#fff;font-weight:800;letter-spacing:-.45px;">${escapeHtml(item.company)}</div><div style="padding-top:8px;font-size:13px;line-height:20px;color:#9aa3b2;"><span style="color:#fff;font-weight:750;">${escapeHtml(item.ticker)}</span> &nbsp;&middot;&nbsp; ${escapeHtml(item.quarter)} &nbsp;&middot;&nbsp; Reported ${escapeHtml(item.reportDate)} -- ${escapeHtml(item.reportTime)}</div></td></tr>
+  <tr><td class="body-pad" style="background:#fff;padding:24px 28px 30px;">${reactionHtml}<div style="height:14px;line-height:14px;">&nbsp;</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e8ecfe;border-radius:12px;"><tr><td style="padding:17px 19px;"><div style="font-size:10px;line-height:14px;color:#3454f4;font-weight:800;text-transform:uppercase;letter-spacing:.7px;">Executive read</div><div style="padding-top:6px;font-size:14px;line-height:22px;color:#0b0d12;">${escapeHtml(item.intro)}</div></td></tr></table><div style="padding-top:14px;">${links}</div><div style="height:20px;line-height:20px;">&nbsp;</div>${metricsHtml}<div style="height:12px;line-height:12px;">&nbsp;</div>${sectionCard("Financial highlights", bulletHtml(item.financialHighlights))}${sections}<div style="height:14px;line-height:14px;">&nbsp;</div>${sectionCard("Key highlights", bulletHtml(item.keyMetrics.map((text) => ({ text }))))}</td></tr>
+  <tr><td style="background:#f7f8fa;border-radius:0 0 16px 16px;padding:17px 28px 19px;border-top:1px solid #e3e5ea;"><div style="font-size:11px;line-height:18px;color:#63697a;">Earnings Intelligence &middot; Figures are reported by the company unless noted otherwise. This is not investment advice.</div></td></tr>
   </table></td></tr></table></body></html>`;
 }
 

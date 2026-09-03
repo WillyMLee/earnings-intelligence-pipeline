@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """
-Render the per-company earnings deep-dive email: a plain, memo-style research
-brief (not a card-based dashboard email), used both the day before a
-coverage-universe company reports (pre-earnings) and the day it reports
-(post-earnings).
+Render the per-company earnings deep-dive email in the same polished visual
+system as the daily and weekly earnings-intelligence briefs. The renderer is
+used both before and after a coverage-universe company reports.
 """
 
 from __future__ import annotations
@@ -18,14 +17,22 @@ from urllib.parse import urlparse
 
 
 INK = "#0b0d12"
-MUTED = "#4b4f58"
+INK_SOFT = "#9aa3b2"
+MUTED = "#63697a"
 BORDER = "#e3e5ea"
 BRAND = "#3454f4"
-BRAND_MUTED = "#4a5b7a"
+BRAND_SOFT = "#e8ecfe"
+POSITIVE = "#12805c"
+POSITIVE_SOFT = "#e3f5ee"
+NEGATIVE = "#c23b4b"
+NEGATIVE_SOFT = "#fbe9ec"
+NEUTRAL = "#a56b00"
+NEUTRAL_SOFT = "#faf1de"
 SOFT = "#f7f8fa"
-FONT_STACK = "Aptos,Calibri,'Segoe UI',Arial,sans-serif"
-BASE_SIZE = "11pt"
-LINE_HEIGHT = "16pt"
+PAGE_BG = "#f5f6f8"
+FONT_STACK = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif"
+BASE_SIZE = "13px"
+LINE_HEIGHT = "21px"
 
 _CITATION_RE = re.compile(r"\s*\(\[([^\]]+)\]\((https?://[^\s)]+)\)\)")
 
@@ -106,8 +113,8 @@ def _bullet_list(items: List[Dict[str, Any]], limit: int = 6, child_limit: int =
     for item in items[:limit]:
         rows.append(
             "<tr>"
-            f'<td valign="top" style="padding:0 6px 4px 0;color:{MUTED};font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};width:12px;">&#8226;</td>'
-            f'<td valign="top" style="padding:0 0 5px 0;color:{INK};font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};">{_bullet_text_html(item.get("text", ""))}</td>'
+            f'<td valign="top" style="padding:3px 9px 7px 0;color:{BRAND};font-size:10px;line-height:{LINE_HEIGHT};width:12px;">&#9632;</td>'
+            f'<td valign="top" style="padding:0 0 9px 0;color:{INK};font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};">{_bullet_text_html(item.get("text", ""))}</td>'
             "</tr>"
         )
         for child in (item.get("children", []) or [])[:child_limit]:
@@ -116,8 +123,8 @@ def _bullet_list(items: List[Dict[str, Any]], limit: int = 6, child_limit: int =
                 f'<td></td>'
                 f'<td valign="top" style="padding:0 0 4px 0;">'
                 f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
-                f'<td valign="top" style="padding:0 6px 4px 4px;color:{MUTED};font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};width:12px;">&#9702;</td>'
-                f'<td valign="top" style="padding:0 0 4px 0;color:{INK};font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};">{esc(_compact_text(child, 300))}</td>'
+                f'<td valign="top" style="padding:1px 8px 5px 4px;color:{MUTED};font-size:12px;line-height:{LINE_HEIGHT};width:12px;">&#8226;</td>'
+                f'<td valign="top" style="padding:0 0 7px 0;color:{MUTED};font-size:12px;line-height:19px;">{esc(_compact_text(child, 300))}</td>'
                 f'</tr></table>'
                 f'</td>'
                 "</tr>"
@@ -126,7 +133,22 @@ def _bullet_list(items: List[Dict[str, Any]], limit: int = 6, child_limit: int =
 
 
 def _section_heading(text: str) -> str:
-    return f'<div style="margin-top:18px;padding:14px 0 6px 0;border-top:1px solid {BORDER};font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};font-weight:700;color:{INK};">{esc(text)}</div>'
+    return (
+        f'<div style="padding:0 0 11px 0;margin-bottom:14px;border-bottom:1px solid {BORDER};">'
+        f'<span style="font-size:11px;line-height:16px;color:{MUTED};text-transform:uppercase;'
+        f'font-weight:800;letter-spacing:0.8px;">{esc(text)}</span></div>'
+    )
+
+
+def _section_card(title: str, body: str, accent: str = BRAND) -> str:
+    if not body:
+        return ""
+    return (
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
+        f'style="width:100%;border:1px solid {BORDER};border-radius:14px;background:#ffffff;">'
+        f'<tr><td style="padding:20px 22px 11px 22px;border-left:4px solid {accent};border-radius:14px;">'
+        f'{_section_heading(title)}{body}</td></tr></table>'
+    )
 
 
 def _key_figures_html(items: List[Dict[str, Any]]) -> str:
@@ -136,23 +158,45 @@ def _key_figures_html(items: List[Dict[str, Any]]) -> str:
     rows: List[str] = []
     for start in range(0, len(figures), 3):
         cells: List[str] = []
-        for index, item in enumerate(figures[start : start + 3]):
-            border = f"border-left:1px solid {BORDER};" if index else ""
+        for item in figures[start : start + 3]:
             cells.append(
-                f'<td width="33.33%" valign="top" style="padding:10px 12px;{border}">'
-                f'<div style="font-size:9pt;color:{MUTED};text-transform:uppercase;letter-spacing:0.3px;">{esc(item["label"])}</div>'
-                f'<div style="padding-top:2px;font-size:11pt;font-weight:700;color:{INK};white-space:nowrap;">{esc(item["value"])}</div>'
-                "</td>"
+                '<td class="metric-cell" width="33.33%" valign="top" style="padding:0 6px 12px 6px;">'
+                f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{SOFT};border:1px solid {BORDER};border-radius:12px;">'
+                '<tr><td valign="top" style="height:76px;padding:15px 14px 13px 14px;">'
+                f'<div style="font-size:10px;line-height:14px;color:{MUTED};text-transform:uppercase;font-weight:800;letter-spacing:0.5px;">{esc(item["label"])}</div>'
+                f'<div style="padding-top:7px;font-size:18px;line-height:23px;font-weight:750;color:{INK};letter-spacing:-0.2px;">{esc(item["value"])}</div>'
+                "</td></tr></table></td>"
             )
         while len(cells) < 3:
             cells.append('<td width="33.33%"></td>')
-        row_border = f"border-top:1px solid {BORDER};" if start else ""
-        rows.append(f'<tr style="{row_border}">{"".join(cells)}</tr>')
+        rows.append(f'<tr>{"".join(cells)}</tr>')
     return (
-        '<div style="padding:4px 0 14px 0;">'
-        f'<div style="padding-bottom:6px;font-size:9pt;font-weight:700;color:{MUTED};text-transform:uppercase;letter-spacing:0.4px;">Key figures</div>'
-        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid {BORDER};border-radius:10px;background:{SOFT};overflow:hidden;">'
-        f'{"".join(rows)}</table></div>'
+        f'{_section_heading("Key figures")}'
+        '<table class="metric-grid" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 -6px;">'
+        f'{"".join(rows)}</table>'
+    )
+
+
+def _reaction_html(reaction_line: str, reaction_pct: Any) -> str:
+    if not reaction_line:
+        return ""
+    try:
+        value = float(reaction_pct)
+    except (TypeError, ValueError):
+        lower = reaction_line.lower()
+        value = -2.0 if "down" in lower else (2.0 if "up" in lower else 0.0)
+    if value >= 2:
+        label, color, soft = "Positive reaction", POSITIVE, POSITIVE_SOFT
+    elif value <= -2:
+        label, color, soft = "Negative reaction", NEGATIVE, NEGATIVE_SOFT
+    else:
+        label, color, soft = "Muted reaction", NEUTRAL, NEUTRAL_SOFT
+    return (
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{soft};border-radius:12px;">'
+        f'<tr><td style="padding:15px 18px;border-left:4px solid {color};border-radius:12px;">'
+        f'<div style="font-size:10px;line-height:14px;color:{color};font-weight:800;text-transform:uppercase;letter-spacing:0.6px;">{label}</div>'
+        f'<div style="padding-top:4px;font-size:14px;line-height:21px;color:{INK};font-weight:750;">{esc(reaction_line)}</div>'
+        '</td></tr></table>'
     )
 
 
@@ -176,10 +220,12 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
 
     sections_html = ""
     for section in context.get("sections", [])[:3]:
-        heading = esc(section.get("heading", ""))
+        heading = str(section.get("heading", "") or "").strip()
         bullets, sec_sources = strip_citations_nested(section.get("bullets", []))
         all_sources.extend(sec_sources)
-        sections_html += _section_heading(heading) + _bullet_list(bullets, limit=4)
+        section_body = _bullet_list(bullets, limit=4)
+        if heading and section_body:
+            sections_html += f'<div class="content-gap" style="height:14px;line-height:14px;">&nbsp;</div>{_section_card(heading, section_body)}'
 
     is_post = "post" in brief_label_raw.lower()
     key_metrics_label = "Key highlights" if is_post else "Key metrics to watch"
@@ -187,8 +233,10 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
     key_metrics, km_sources = strip_citations_flat(context.get("key_metrics", [])[:6])
     all_sources.extend(km_sources)
     if key_metrics:
-        key_metrics_html = _section_heading(key_metrics_label) + _bullet_list(
-            [{"text": item, "children": []} for item in key_metrics]
+        key_metrics_html = _section_card(
+            key_metrics_label,
+            _bullet_list([{"text": item, "children": []} for item in key_metrics]),
+            NEUTRAL if not is_post else BRAND,
         )
 
     sources_html = ""
@@ -196,15 +244,10 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
     if deduped_sources:
         source_rows = "".join(
             f'<div style="padding-bottom:2px;font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};">'
-            f'<a href="{esc(url)}" style="color:{BRAND_MUTED};text-decoration:none;">{esc(urlparse(url).netloc.replace("www.", "") or url)}</a></div>'
+            f'<a href="{esc(url)}" style="color:{BRAND};text-decoration:none;font-weight:700;">{esc(urlparse(url).netloc.replace("www.", "") or url)}</a></div>'
             for url in deduped_sources[:10]
         )
-        sources_html = _section_heading("Sources") + source_rows
-
-    reaction_html = (
-        f'<tr><td style="padding-bottom:6px;font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};color:{INK};font-weight:700;">{esc(reaction_line)}</td></tr>'
-        if reaction_line else ""
-    )
+        sources_html = _section_card("Additional sources", source_rows, MUTED)
 
     official_links = context.get("official_links") or {}
     link_labels = [
@@ -213,61 +256,76 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
         ("transcript", "Transcript"),
     ]
     link_items = [
-        f'<a href="{esc(official_links[key])}" style="color:{BRAND};text-decoration:none;font-weight:700;">{esc(label)}</a>'
+        f'<a href="{esc(official_links[key])}" style="display:inline-block;margin:0 7px 7px 0;padding:8px 12px;border:1px solid {BORDER};border-radius:8px;background:#ffffff;color:{BRAND};text-decoration:none;font-size:12px;line-height:16px;font-weight:750;">{esc(label)} &nbsp;&#8594;</a>'
         for key, label in link_labels
         if official_links.get(key)
     ]
     official_links_html = (
-        f'<tr><td style="padding-bottom:8px;font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};">{" &nbsp;&middot;&nbsp; ".join(link_items)}</td></tr>'
+        f'<div style="padding-top:14px;">{"".join(link_items)}</div>'
         if link_items else ""
     )
     report_date = esc(context.get("report_date_label", ""))
-    report_date_html = (
-        f'<tr><td style="padding:0 0 10px 0;font-size:10pt;line-height:14pt;color:{MUTED};">{report_date}</td></tr>'
-        if report_date else ""
-    )
     key_figures_html = _key_figures_html(context.get("key_figures", []) or [])
+    reaction_html = _reaction_html(reaction_line, context.get("reaction_pct"))
+    mode_label = "Post-earnings" if is_post else "Pre-earnings"
+    correction_badge = (
+        f'<span style="display:inline-block;margin-left:8px;padding:3px 8px;border-radius:999px;background:{BRAND};color:#ffffff;font-size:9px;line-height:13px;font-weight:800;letter-spacing:0.6px;vertical-align:middle;">CORRECTION</span>'
+        if "correction" in brief_label_raw.lower() else ""
+    )
+    intro_card = (
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{BRAND_SOFT};border-radius:12px;">'
+        f'<tr><td style="padding:17px 19px;">'
+        f'<div style="font-size:10px;line-height:14px;color:{BRAND};font-weight:800;text-transform:uppercase;letter-spacing:0.7px;">Executive read</div>'
+        f'<div style="padding-top:6px;font-size:14px;line-height:22px;color:{INK};">{intro_html}</div>'
+        '</td></tr></table>' if intro_html else ""
+    )
+    highlights_card = _section_card("Financial highlights", highlights_html)
 
     return f"""<!doctype html>
 <html>
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
-<body style="margin:0;padding:0;background:#ffffff;font-family:{FONT_STACK};font-size:{BASE_SIZE};">
-<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#ffffff;font-family:{FONT_STACK};font-size:{BASE_SIZE};">
-<tr><td align="center" style="padding:20px 16px;">
-<table role="presentation" width="640" cellpadding="0" cellspacing="0" style="width:640px;max-width:640px;">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    @media only screen and (max-width:620px) {{
+      .email-shell {{ width:100% !important; }}
+      .outer-pad {{ padding:0 !important; }}
+      .header-pad {{ padding:24px 20px 22px !important; }}
+      .body-pad {{ padding:22px 16px 24px !important; }}
+      .metric-cell {{ display:block !important;width:100% !important;box-sizing:border-box !important; }}
+      .metric-grid {{ margin:0 !important; }}
+      .email-title {{ font-size:25px !important;line-height:30px !important; }}
+    }}
+  </style>
+</head>
+<body style="margin:0;padding:0;background:{PAGE_BG};font-family:{FONT_STACK};font-size:{BASE_SIZE};">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{PAGE_BG};font-family:{FONT_STACK};font-size:{BASE_SIZE};">
+<tr><td class="outer-pad" align="center" style="padding:24px 12px 32px 12px;">
+<table class="email-shell" role="presentation" align="center" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:680px;margin:0 auto;">
 
-  <tr><td style="padding-bottom:8px;font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};font-weight:700;color:{INK};">
-    {ticker or company} {quarter} {brief_label}
+  <!-- BRANDED HEADER -->
+  <tr><td class="header-pad" style="background:{INK};border-radius:16px 16px 0 0;padding:28px 32px 25px 32px;">
+    <div style="font-size:10px;line-height:16px;color:{INK_SOFT};text-transform:uppercase;font-weight:800;letter-spacing:1px;">Earnings intelligence &nbsp;&middot;&nbsp; {esc(mode_label)}{correction_badge}</div>
+    <div class="email-title" style="padding-top:9px;font-size:30px;line-height:36px;color:#ffffff;font-weight:800;letter-spacing:-0.45px;">{company or ticker}</div>
+    <div style="padding-top:8px;font-size:13px;line-height:20px;color:{INK_SOFT};"><span style="color:#ffffff;font-weight:750;">{ticker}</span> &nbsp;&middot;&nbsp; {quarter}{f' &nbsp;&middot;&nbsp; {report_date}' if report_date else ''}</div>
   </td></tr>
-  {report_date_html}
-  {official_links_html}
 
-  <tr><td>{key_figures_html}</td></tr>
+  <!-- ANALYSIS BODY -->
+  <tr><td class="body-pad" style="background:#ffffff;padding:24px 28px 30px 28px;">
+    {reaction_html}
+    {f'<div style="height:14px;line-height:14px;">&nbsp;</div>' if reaction_html and intro_card else ''}
+    {intro_card}
+    {official_links_html}
 
-  {reaction_html}
-  <tr><td style="padding-bottom:4px;font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};color:{INK};">{intro_html}</td></tr>
-
-  <tr><td>
-    {_section_heading("Financial highlights")}
-    {highlights_html}
-  </td></tr>
-
-  <tr><td>
+    {f'<div style="height:20px;line-height:20px;">&nbsp;</div>{key_figures_html}' if key_figures_html else ''}
+    {f'<div style="height:12px;line-height:12px;">&nbsp;</div>{highlights_card}' if highlights_card else ''}
     {sections_html}
+    {f'<div style="height:14px;line-height:14px;">&nbsp;</div>{key_metrics_html}' if key_metrics_html else ''}
+    {f'<div style="height:14px;line-height:14px;">&nbsp;</div>{sources_html}' if sources_html else ''}
   </td></tr>
 
-  <tr><td>
-    {key_metrics_html}
-  </td></tr>
-
-  <tr><td>
-    {sources_html}
-  </td></tr>
-
-  <tr><td style="padding-top:16px;border-top:1px solid {BORDER};margin-top:12px;">
-    <div style="padding-top:8px;font-size:{BASE_SIZE};line-height:{LINE_HEIGHT};color:{MUTED};">
-      Figures are Street consensus/guidance unless noted as reported. This is not investment advice.
-    </div>
+  <!-- FOOTER -->
+  <tr><td style="background:{SOFT};border-radius:0 0 16px 16px;padding:17px 28px 19px 28px;border-top:1px solid {BORDER};">
+    <div style="font-size:11px;line-height:18px;color:{MUTED};">Earnings Intelligence &middot; Figures are Street consensus/guidance unless noted as reported. This is not investment advice.</div>
   </td></tr>
 
 </table>
