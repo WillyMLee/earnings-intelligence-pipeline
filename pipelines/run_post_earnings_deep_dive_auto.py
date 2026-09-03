@@ -204,7 +204,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     print(f"[post-deep-dive] Synthesizing brief for {ticker} via web search...", flush=True)
     brief = synthesize_earnings_brief_with_review(ticker, company, quarter, "post", facts)
 
-    if not brief or not brief.get("sections"):
+    if not brief or not brief.get("sections") or brief.get("_qa_approved") is not True:
         brief = verified_post_earnings_brief(ticker, report_date.isoformat())
         if brief:
             print(

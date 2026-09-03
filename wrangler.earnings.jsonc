@@ -9,7 +9,7 @@
   "containers": [
     {
       "class_name": "EarningsContainer",
-      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:snapshot-cache-20260826-v5",
+      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:6e336160ffc7fa1b437426fb6ab599a5dd57ac88",
       "instance_type": "basic",
       "max_instances": 12,
       "rollout_step_percentage": [10, 100]
@@ -51,7 +51,7 @@
     "OPENAI_WEB_SEARCH_MODEL": "gpt-4o-mini",
     "EARNINGS_TIME_ZONE": "America/New_York",
     "SCHEDULE_VERSION": "earnings-cloudflare-v3",
-    "RELEASE_TAG": "2026-08-26-snapshot-cache-v5"
+    "RELEASE_TAG": "2026-09-02-blank-brief-guard-v2"
   },
   "secrets": {
     "required": [

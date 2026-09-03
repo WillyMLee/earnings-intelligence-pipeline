@@ -135,7 +135,7 @@ export class EarningsJobWorkflow extends WorkflowEntrypoint {
     }
 
     if (payload.jobName === VERIFIED_CORRECTION_JOB) {
-      return deliverVerifiedCorrection(this.env, step, payload.correctionId, payload.watchlist);
+      return deliverVerifiedCorrection(this.env, step, payload.correctionId, payload.watchlist, !payload.draftOnly);
     }
 
     await step.do(

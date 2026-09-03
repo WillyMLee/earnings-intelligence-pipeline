@@ -1,8 +1,9 @@
+from datetime import date
 from pathlib import Path
 from unittest.mock import patch
 
 from core.verified_post_earnings import verified_post_earnings_brief
-from pipelines.run_post_earnings_deep_dive_auto import delivery_context_issues, send_deep_dive
+from pipelines.run_post_earnings_deep_dive_auto import build_brief_context, delivery_context_issues, send_deep_dive
 
 
 def _context(ticker: str = "SNOW") -> dict:
@@ -59,6 +60,35 @@ def test_empty_or_unreviewed_brief_is_blocked():
     assert "no substantive analysis section" in issues
 
 
+def test_unapproved_model_draft_is_replaced_by_verified_fallback():
+    unapproved = {
+        "fiscal_quarter_label": "Q2 FY2027",
+        "financial_highlights": [{"text": "Unreviewed", "children": []}],
+        "sections": [{"heading": "Draft", "bullets": [{"text": "Unreviewed", "children": []}]}],
+        "key_metrics": ["Unreviewed"],
+        "official_links": {"press_release": "https://example.invalid"},
+        "_qa_approved": False,
+        "_qa_issues": ["official period unresolved"],
+    }
+    with patch(
+        "pipelines.run_post_earnings_deep_dive_auto.fetch_financial_snapshot", return_value={}
+    ), patch(
+        "pipelines.run_post_earnings_deep_dive_auto.fetch_live_reaction_move",
+        return_value={"ah_move_pct": 21.94, "source": "yfinance_live_postmarket"},
+    ), patch(
+        "pipelines.run_post_earnings_deep_dive_auto.synthesize_earnings_brief_with_review",
+        return_value=unapproved,
+    ):
+        context = build_brief_context(
+            {"ticker": "SNOW", "company": "Snowflake Inc.", "report_time": "After Close"},
+            date(2026, 9, 2),
+            correction=True,
+        )
+    assert context["qa_approved"] is True
+    assert context["key_metrics"][0] == "Revenue: $1.547B, +35% YoY"
+    assert not delivery_context_issues(context)
+
+
 def test_draft_renders_without_archiving_or_requiring_recipient(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("DEAL_ALERT_EMAIL_TO", raising=False)
     with patch("pipelines.run_post_earnings_deep_dive_auto.archive_post_earnings_summary") as archive:
@@ -66,4 +96,3 @@ def test_draft_renders_without_archiving_or_requiring_recipient(tmp_path: Path, 
     archive.assert_not_called()
     assert (tmp_path / "snow" / "snow_post_deep_dive.html").exists()
     assert (tmp_path / "snow" / "snow_post_deep_dive.md").exists()
-

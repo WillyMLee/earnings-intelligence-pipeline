@@ -152,17 +152,20 @@ export function hasVerifiedCorrection(correctionId) {
   return Boolean(batch && Object.keys(batch).length);
 }
 
-export async function deliverVerifiedCorrection(env, step, correctionId, watchlist = "") {
+export async function deliverVerifiedCorrection(env, step, correctionId, watchlist = "", sendEmails = true) {
   const batch = correctionCatalog[correctionId];
   if (!batch) throw new Error(`Unknown verified correction: ${correctionId}`);
   const requested = new Set(String(watchlist || "").split(",").map((value) => value.trim()).filter(Boolean));
   const items = Object.values(batch).filter((item) => !requested.size || requested.has(item.ticker));
   if (!items.length) throw new Error("Verified correction watchlist matched no companies");
 
-  const inboxId = await step.do("resolve correction inbox", async () => resolveInbox(env));
+  const inboxId = sendEmails
+    ? await step.do("resolve correction inbox", async () => resolveInbox(env))
+    : "";
   const delivered = [];
   for (const item of items) {
     await step.do(`archive corrected ${item.ticker}`, async () => archiveSummary(env, item));
+    if (!sendEmails) continue;
     const result = await step.do(
       `send corrected ${item.ticker}`,
       { retries: { limit: 0, delay: "1 second", backoff: "constant" }, timeout: "2 minutes" },
@@ -170,7 +173,7 @@ export async function deliverVerifiedCorrection(env, step, correctionId, watchli
     );
     delivered.push({ ticker: item.ticker, messageId: result.message_id || result.id || "" });
   }
-  return { status: "succeeded", correctionId, delivered };
+  return { status: "succeeded", correctionId, archived: items.map((item) => item.ticker), delivered };
 }
 
 export const __test = { renderHtml, renderText };
