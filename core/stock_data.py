@@ -261,6 +261,12 @@ def fetch_financial_snapshot(ticker: str) -> Dict[str, Any]:
                     market_cap = float(result["price"]) * float(shares)
             if market_cap:
                 result["market_cap_b"] = round(market_cap / 1_000_000_000, 2)
+            enterprise_value = info.get("enterpriseValue")
+            if enterprise_value:
+                result["enterprise_value_b"] = round(float(enterprise_value) / 1_000_000_000, 2)
+            shares_outstanding = info.get("sharesOutstanding") or info.get("impliedSharesOutstanding")
+            if shares_outstanding:
+                result["shares_outstanding"] = float(shares_outstanding)
             gross_margin = info.get("grossMargins")
             if gross_margin is not None:
                 result["gross_margin_pct"] = round(gross_margin * 100, 1)

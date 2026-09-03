@@ -42,7 +42,7 @@ from core.synthesis import (  # noqa: E402
     synthesize_pre_earnings_brief,
 )
 import agentmail_delivery  # noqa: E402
-from earnings_archive import archive_post_earnings_summary  # noqa: E402
+from earnings_archive import archive_post_earnings_summary, fetch_pre_earnings_snapshot  # noqa: E402
 from render_pre_earnings_deep_dive_email import (  # noqa: E402
     build_email_subject,
     create_email_message,
@@ -162,6 +162,13 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
 
     print(f"[post-deep-dive] Fetching financial snapshot for {ticker}...", flush=True)
     snap = fetch_financial_snapshot(ticker)
+    dated_consensus = fetch_pre_earnings_snapshot(ticker, report_date.isoformat())
+    if dated_consensus:
+        print(
+            f"[post-deep-dive] Using consensus captured before the print for {ticker} "
+            f"({dated_consensus.get('capturedAt') or 'capture time unavailable'})...",
+            flush=True,
+        )
 
     print(f"[post-deep-dive] Fetching live reaction move for {ticker}...", flush=True)
     move = fetch_live_reaction_move(ticker, report_time=report_time, company=company)
@@ -187,11 +194,18 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "last_q_period_end": snap.get("last_q_period_end"),
         "last_q_yoy_pct": snap.get("last_q_yoy_pct"),
         "gross_margin_pct": snap.get("gross_margin_pct"),
-        "next_q_revenue_consensus": snap.get("next_q_revenue_consensus"),
-        "next_q_yoy_pct": snap.get("next_q_yoy_pct"),
+        "next_q_revenue_consensus": dated_consensus.get("revenueConsensusUsd") or snap.get("next_q_revenue_consensus"),
+        "next_q_yoy_pct": dated_consensus.get("revenueConsensusYoyPct") or snap.get("next_q_yoy_pct"),
         "next_q_expected_period_end": snap.get("next_q_expected_period_end"),
-        "fy_revenue_consensus": snap.get("fy_revenue_consensus"),
-        "fy_yoy_pct": snap.get("fy_yoy_pct"),
+        "fy_revenue_consensus": dated_consensus.get("fyRevenueConsensusUsd") or snap.get("fy_revenue_consensus"),
+        "fy_yoy_pct": dated_consensus.get("fyRevenueConsensusYoyPct") or snap.get("fy_yoy_pct"),
+        "eps_consensus": dated_consensus.get("epsConsensus"),
+        "consensus_source": dated_consensus.get("consensusSource") or "live market-data consensus",
+        "consensus_captured_at": dated_consensus.get("capturedAt") or "",
+        "price": snap.get("price"),
+        "market_cap_b": snap.get("market_cap_b"),
+        "enterprise_value_b": snap.get("enterprise_value_b"),
+        "shares_outstanding": snap.get("shares_outstanding"),
         "last_fy_capex_actual": snap.get("last_fy_capex_actual"),
         "last_fy_capex_period_end": snap.get("last_fy_capex_period_end"),
         "fy_capex_qtd_actual": snap.get("fy_capex_qtd_actual"),
@@ -249,6 +263,8 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "sections": brief.get("sections", []),
         "key_metrics": brief.get("key_metrics", []),
         "key_figures": brief.get("key_figures", []),
+        "estimate_comparisons": brief.get("estimate_comparisons", []),
+        "valuation_reference": brief.get("valuation_reference", {}),
         "official_links": brief.get("official_links", {}),
         "financials": brief.get("financials", {}),
         "qa_approved": brief.get("_qa_approved") is True,

@@ -420,6 +420,9 @@ def synthesize_pre_earnings_brief(
             "financial_highlights": _normalize_bullets(data.get("financial_highlights", [])),
             "sections": sections,
             "key_metrics": [str(b).strip() for b in data.get("key_metrics", []) or [] if str(b).strip()],
+            "key_figures": [],
+            "estimate_comparisons": [],
+            "valuation_reference": {},
             "official_links": {},
         }
     except Exception as exc:
@@ -548,6 +551,31 @@ an assumption:
   the wrong period; search again rather than including it anyway.
 - key_metrics: 4-6 short strings summarizing what matters most. Do not repeat a metric unless the
   second mention adds a distinct comparison or decision threshold. {key_metrics_instruction}
+- key_figures: 4-6 compact display tiles, each with a short label and value. In post-earnings mode,
+  prioritize reported revenue/product revenue, adjusted EPS, a key operating KPI, and the most
+  decision-useful guidance figures. Put estimate deltas in estimate_comparisons rather than trying
+  to cram both sides into these tiles. In pre-earnings mode, prioritize upcoming consensus and
+  management guidance. Use only sourced figures already supported elsewhere in the brief.
+- estimate_comparisons: in post-earnings mode, return 2-5 decision-useful rows comparing the
+  reported result or new company guide with the PERIOD-MATCHED estimate that existed before the
+  release. Each row must include metric, reported, estimate, variance, period, estimate_source,
+  estimate_as_of, and source_url. Prefer a dated S&P Capital IQ/CIQ consensus when a source
+  explicitly identifies it; otherwise use a clearly named current provider such as Visible Alpha,
+  FactSet, LSEG, StreetAccount, Bloomberg, or Zacks. Never relabel a generic "Wall Street" figure
+  as CIQ. Treat total revenue and product/segment revenue as different metrics and never compare
+  one with the other. In pre-earnings mode, use the same rows for company guidance versus the
+  upcoming consensus where available. If a source gives a range, preserve it and calculate the
+  variance against the midpoint (say that explicitly). Every estimate needs a provider and an
+  as-of/capture date; use an empty array rather than an unsourced comparison.
+- valuation_reference: show enterprise value, estimated calendar-year revenue, and EV / CY revenue
+  for reference. Return display-ready strings for enterprise_value, cy_revenue, ev_cy_revenue,
+  basis, as_of, source, and source_url. Use the latest reliable regular-close EV by default; if you
+  also calculate a pro-forma after-hours EV/multiple, label it as an estimate and state the price or
+  share-count adjustment. Calendarize revenue only from period-matched fiscal actuals/consensus and
+  explain the interpolation in basis. If true CY estimates are unavailable, use the nearest fiscal
+  year only as a clearly labeled proxy -- never call a fiscal-year number CY. Recalculate the
+  multiple yourself as EV divided by revenue and round to one decimal place. Use empty strings when
+  the inputs cannot be sourced rather than inventing a valuation.
 - official_links: press_release/investor_deck/transcript, each a URL you found via search,
   or null if you couldn't find one.
 - financials: the same revenue/EPS/net income/CapEx figures already stated in prose above,
@@ -581,6 +609,50 @@ _BULLET_JSON_SCHEMA = {
     "additionalProperties": False,
 }
 
+_ESTIMATE_COMPARISON_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "metric": {"type": "string"},
+        "reported": {"type": "string"},
+        "estimate": {"type": "string"},
+        "variance": {"type": "string"},
+        "period": {"type": "string"},
+        "estimate_source": {"type": "string"},
+        "estimate_as_of": {"type": "string"},
+        "source_url": {"type": "string"},
+    },
+    "required": [
+        "metric", "reported", "estimate", "variance", "period",
+        "estimate_source", "estimate_as_of", "source_url",
+    ],
+    "additionalProperties": False,
+}
+
+_KEY_FIGURE_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {"label": {"type": "string"}, "value": {"type": "string"}},
+    "required": ["label", "value"],
+    "additionalProperties": False,
+}
+
+_VALUATION_REFERENCE_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "enterprise_value": {"type": "string"},
+        "cy_revenue": {"type": "string"},
+        "ev_cy_revenue": {"type": "string"},
+        "basis": {"type": "string"},
+        "as_of": {"type": "string"},
+        "source": {"type": "string"},
+        "source_url": {"type": "string"},
+    },
+    "required": [
+        "enterprise_value", "cy_revenue", "ev_cy_revenue", "basis",
+        "as_of", "source", "source_url",
+    ],
+    "additionalProperties": False,
+}
+
 _DEEP_DIVE_JSON_SCHEMA = {
     "type": "object",
     "properties": {
@@ -603,6 +675,11 @@ _DEEP_DIVE_JSON_SCHEMA = {
             },
         },
         "key_metrics": {"type": "array", "minItems": 4, "maxItems": 6, "items": {"type": "string"}},
+        "key_figures": {"type": "array", "minItems": 4, "maxItems": 6, "items": _KEY_FIGURE_JSON_SCHEMA},
+        "estimate_comparisons": {
+            "type": "array", "maxItems": 5, "items": _ESTIMATE_COMPARISON_JSON_SCHEMA,
+        },
+        "valuation_reference": _VALUATION_REFERENCE_JSON_SCHEMA,
         "qa_highlights": {
             "type": "array", "maxItems": 4,
             "items": {"type": "object", "properties": {
@@ -651,8 +728,9 @@ _DEEP_DIVE_JSON_SCHEMA = {
         },
     },
     "required": [
-        "intro", "financial_highlights", "sections", "key_metrics", "official_links",
+        "intro", "financial_highlights", "sections", "key_metrics", "key_figures", "official_links",
         "financials", "fiscal_quarter_label", "reporting_period_end", "qa_highlights",
+        "estimate_comparisons", "valuation_reference",
     ],
     "additionalProperties": False,
 }
@@ -874,6 +952,27 @@ def synthesize_earnings_brief_with_web_search(
             if not isinstance(item, dict): continue
             question, answer = str(item.get("analyst_question", "")).strip(), str(item.get("answer_summary", "")).strip()
             if question and answer: qa_highlights.append({"analyst_question": question, "answer_summary": answer})
+        estimate_comparisons = []
+        for item in data.get("estimate_comparisons", []) or []:
+            if not isinstance(item, dict):
+                continue
+            cleaned = {
+                key: str(item.get(key, "") or "").strip()
+                for key in (
+                    "metric", "reported", "estimate", "variance", "period",
+                    "estimate_source", "estimate_as_of", "source_url",
+                )
+            }
+            if cleaned["metric"] and cleaned["reported"] and cleaned["estimate"]:
+                estimate_comparisons.append(cleaned)
+        valuation_raw = data.get("valuation_reference") or {}
+        valuation_reference = {
+            key: str(valuation_raw.get(key, "") or "").strip()
+            for key in (
+                "enterprise_value", "cy_revenue", "ev_cy_revenue", "basis",
+                "as_of", "source", "source_url",
+            )
+        } if isinstance(valuation_raw, dict) else {}
         return {
             "fiscal_quarter_label": str(data.get("fiscal_quarter_label", "")).strip(),
             "reporting_period_end": str(data.get("reporting_period_end", "")).strip(),
@@ -881,6 +980,13 @@ def synthesize_earnings_brief_with_web_search(
             "financial_highlights": _normalize_bullets(data.get("financial_highlights", [])),
             "sections": sections,
             "key_metrics": [str(b).strip() for b in data.get("key_metrics", []) or [] if str(b).strip()],
+            "key_figures": [
+                {"label": str(item.get("label", "")).strip(), "value": str(item.get("value", "")).strip()}
+                for item in data.get("key_figures", []) or []
+                if isinstance(item, dict) and str(item.get("label", "")).strip() and str(item.get("value", "")).strip()
+            ],
+            "estimate_comparisons": estimate_comparisons,
+            "valuation_reference": valuation_reference,
             "official_links": _clean_official_links(data.get("official_links")),
             "financials": _clean_financials(data.get("financials")),
             "qa_highlights": qa_highlights,
@@ -914,6 +1020,15 @@ Check specifically for:
   or key_metrics, does that bullet state both the actual and the consensus with the beat/miss --
   not just the bare actual number? A bullet like "Revenue: $19.64B" with no comparison, when a
   consensus figure for revenue was available in the known facts, is a gap to flag.
+- Estimate-scoreboard quality: in post-earnings mode, are there at least two period-matched
+  estimate_comparisons, each naming the actual/guide, estimate, variance, estimate provider,
+  estimate as-of date, and source URL? Flag total-revenue versus product/segment-revenue
+  mismatches. Never accept a row labeled CIQ unless the cited source explicitly says the estimate
+  is from S&P Capital IQ.
+- Valuation reference: is EV / CY revenue shown with a dated enterprise value, a genuinely
+  calendarized revenue estimate, the arithmetic basis, and named source? Flag a fiscal-year
+  estimate mislabeled as CY, an unexplained after-hours adjustment, or a multiple that does not
+  reconcile to the stated EV and revenue inputs.
 - Wrong or inconsistent fiscal quarter: does fiscal_quarter_label match what's actually used
   throughout the brief (title/quarter references in intro, financial_highlights, sections)? Watch
   specifically for companies whose fiscal year doesn't match the calendar (e.g. Microsoft's fiscal
@@ -1347,6 +1462,43 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
             "official link, and add inline citations in the '([domain](url))' format after claims "
             "drawn from search results, per the instructions above."
         )
+
+    if mode == "post":
+        comparisons = [
+            item for item in brief.get("estimate_comparisons", []) or []
+            if isinstance(item, dict)
+        ]
+        if len(comparisons) < 2:
+            issues.append(
+                "Post-earnings brief has fewer than two period-matched estimate comparisons. "
+                "Add a sourced scoreboard (normally revenue and adjusted EPS, plus guidance where available)."
+            )
+        for item in comparisons:
+            missing = [
+                key for key in ("metric", "reported", "estimate", "variance", "period", "estimate_source", "estimate_as_of", "source_url")
+                if not str(item.get(key, "") or "").strip()
+            ]
+            if missing:
+                issues.append(
+                    f"Estimate comparison for '{item.get('metric') or 'unnamed metric'}' is missing "
+                    f"{', '.join(missing)}. Every comparison needs traceable provider/date/source metadata."
+                )
+            if "ciq" in str(item.get("estimate_source", "")).lower() or "capital iq" in str(item.get("estimate_source", "")).lower():
+                source_context = " ".join(str(item.get(key, "")) for key in ("estimate_source", "source_url"))
+                if "capital" not in source_context.lower() and "ciq" not in source_context.lower():
+                    issues.append(
+                        f"Estimate comparison for '{item.get('metric') or 'unnamed metric'}' labels the source CIQ "
+                        "without source evidence explicitly identifying S&P Capital IQ."
+                    )
+
+        valuation = brief.get("valuation_reference") or {}
+        required_valuation = ("enterprise_value", "cy_revenue", "ev_cy_revenue", "basis", "as_of", "source", "source_url")
+        if not isinstance(valuation, dict) or any(not str(valuation.get(key, "") or "").strip() for key in required_valuation):
+            issues.append(
+                "Post-earnings brief is missing a complete sourced EV / CY revenue reference. "
+                "Provide dated EV, calendarized revenue, the multiple, methodology, and source; if using a fiscal-year "
+                "proxy, label it explicitly instead of calling it CY."
+            )
 
     return issues
 

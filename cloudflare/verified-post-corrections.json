@@ -161,13 +161,74 @@
         {"label": "Q3 product guide", "value": "$1.588-$1.593B"},
         {"label": "FY27 product guide", "value": "$6.07B"}
       ],
+      "estimateComparisons": [
+        {
+          "metric": "Revenue",
+          "reported": "$1.547B",
+          "estimate": "$1.480B",
+          "variance": "+$67M / +4.5%",
+          "period": "Q2 FY2027",
+          "estimate_source": "FactSet consensus",
+          "estimate_as_of": "2026-09-02 pre-release",
+          "source_url": "https://finance.yahoo.com/markets/stocks/articles/snowflake-q2-earnings-revenue-rise-203359028.html"
+        },
+        {
+          "metric": "Adjusted EPS",
+          "reported": "$0.62",
+          "estimate": "$0.45",
+          "variance": "+$0.17 / +37.8%",
+          "period": "Q2 FY2027",
+          "estimate_source": "FactSet consensus",
+          "estimate_as_of": "2026-09-02 pre-release",
+          "source_url": "https://finance.yahoo.com/markets/stocks/articles/snowflake-q2-earnings-revenue-rise-203359028.html"
+        },
+        {
+          "metric": "Product revenue",
+          "reported": "$1.492B",
+          "estimate": "$1.415-$1.420B guide",
+          "variance": "+$72M / +5.1% vs high end",
+          "period": "Q2 FY2027",
+          "estimate_source": "Company guidance",
+          "estimate_as_of": "2026-05-27",
+          "source_url": "https://www.sec.gov/Archives/edgar/data/1640147/000164014726000033/fy2027q2earnings.htm"
+        },
+        {
+          "metric": "Q3 product revenue guide",
+          "reported": "$1.588-$1.593B",
+          "estimate": "$1.500B",
+          "variance": "+$91M / +6.0% at midpoint",
+          "period": "Q3 FY2027",
+          "estimate_source": "FactSet consensus",
+          "estimate_as_of": "2026-09-02 pre-release",
+          "source_url": "https://finance.yahoo.com/markets/stocks/articles/snowflake-q2-earnings-revenue-rise-203359028.html"
+        },
+        {
+          "metric": "FY2027 product revenue guide",
+          "reported": "$6.070B",
+          "estimate": "$5.850B",
+          "variance": "+$220M / +3.8%",
+          "period": "FY2027",
+          "estimate_source": "FactSet consensus",
+          "estimate_as_of": "2026-09-02 pre-release",
+          "source_url": "https://finance.yahoo.com/markets/stocks/articles/snowflake-q2-earnings-revenue-rise-203359028.html"
+        }
+      ],
+      "valuationReference": {
+        "enterprise_value": "$106.4B close / ~$130.1B pro forma AH",
+        "cy_revenue": "~$6.0B CY2026E",
+        "ev_cy_revenue": "17.8x close / ~21.8x pro forma AH",
+        "basis": "CY2026E is calendarized from FY2026 actual revenue and the FY2027 total-revenue consensus. The pro-forma after-hours EV adjusts regular-close EV using 346.6M shares and the observed after-hours price change; it is an estimate, not a terminal quote.",
+        "as_of": "2026-09-02 18:20 ET",
+        "source": "S&P Global Market Intelligence valuation data, FactSet/Zacks consensus and Snowflake filings",
+        "source_url": "https://stockanalysis.com/stocks/snow/statistics/"
+      },
       "financialHighlights": [
-        {"text": "Revenue: $1.547 billion, up 35% year over year; product revenue was $1.492 billion, up 37%.", "children": []},
-        {"text": "Execution versus outlook: Product revenue exceeded the prior $1.415-$1.420 billion guidance range by roughly 5%.", "children": []},
+        {"text": "Revenue versus consensus: $1.547 billion versus $1.480 billion FactSet consensus, a $67 million or 4.5% beat; product revenue was $1.492 billion, up 37%.", "children": []},
+        {"text": "Adjusted EPS versus consensus: $0.62 versus $0.45 FactSet consensus, a $0.17 or 37.8% beat.", "children": []},
+        {"text": "Execution versus outlook: Product revenue exceeded the prior $1.415-$1.420 billion company guidance range by $72 million, or 5.1% versus the high end.", "children": []},
         {"text": "Customer economics: Net revenue retention was 126%, while 828 customers generated more than $1 million of trailing-12-month product revenue, up 27% year over year.", "children": []},
         {"text": "Backlog: Remaining performance obligations reached $9.00 billion, up 30% year over year.", "children": []},
-        {"text": "Margins: Non-GAAP product gross margin was 74.7% and non-GAAP operating margin was 15.3%; adjusted free-cash-flow margin was 6.0% in the seasonally investment-heavy quarter.", "children": []},
-        {"text": "Outlook: Fiscal Q3 product revenue is guided to $1.588-$1.593 billion, up 37%-38%, and full-year product revenue guidance rose to $6.070 billion, up 36%.", "children": []}
+        {"text": "Outlook versus consensus: Fiscal Q3 product revenue guidance of $1.588-$1.593 billion is about 6.0% above the $1.500 billion FactSet estimate at the midpoint; FY2027 product revenue guidance of $6.070 billion is 3.8% above the $5.850 billion estimate.", "children": []}
       ],
       "sections": [
         {
@@ -195,24 +256,24 @@
         }
       ],
       "keyMetrics": [
-        "Revenue: $1.547B, +35% YoY",
+        "Revenue: $1.547B vs. $1.480B FactSet consensus, +4.5%",
+        "Adjusted EPS: $0.62 vs. $0.45 FactSet consensus, +37.8%",
         "Product revenue: $1.492B, +37% YoY",
         "RPO: $9.00B, +30% YoY; NRR: 126%",
-        "$1M-plus customers: 828, +27% YoY",
-        "Q3 product revenue guide: $1.588-$1.593B, +37%-38% YoY",
-        "FY27 product revenue guide: $6.070B, +36%; non-GAAP operating margin: 14.5%"
+        "Q3 product revenue guide: $1.588-$1.593B vs. $1.500B FactSet consensus",
+        "FY27 product revenue guide: $6.070B vs. $5.850B FactSet consensus"
       ],
       "officialLinks": {
         "press_release": "https://www.sec.gov/Archives/edgar/data/1640147/000164014726000033/fy2027q2earnings.htm"
       },
       "financials": {
         "revenue_actual_usd": 1546793000,
-        "revenue_consensus_usd": null,
+        "revenue_consensus_usd": 1480000000,
         "revenue_yoy_pct": 35.1,
         "net_income_actual_usd": -191720000,
-        "eps_actual": null,
-        "eps_consensus": null,
-        "eps_surprise_pct": null,
+        "eps_actual": 0.62,
+        "eps_consensus": 0.45,
+        "eps_surprise_pct": 37.78,
         "capex_actual_usd": null
       }
     }

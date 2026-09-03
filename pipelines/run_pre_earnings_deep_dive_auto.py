@@ -207,6 +207,8 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "report_time": reporter.get("report_time", ""),
         "price": snap.get("price"),
         "market_cap_b": snap.get("market_cap_b"),
+        "enterprise_value_b": snap.get("enterprise_value_b"),
+        "shares_outstanding": snap.get("shares_outstanding"),
     }
 
     # Primary: OpenAI's web_search tool researches and writes in one grounded
@@ -264,6 +266,8 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "key_metrics": brief.get("key_metrics", []),
         "official_links": brief.get("official_links", {}),
         "key_figures": _build_key_figures(snap, brief),
+        "estimate_comparisons": brief.get("estimate_comparisons", []),
+        "valuation_reference": brief.get("valuation_reference", {}),
     }
 
 

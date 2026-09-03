@@ -23,6 +23,8 @@ def _context(ticker: str = "SNOW") -> dict:
         "sections": brief["sections"],
         "key_metrics": brief["key_metrics"],
         "key_figures": brief["key_figures"],
+        "estimate_comparisons": brief["estimate_comparisons"],
+        "valuation_reference": brief["valuation_reference"],
         "official_links": brief["official_links"],
         "financials": brief["financials"],
         "qa_approved": brief["_qa_approved"],
@@ -73,19 +75,33 @@ def test_unapproved_model_draft_is_replaced_by_verified_fallback():
     with patch(
         "pipelines.run_post_earnings_deep_dive_auto.fetch_financial_snapshot", return_value={}
     ), patch(
+        "pipelines.run_post_earnings_deep_dive_auto.fetch_pre_earnings_snapshot",
+        return_value={
+            "revenueConsensusUsd": 1_480_000_000,
+            "epsConsensus": 0.45,
+            "consensusSource": "FactSet consensus",
+            "capturedAt": "2026-09-02T15:55:00",
+        },
+    ), patch(
         "pipelines.run_post_earnings_deep_dive_auto.fetch_live_reaction_move",
         return_value={"ah_move_pct": 21.94, "source": "yfinance_live_postmarket"},
     ), patch(
         "pipelines.run_post_earnings_deep_dive_auto.synthesize_earnings_brief_with_review",
         return_value=unapproved,
-    ):
+    ) as synthesize:
         context = build_brief_context(
             {"ticker": "SNOW", "company": "Snowflake Inc.", "report_time": "After Close"},
             date(2026, 9, 2),
             correction=True,
         )
+    facts = synthesize.call_args.args[4]
+    assert facts["next_q_revenue_consensus"] == 1_480_000_000
+    assert facts["eps_consensus"] == 0.45
+    assert facts["consensus_source"] == "FactSet consensus"
     assert context["qa_approved"] is True
-    assert context["key_metrics"][0] == "Revenue: $1.547B, +35% YoY"
+    assert context["key_metrics"][0] == "Revenue: $1.547B vs. $1.480B FactSet consensus, +4.5%"
+    assert len(context["estimate_comparisons"]) == 5
+    assert context["valuation_reference"]["ev_cy_revenue"].startswith("17.8x")
     assert not delivery_context_issues(context)
 
 

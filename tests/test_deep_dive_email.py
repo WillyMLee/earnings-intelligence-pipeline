@@ -15,6 +15,27 @@ def _context():
             {"label": "Street EPS", "value": "$2.09"},
             {"label": "Company guide", "value": "$91.0B ±2%"},
         ],
+        "estimate_comparisons": [
+            {
+                "metric": "Revenue",
+                "reported": "$92.4B",
+                "estimate": "$92.2B",
+                "variance": "+$0.2B / +0.2%",
+                "period": "Q2 FY2027",
+                "estimate_source": "S&P Capital IQ consensus",
+                "estimate_as_of": "2026-08-26 pre-release",
+                "source_url": "https://example.com/consensus",
+            }
+        ],
+        "valuation_reference": {
+            "enterprise_value": "$4.1T",
+            "cy_revenue": "$395.7B CY2026E",
+            "ev_cy_revenue": "10.4x",
+            "basis": "Enterprise value divided by calendarized revenue consensus.",
+            "as_of": "2026-08-26 close",
+            "source": "S&P Capital IQ",
+            "source_url": "https://example.com/valuation",
+        },
         "intro": "NVIDIA reports after the close.\n\n## Stock market information\n- raw tool output",
         "financial_highlights": [
             {"text": f"Metric {index}: useful detail", "children": []} for index in range(8)
@@ -39,6 +60,10 @@ def test_email_restores_key_figures_and_hides_raw_tool_output():
     assert "Positive reaction" in html
     assert "email-shell" in html
     assert "metric-cell" in html
+    assert "Estimate scoreboard" in html
+    assert "S&amp;P Capital IQ consensus" in html
+    assert "Valuation reference" in html
+    assert "10.4x" in html
     assert "Key figures" in html
     assert "Reports 2026-08-26 -- AMC" in html
     assert "Street revenue" in html
@@ -64,6 +89,8 @@ def test_markdown_matches_compact_email_contract():
     assert "**Street revenue:** $92.2B" in markdown
     assert "Stock market information" not in markdown
     assert "Section 3" not in markdown
+    assert "## Estimate scoreboard" in markdown
+    assert "## Valuation reference" in markdown
 
 
 def test_email_uses_negative_reaction_treatment():
@@ -82,3 +109,10 @@ def test_email_renders_collected_citations_in_additional_sources_card():
     assert "Additional sources" in html
     assert "https://example.com/results" in html
     assert "example.com" in html
+
+
+def test_estimate_miss_uses_negative_variance_color():
+    context = _context()
+    context["estimate_comparisons"][0]["variance"] = "-$0.3B / -2.0% miss"
+    html = render_deep_dive_email(context)
+    assert 'color:#c23b4b;font-weight:800;">-$0.3B / -2.0% miss' in html

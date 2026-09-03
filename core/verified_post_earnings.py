@@ -35,6 +35,8 @@ def verified_post_earnings_brief(ticker: str, report_date: str) -> Dict[str, Any
         "sections": copy.deepcopy(item["sections"]),
         "key_metrics": list(item["keyMetrics"]),
         "key_figures": copy.deepcopy(item.get("keyFigures") or []),
+        "estimate_comparisons": copy.deepcopy(item.get("estimateComparisons") or []),
+        "valuation_reference": copy.deepcopy(item.get("valuationReference") or {}),
         "official_links": dict(item["officialLinks"]),
         "financials": dict(item["financials"]),
         "_qa_approved": True,

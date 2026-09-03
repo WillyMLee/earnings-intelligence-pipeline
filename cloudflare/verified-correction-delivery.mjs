@@ -27,6 +27,41 @@ function sectionCard(title, body, accent = "#3454f4") {
   return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e3e5ea;border-radius:14px;background:#fff;"><tr><td style="padding:20px 22px 11px;border-left:4px solid ${accent};border-radius:14px;">${sectionHeading(title)}${body}</td></tr></table>`;
 }
 
+function estimateScoreboardHtml(items = []) {
+  if (!items.length) return "";
+  const rows = items.slice(0, 5).map((item) => {
+    const varianceLower = String(item.variance || "").trim().toLowerCase();
+    const varianceColor = varianceLower.startsWith("-") || varianceLower.includes("miss") || varianceLower.includes("below")
+      ? "#c23b4b"
+      : varianceLower.includes("inline") || varianceLower.includes("in line") || varianceLower.includes("flat")
+        ? "#a56b00"
+        : "#12805c";
+    return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;background:#f7f8fa;border:1px solid #e3e5ea;border-radius:11px;">` +
+    `<tr><td colspan="3" style="padding:13px 14px 8px;font-size:13px;line-height:18px;color:#0b0d12;font-weight:800;">${escapeHtml(item.metric)} <span style="font-size:10px;color:#63697a;font-weight:600;">&nbsp;&middot;&nbsp; ${escapeHtml(item.period)} &nbsp;&middot;&nbsp; ${escapeHtml(item.estimate_as_of)}</span></td></tr>` +
+    `<tr><td class="comparison-cell" width="34%" valign="top" style="padding:5px 14px 13px;"><div style="font-size:9px;color:#63697a;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Reported / guide</div><div style="padding-top:4px;font-size:16px;line-height:21px;font-weight:800;">${escapeHtml(item.reported)}</div></td>` +
+    `<td class="comparison-cell" width="33%" valign="top" style="padding:5px 14px 13px;border-left:1px solid #e3e5ea;"><div style="font-size:9px;color:#63697a;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Estimate</div><div style="padding-top:4px;font-size:16px;line-height:21px;font-weight:800;">${escapeHtml(item.estimate)}</div></td>` +
+    `<td class="comparison-cell" width="33%" valign="top" style="padding:5px 14px 13px;border-left:1px solid #e3e5ea;"><div style="font-size:9px;color:#63697a;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Variance</div><div style="padding-top:4px;font-size:16px;line-height:21px;color:${varianceColor};font-weight:800;">${escapeHtml(item.variance)}</div></td></tr>` +
+    `<tr><td colspan="3" style="padding:0 14px 12px;font-size:10px;line-height:15px;color:#63697a;">Source: <a href="${escapeHtml(item.source_url)}" style="color:#3454f4;text-decoration:none;font-weight:750;">${escapeHtml(item.estimate_source)}</a></td></tr></table>`
+    );
+  }).join("");
+  return sectionCard("Estimate scoreboard", rows);
+}
+
+function valuationReferenceHtml(item = {}) {
+  if (!item.ev_cy_revenue) return "";
+  const fields = [
+    ["Enterprise value", item.enterprise_value],
+    ["CY revenue estimate", item.cy_revenue],
+    ["EV / CY revenue", item.ev_cy_revenue],
+  ];
+  const cells = fields.map(([label, value]) => (
+    `<td class="valuation-cell" width="33.33%" valign="top" style="padding:0 6px 10px;"><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e8ecfe;border-radius:10px;"><tr><td style="height:64px;padding:13px 12px;"><div style="font-size:9px;line-height:13px;color:#3454f4;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">${label}</div><div style="padding-top:5px;font-size:16px;line-height:21px;font-weight:800;">${escapeHtml(value)}</div></td></tr></table></td>`
+  )).join("");
+  const body = `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 -6px;"><tr>${cells}</tr></table><div style="padding:2px 0 3px;font-size:11px;line-height:17px;color:#63697a;"><strong style="color:#0b0d12;">Basis:</strong> ${escapeHtml(item.basis)}</div><div style="padding:3px 0 4px;font-size:10px;line-height:15px;color:#63697a;">As of ${escapeHtml(item.as_of)} &nbsp;&middot;&nbsp; <a href="${escapeHtml(item.source_url)}" style="color:#3454f4;text-decoration:none;font-weight:750;">${escapeHtml(item.source)}</a></div>`;
+  return sectionCard("Valuation reference", body, "#a56b00");
+}
+
 function renderHtml(item) {
   const figures = (item.keyFigures || []).slice(0, 6).map((figure) => (
     `<td class="metric-cell" width="33.33%" valign="top" style="padding:0 6px 12px;">` +
@@ -57,14 +92,16 @@ function renderHtml(item) {
   const metricsHtml = figures.length
     ? `${sectionHeading("Key figures")}<table class="metric-grid" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 -6px;">${figureRows.join("")}</table>`
     : "";
+  const estimateHtml = estimateScoreboardHtml(item.estimateComparisons || []);
+  const valuationHtml = valuationReferenceHtml(item.valuationReference || {});
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-  @media only screen and (max-width:620px){.email-shell{width:100%!important}.outer-pad{padding:0!important}.header-pad{padding:24px 20px 22px!important}.body-pad{padding:22px 16px 24px!important}.metric-cell{display:block!important;width:100%!important;box-sizing:border-box!important}.metric-grid{margin:0!important}.email-title{font-size:25px!important;line-height:30px!important}}
+  @media only screen and (max-width:620px){.email-shell{width:100%!important}.outer-pad{padding:0!important}.header-pad{padding:24px 20px 22px!important}.body-pad{padding:22px 16px 24px!important}.metric-cell,.valuation-cell{display:block!important;width:100%!important;box-sizing:border-box!important;border-left:0!important}.comparison-cell{padding-left:8px!important;padding-right:8px!important}.metric-grid{margin:0!important}.email-title{font-size:25px!important;line-height:30px!important}}
   </style></head><body style="margin:0;padding:0;background:#f5f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#0b0d12;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"><tr><td class="outer-pad" align="center" style="padding:24px 12px 32px;">
   <table class="email-shell" role="presentation" align="center" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:680px;margin:0 auto;">
   <tr><td class="header-pad" style="background:#0b0d12;border-radius:16px 16px 0 0;padding:28px 32px 25px;"><div style="font-size:10px;line-height:16px;color:#9aa3b2;text-transform:uppercase;font-weight:800;letter-spacing:1px;">Earnings intelligence &nbsp;&middot;&nbsp; Post-earnings <span style="display:inline-block;margin-left:8px;padding:3px 8px;border-radius:999px;background:#3454f4;color:#fff;font-size:9px;line-height:13px;font-weight:800;letter-spacing:.6px;vertical-align:middle;">CORRECTION</span></div><div class="email-title" style="padding-top:9px;font-size:30px;line-height:36px;color:#fff;font-weight:800;letter-spacing:-.45px;">${escapeHtml(item.company)}</div><div style="padding-top:8px;font-size:13px;line-height:20px;color:#9aa3b2;"><span style="color:#fff;font-weight:750;">${escapeHtml(item.ticker)}</span> &nbsp;&middot;&nbsp; ${escapeHtml(item.quarter)} &nbsp;&middot;&nbsp; Reported ${escapeHtml(item.reportDate)} -- ${escapeHtml(item.reportTime)}</div></td></tr>
-  <tr><td class="body-pad" style="background:#fff;padding:24px 28px 30px;">${reactionHtml}<div style="height:14px;line-height:14px;">&nbsp;</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e8ecfe;border-radius:12px;"><tr><td style="padding:17px 19px;"><div style="font-size:10px;line-height:14px;color:#3454f4;font-weight:800;text-transform:uppercase;letter-spacing:.7px;">Executive read</div><div style="padding-top:6px;font-size:14px;line-height:22px;color:#0b0d12;">${escapeHtml(item.intro)}</div></td></tr></table><div style="padding-top:14px;">${links}</div><div style="height:20px;line-height:20px;">&nbsp;</div>${metricsHtml}<div style="height:12px;line-height:12px;">&nbsp;</div>${sectionCard("Financial highlights", bulletHtml(item.financialHighlights))}${sections}<div style="height:14px;line-height:14px;">&nbsp;</div>${sectionCard("Key highlights", bulletHtml(item.keyMetrics.map((text) => ({ text }))))}</td></tr>
+  <tr><td class="body-pad" style="background:#fff;padding:24px 28px 30px;">${reactionHtml}<div style="height:14px;line-height:14px;">&nbsp;</div><table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#e8ecfe;border-radius:12px;"><tr><td style="padding:17px 19px;"><div style="font-size:10px;line-height:14px;color:#3454f4;font-weight:800;text-transform:uppercase;letter-spacing:.7px;">Executive read</div><div style="padding-top:6px;font-size:14px;line-height:22px;color:#0b0d12;">${escapeHtml(item.intro)}</div></td></tr></table><div style="padding-top:14px;">${links}</div><div style="height:20px;line-height:20px;">&nbsp;</div>${metricsHtml}${estimateHtml ? `<div style="height:12px;line-height:12px;">&nbsp;</div>${estimateHtml}` : ""}${valuationHtml ? `<div style="height:14px;line-height:14px;">&nbsp;</div>${valuationHtml}` : ""}<div style="height:12px;line-height:12px;">&nbsp;</div>${sectionCard("Financial highlights", bulletHtml(item.financialHighlights))}${sections}<div style="height:14px;line-height:14px;">&nbsp;</div>${sectionCard("Key highlights", bulletHtml(item.keyMetrics.map((text) => ({ text }))))}</td></tr>
   <tr><td style="background:#f7f8fa;border-radius:0 0 16px 16px;padding:17px 28px 19px;border-top:1px solid #e3e5ea;"><div style="font-size:11px;line-height:18px;color:#63697a;">Earnings Intelligence &middot; Figures are reported by the company unless noted otherwise. This is not investment advice.</div></td></tr>
   </table></td></tr></table></body></html>`;
 }
@@ -84,6 +121,21 @@ function renderText(item) {
   ];
   for (const section of item.sections.slice(0, 3)) {
     lines.push("", `## ${section.heading}`, ...section.bullets.slice(0, 4).map((row) => `- ${row.text}`));
+  }
+  if ((item.estimateComparisons || []).length) {
+    lines.push("", "## Estimate scoreboard");
+    for (const comparison of item.estimateComparisons.slice(0, 5)) {
+      lines.push(`- ${comparison.metric}: ${comparison.reported} vs. ${comparison.estimate}; ${comparison.variance} (${comparison.estimate_source}, ${comparison.estimate_as_of})`);
+    }
+  }
+  if (item.valuationReference?.ev_cy_revenue) {
+    lines.push(
+      "", "## Valuation reference",
+      `- Enterprise value: ${item.valuationReference.enterprise_value}`,
+      `- CY revenue estimate: ${item.valuationReference.cy_revenue}`,
+      `- EV / CY revenue: ${item.valuationReference.ev_cy_revenue}`,
+      `- Basis: ${item.valuationReference.basis}`,
+    );
   }
   lines.push("", "## Key highlights", ...item.keyMetrics.slice(0, 6).map((metric) => `- ${metric}`));
   lines.push("", `Press release: ${item.officialLinks.press_release}`);

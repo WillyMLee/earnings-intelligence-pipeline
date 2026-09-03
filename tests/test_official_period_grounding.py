@@ -104,6 +104,20 @@ class OfficialPeriodGroundingTests(unittest.TestCase):
         self.assertFalse(result["_qa_approved"])
         self.assertIn("The period comparison remains unresolved.", result["_qa_issues"])
 
+    def test_post_brief_requires_sourced_estimate_and_valuation_context(self):
+        brief = {
+            "financial_highlights": [{"text": "Revenue: $1.5B", "children": []}],
+            "sections": [],
+            "key_metrics": [],
+            "official_links": {"press_release": "https://issuer.example/results"},
+            "financials": {"revenue_actual_usd": 1_500_000_000},
+            "estimate_comparisons": [],
+            "valuation_reference": {},
+        }
+        issues = _sanity_check_brief(brief, mode="post", facts={})
+        self.assertTrue(any("fewer than two period-matched" in issue for issue in issues))
+        self.assertTrue(any("EV / CY revenue" in issue for issue in issues))
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -200,6 +200,75 @@ def _reaction_html(reaction_line: str, reaction_pct: Any) -> str:
     )
 
 
+def _estimate_scoreboard_html(items: List[Dict[str, Any]]) -> str:
+    comparisons = [item for item in items if isinstance(item, dict) and item.get("metric")][:5]
+    if not comparisons:
+        return ""
+    rows: List[str] = []
+    for item in comparisons:
+        variance_text = str(item.get("variance", "") or "")
+        variance_lower = variance_text.lower().strip()
+        variance_color = (
+            NEGATIVE if variance_lower.startswith("-") or any(word in variance_lower for word in ("miss", "below"))
+            else (NEUTRAL if any(word in variance_lower for word in ("inline", "in line", "flat")) else POSITIVE)
+        )
+        source_url = str(item.get("source_url", "") or "").strip()
+        source_label = str(item.get("estimate_source", "") or "Estimate source").strip()
+        source_html = (
+            f'<a href="{esc(source_url)}" style="color:{BRAND};text-decoration:none;font-weight:750;">{esc(source_label)}</a>'
+            if source_url else esc(source_label)
+        )
+        metadata = " &nbsp;&middot;&nbsp; ".join(
+            part for part in (esc(item.get("period", "")), esc(item.get("estimate_as_of", ""))) if part
+        )
+        metadata_html = (
+            f'<span style="font-size:10px;color:{MUTED};font-weight:600;"> &nbsp;&middot;&nbsp; {metadata}</span>'
+            if metadata else ""
+        )
+        rows.append(
+            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;background:{SOFT};border:1px solid {BORDER};border-radius:11px;">'
+            f'<tr><td colspan="3" style="padding:13px 14px 8px 14px;font-size:13px;line-height:18px;color:{INK};font-weight:800;">{esc(item.get("metric", ""))}'
+            f'{metadata_html}</td></tr>'
+            '<tr>'
+            f'<td class="comparison-cell" width="34%" valign="top" style="padding:5px 14px 13px 14px;"><div style="font-size:9px;color:{MUTED};font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">Reported / guide</div><div style="padding-top:4px;font-size:16px;line-height:21px;color:{INK};font-weight:800;">{esc(item.get("reported", ""))}</div></td>'
+            f'<td class="comparison-cell" width="33%" valign="top" style="padding:5px 14px 13px 14px;border-left:1px solid {BORDER};"><div style="font-size:9px;color:{MUTED};font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">Estimate</div><div style="padding-top:4px;font-size:16px;line-height:21px;color:{INK};font-weight:800;">{esc(item.get("estimate", ""))}</div></td>'
+            f'<td class="comparison-cell" width="33%" valign="top" style="padding:5px 14px 13px 14px;border-left:1px solid {BORDER};"><div style="font-size:9px;color:{MUTED};font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">Variance</div><div style="padding-top:4px;font-size:16px;line-height:21px;color:{variance_color};font-weight:800;">{esc(variance_text)}</div></td>'
+            '</tr>'
+            f'<tr><td colspan="3" style="padding:0 14px 12px 14px;font-size:10px;line-height:15px;color:{MUTED};">Source: {source_html}</td></tr>'
+            '</table>'
+        )
+    return _section_card("Estimate scoreboard", "".join(rows))
+
+
+def _valuation_reference_html(item: Dict[str, Any]) -> str:
+    if not isinstance(item, dict) or not item.get("ev_cy_revenue"):
+        return ""
+    fields = [
+        ("Enterprise value", item.get("enterprise_value", "")),
+        ("CY revenue estimate", item.get("cy_revenue", "")),
+        ("EV / CY revenue", item.get("ev_cy_revenue", "")),
+    ]
+    cells = "".join(
+        f'<td class="valuation-cell" width="33.33%" valign="top" style="padding:0 6px 10px 6px;">'
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:{BRAND_SOFT};border-radius:10px;">'
+        f'<tr><td style="height:64px;padding:13px 12px;"><div style="font-size:9px;line-height:13px;color:{BRAND};font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">{label}</div>'
+        f'<div style="padding-top:5px;font-size:16px;line-height:21px;color:{INK};font-weight:800;">{esc(value)}</div></td></tr></table></td>'
+        for label, value in fields
+    )
+    source_url = str(item.get("source_url", "") or "").strip()
+    source_label = str(item.get("source", "") or "Valuation source").strip()
+    source_html = (
+        f'<a href="{esc(source_url)}" style="color:{BRAND};text-decoration:none;font-weight:750;">{esc(source_label)}</a>'
+        if source_url else esc(source_label)
+    )
+    body = (
+        f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:0 -6px;"><tr>{cells}</tr></table>'
+        f'<div style="padding:2px 0 3px 0;font-size:11px;line-height:17px;color:{MUTED};"><strong style="color:{INK};">Basis:</strong> {esc(item.get("basis", ""))}</div>'
+        f'<div style="padding:3px 0 4px 0;font-size:10px;line-height:15px;color:{MUTED};">As of {esc(item.get("as_of", ""))} &nbsp;&middot;&nbsp; {source_html}</div>'
+    )
+    return _section_card("Valuation reference", body, NEUTRAL)
+
+
 def render_deep_dive_email(context: Dict[str, Any]) -> str:
     company = esc(context.get("company", ""))
     ticker = esc(context.get("ticker", ""))
@@ -239,6 +308,13 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
             NEUTRAL if not is_post else BRAND,
         )
 
+    for comparison in context.get("estimate_comparisons", []) or []:
+        if isinstance(comparison, dict) and comparison.get("source_url"):
+            all_sources.append(str(comparison["source_url"]))
+    valuation_source_url = (context.get("valuation_reference") or {}).get("source_url")
+    if valuation_source_url:
+        all_sources.append(str(valuation_source_url))
+
     sources_html = ""
     deduped_sources = list(dict.fromkeys(all_sources))
     if deduped_sources:
@@ -266,6 +342,10 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
     )
     report_date = esc(context.get("report_date_label", ""))
     key_figures_html = _key_figures_html(context.get("key_figures", []) or [])
+    estimate_comparisons = context.get("estimate_comparisons", []) or []
+    estimate_scoreboard_html = _estimate_scoreboard_html(estimate_comparisons)
+    valuation_reference = context.get("valuation_reference", {}) or {}
+    valuation_html = _valuation_reference_html(valuation_reference)
     reaction_html = _reaction_html(reaction_line, context.get("reaction_pct"))
     mode_label = "Post-earnings" if is_post else "Pre-earnings"
     correction_badge = (
@@ -292,6 +372,8 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
       .header-pad {{ padding:24px 20px 22px !important; }}
       .body-pad {{ padding:22px 16px 24px !important; }}
       .metric-cell {{ display:block !important;width:100% !important;box-sizing:border-box !important; }}
+      .comparison-cell {{ padding-left:8px !important;padding-right:8px !important; }}
+      .valuation-cell {{ display:block !important;width:100% !important;box-sizing:border-box !important;border-left:0 !important; }}
       .metric-grid {{ margin:0 !important; }}
       .email-title {{ font-size:25px !important;line-height:30px !important; }}
     }}
@@ -317,6 +399,8 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
     {official_links_html}
 
     {f'<div style="height:20px;line-height:20px;">&nbsp;</div>{key_figures_html}' if key_figures_html else ''}
+    {f'<div style="height:12px;line-height:12px;">&nbsp;</div>{estimate_scoreboard_html}' if estimate_scoreboard_html else ''}
+    {f'<div style="height:14px;line-height:14px;">&nbsp;</div>{valuation_html}' if valuation_html else ''}
     {f'<div style="height:12px;line-height:12px;">&nbsp;</div>{highlights_card}' if highlights_card else ''}
     {sections_html}
     {f'<div style="height:14px;line-height:14px;">&nbsp;</div>{key_metrics_html}' if key_metrics_html else ''}
@@ -376,6 +460,31 @@ def render_markdown_summary(context: Dict[str, Any]) -> str:
     all_sources.extend(intro_sources)
     if intro_cleaned and intro_cleaned[0]:
         lines.append(_compact_text(intro_cleaned[0], 620))
+        lines.append("")
+    comparisons = [item for item in context.get("estimate_comparisons", []) or [] if isinstance(item, dict)]
+    if comparisons:
+        lines.append("## Estimate scoreboard")
+        for item in comparisons[:5]:
+            lines.append(
+                f"- **{item.get('metric', '')}:** {item.get('reported', '')} vs. "
+                f"{item.get('estimate', '')}; {item.get('variance', '')} "
+                f"({item.get('estimate_source', '')}, {item.get('estimate_as_of', '')})"
+            )
+            if item.get("source_url"):
+                all_sources.append(str(item["source_url"]))
+        lines.append("")
+    valuation = context.get("valuation_reference") or {}
+    if isinstance(valuation, dict) and valuation.get("ev_cy_revenue"):
+        lines.append("## Valuation reference")
+        lines.append(
+            f"- Enterprise value: {valuation.get('enterprise_value', '')}\n"
+            f"- CY revenue estimate: {valuation.get('cy_revenue', '')}\n"
+            f"- EV / CY revenue: {valuation.get('ev_cy_revenue', '')}\n"
+            f"- Basis: {valuation.get('basis', '')}\n"
+            f"- As of: {valuation.get('as_of', '')}; source: {valuation.get('source', '')}"
+        )
+        if valuation.get("source_url"):
+            all_sources.append(str(valuation["source_url"]))
         lines.append("")
     highlights, hl_sources = strip_citations_nested(context.get("financial_highlights", []))
     all_sources.extend(hl_sources)

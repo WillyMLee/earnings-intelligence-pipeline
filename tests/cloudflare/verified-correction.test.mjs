@@ -26,8 +26,13 @@ test("correction renderer includes analysis rather than an empty shell", () => {
   assert.match(html, /Executive read/u);
   assert.match(html, /Positive reaction/u);
   assert.match(html, /metric-cell/u);
+  assert.match(html, /Estimate scoreboard/u);
+  assert.match(html, /FactSet consensus/u);
+  assert.match(html, /Valuation reference/u);
+  assert.match(html, /17\.8x close/u);
   assert.match(html, /product revenue was \$1\.492 billion/u);
   assert.match(html, /Guidance and operating leverage/u);
   assert.match(text, /RPO: \$9\.00B/u);
   assert.match(text, /Correction: Post-Earnings Summary/u);
+  assert.match(text, /EV \/ CY revenue: 17\.8x close/u);
 });
