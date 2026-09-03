@@ -115,4 +115,15 @@ def test_estimate_miss_uses_negative_variance_color():
     context = _context()
     context["estimate_comparisons"][0]["variance"] = "-$0.3B / -2.0% miss"
     html = render_deep_dive_email(context)
-    assert 'color:#c23b4b;font-weight:800;">-$0.3B / -2.0% miss' in html
+    assert 'bgcolor="#fbe9ec"' in html
+    assert "color:#c23b4b" in html
+    assert "-<wbr>$0.3B /<wbr> -<wbr>2.0% miss" in html
+
+
+def test_estimate_scoreboard_uses_fixed_width_email_safe_grid():
+    html = render_deep_dive_email(_context())
+    assert 'class="comparison-values"' in html
+    assert "table-layout:fixed" in html
+    assert 'width="32%"' in html
+    assert 'width="36%"' in html
+    assert 'class="scoreboard-pad"' in html

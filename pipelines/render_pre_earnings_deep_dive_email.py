@@ -60,6 +60,11 @@ def esc(value: Any) -> str:
     return html.escape(html.unescape(text))
 
 
+def _email_value(value: Any) -> str:
+    """Escape a figure while allowing narrow email panes to wrap ranges cleanly."""
+    return esc(value).replace("–", "–<wbr>").replace("-", "-<wbr>").replace("/", "/<wbr>")
+
+
 def parse_recipients(value: str) -> List[str]:
     return [item.strip() for item in (value or "").split(",") if item.strip()]
 
@@ -140,13 +145,13 @@ def _section_heading(text: str) -> str:
     )
 
 
-def _section_card(title: str, body: str, accent: str = BRAND) -> str:
+def _section_card(title: str, body: str, accent: str = BRAND, content_class: str = "") -> str:
     if not body:
         return ""
     return (
         f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" '
         f'style="width:100%;border:1px solid {BORDER};border-radius:14px;background:#ffffff;">'
-        f'<tr><td style="padding:20px 22px 11px 22px;border-left:4px solid {accent};border-radius:14px;">'
+        f'<tr><td{f" class=\"{content_class}\"" if content_class else ""} style="padding:20px 22px 11px 22px;border-left:4px solid {accent};border-radius:14px;">'
         f'{_section_heading(title)}{body}</td></tr></table>'
     )
 
@@ -205,39 +210,45 @@ def _estimate_scoreboard_html(items: List[Dict[str, Any]]) -> str:
     if not comparisons:
         return ""
     rows: List[str] = []
-    for item in comparisons:
+    for index, item in enumerate(comparisons):
         variance_text = str(item.get("variance", "") or "")
         variance_lower = variance_text.lower().strip()
-        variance_color = (
-            NEGATIVE if variance_lower.startswith("-") or any(word in variance_lower for word in ("miss", "below"))
-            else (NEUTRAL if any(word in variance_lower for word in ("inline", "in line", "flat")) else POSITIVE)
-        )
+        if variance_lower.startswith("-") or any(word in variance_lower for word in ("miss", "below")):
+            variance_color, variance_soft = NEGATIVE, NEGATIVE_SOFT
+        elif any(word in variance_lower for word in ("inline", "in line", "flat")):
+            variance_color, variance_soft = NEUTRAL, NEUTRAL_SOFT
+        else:
+            variance_color, variance_soft = POSITIVE, POSITIVE_SOFT
         source_url = str(item.get("source_url", "") or "").strip()
         source_label = str(item.get("estimate_source", "") or "Estimate source").strip()
         source_html = (
             f'<a href="{esc(source_url)}" style="color:{BRAND};text-decoration:none;font-weight:750;">{esc(source_label)}</a>'
             if source_url else esc(source_label)
         )
-        metadata = " &nbsp;&middot;&nbsp; ".join(
-            part for part in (esc(item.get("period", "")), esc(item.get("estimate_as_of", ""))) if part
-        )
-        metadata_html = (
-            f'<span style="font-size:10px;color:{MUTED};font-weight:600;"> &nbsp;&middot;&nbsp; {metadata}</span>'
-            if metadata else ""
-        )
+        period = esc(item.get("period", ""))
+        estimate_as_of = esc(item.get("estimate_as_of", ""))
+        divider = f"border-bottom:1px solid {BORDER};" if index < len(comparisons) - 1 else ""
         rows.append(
-            f'<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;background:{SOFT};border:1px solid {BORDER};border-radius:11px;">'
-            f'<tr><td colspan="3" style="padding:13px 14px 8px 14px;font-size:13px;line-height:18px;color:{INK};font-weight:800;">{esc(item.get("metric", ""))}'
-            f'{metadata_html}</td></tr>'
+            f'<table class="comparison-row" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed;{divider}">'
+            '<tr><td style="padding:14px 0 15px 0;">'
+            f'<div style="font-size:13px;line-height:18px;color:{INK};font-weight:800;">{esc(item.get("metric", ""))}'
+            f'{f" <span style=\"color:{MUTED};font-size:10px;font-weight:700;\">&nbsp;&middot;&nbsp; {period}</span>" if period else ""}</div>'
+            f'<div style="padding-top:3px;font-size:10px;line-height:15px;color:{MUTED};">{source_html}'
+            f'{f" &nbsp;&middot;&nbsp; {estimate_as_of}" if estimate_as_of else ""}</div>'
+            '<table class="comparison-values" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed;margin-top:10px;">'
             '<tr>'
-            f'<td class="comparison-cell" width="34%" valign="top" style="padding:5px 14px 13px 14px;"><div style="font-size:9px;color:{MUTED};font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">Reported / guide</div><div style="padding-top:4px;font-size:16px;line-height:21px;color:{INK};font-weight:800;">{esc(item.get("reported", ""))}</div></td>'
-            f'<td class="comparison-cell" width="33%" valign="top" style="padding:5px 14px 13px 14px;border-left:1px solid {BORDER};"><div style="font-size:9px;color:{MUTED};font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">Estimate</div><div style="padding-top:4px;font-size:16px;line-height:21px;color:{INK};font-weight:800;">{esc(item.get("estimate", ""))}</div></td>'
-            f'<td class="comparison-cell" width="33%" valign="top" style="padding:5px 14px 13px 14px;border-left:1px solid {BORDER};"><div style="font-size:9px;color:{MUTED};font-weight:800;text-transform:uppercase;letter-spacing:0.5px;">Variance</div><div style="padding-top:4px;font-size:16px;line-height:21px;color:{variance_color};font-weight:800;">{esc(variance_text)}</div></td>'
-            '</tr>'
-            f'<tr><td colspan="3" style="padding:0 14px 12px 14px;font-size:10px;line-height:15px;color:{MUTED};">Source: {source_html}</td></tr>'
-            '</table>'
+            f'<td class="comparison-cell" width="32%" valign="top" bgcolor="{SOFT}" style="width:32%;padding:10px 11px;background:{SOFT};">'
+            f'<div style="font-size:9px;line-height:13px;color:{MUTED};font-weight:800;text-transform:uppercase;letter-spacing:0.45px;">Actual / guide</div>'
+            f'<div class="comparison-number" style="padding-top:4px;font-size:16px;line-height:21px;color:{INK};font-weight:800;overflow-wrap:anywhere;">{_email_value(item.get("reported", ""))}</div></td>'
+            f'<td class="comparison-cell" width="32%" valign="top" bgcolor="{SOFT}" style="width:32%;padding:10px 11px;background:{SOFT};border-left:4px solid #ffffff;">'
+            f'<div style="font-size:9px;line-height:13px;color:{MUTED};font-weight:800;text-transform:uppercase;letter-spacing:0.45px;">Estimate</div>'
+            f'<div class="comparison-number" style="padding-top:4px;font-size:16px;line-height:21px;color:{INK};font-weight:800;overflow-wrap:anywhere;">{_email_value(item.get("estimate", ""))}</div></td>'
+            f'<td class="comparison-cell comparison-variance" width="36%" valign="top" bgcolor="{variance_soft}" style="width:36%;padding:10px 11px;background:{variance_soft};border-left:4px solid #ffffff;">'
+            f'<div style="font-size:9px;line-height:13px;color:{MUTED};font-weight:800;text-transform:uppercase;letter-spacing:0.45px;">Vs. estimate</div>'
+            f'<div class="comparison-number" style="padding-top:4px;font-size:16px;line-height:21px;color:{variance_color};font-weight:800;overflow-wrap:anywhere;">{_email_value(variance_text)}</div></td>'
+            '</tr></table></td></tr></table>'
         )
-    return _section_card("Estimate scoreboard", "".join(rows))
+    return _section_card("Estimate scoreboard", "".join(rows), BRAND, "scoreboard-pad")
 
 
 def _valuation_reference_html(item: Dict[str, Any]) -> str:
@@ -373,6 +384,8 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
       .body-pad {{ padding:22px 16px 24px !important; }}
       .metric-cell {{ display:block !important;width:100% !important;box-sizing:border-box !important; }}
       .comparison-cell {{ padding-left:8px !important;padding-right:8px !important; }}
+      .comparison-number {{ font-size:14px !important;line-height:18px !important; }}
+      .scoreboard-pad {{ padding-left:14px !important;padding-right:14px !important; }}
       .valuation-cell {{ display:block !important;width:100% !important;box-sizing:border-box !important;border-left:0 !important; }}
       .metric-grid {{ margin:0 !important; }}
       .email-title {{ font-size:25px !important;line-height:30px !important; }}

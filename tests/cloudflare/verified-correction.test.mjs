@@ -27,6 +27,10 @@ test("correction renderer includes analysis rather than an empty shell", () => {
   assert.match(html, /Positive reaction/u);
   assert.match(html, /metric-cell/u);
   assert.match(html, /Estimate scoreboard/u);
+  assert.match(html, /class="comparison-values"/u);
+  assert.match(html, /table-layout:fixed/u);
+  assert.match(html, /bgcolor="#e3f5ee"/u);
+  assert.match(html, /<wbr>/u);
   assert.match(html, /FactSet consensus/u);
   assert.match(html, /Valuation reference/u);
   assert.match(html, /17\.8x close/u);

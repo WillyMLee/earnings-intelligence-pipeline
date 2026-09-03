@@ -11,6 +11,10 @@ function escapeHtml(value) {
     .replaceAll("'", "&#39;");
 }
 
+function emailValue(value) {
+  return escapeHtml(value).replaceAll("–", "–<wbr>").replaceAll("-", "-<wbr>").replaceAll("/", "/<wbr>");
+}
+
 function bulletHtml(items, limit = 6) {
   const rows = items.slice(0, limit).map((item) => (
     `<tr><td valign="top" style="width:12px;padding:3px 9px 7px 0;color:#3454f4;font-size:10px;line-height:21px;">&#9632;</td>` +
@@ -23,29 +27,33 @@ function sectionHeading(title) {
   return `<div style="padding:0 0 11px;margin-bottom:14px;border-bottom:1px solid #e3e5ea;"><span style="font-size:11px;line-height:16px;color:#63697a;text-transform:uppercase;font-weight:800;letter-spacing:.8px;">${escapeHtml(title)}</span></div>`;
 }
 
-function sectionCard(title, body, accent = "#3454f4") {
-  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e3e5ea;border-radius:14px;background:#fff;"><tr><td style="padding:20px 22px 11px;border-left:4px solid ${accent};border-radius:14px;">${sectionHeading(title)}${body}</td></tr></table>`;
+function sectionCard(title, body, accent = "#3454f4", contentClass = "") {
+  const className = contentClass ? ` class="${contentClass}"` : "";
+  return `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;border:1px solid #e3e5ea;border-radius:14px;background:#fff;"><tr><td${className} style="padding:20px 22px 11px;border-left:4px solid ${accent};border-radius:14px;">${sectionHeading(title)}${body}</td></tr></table>`;
 }
 
 function estimateScoreboardHtml(items = []) {
   if (!items.length) return "";
-  const rows = items.slice(0, 5).map((item) => {
+  const comparisons = items.slice(0, 5);
+  const rows = comparisons.map((item, index) => {
     const varianceLower = String(item.variance || "").trim().toLowerCase();
-    const varianceColor = varianceLower.startsWith("-") || varianceLower.includes("miss") || varianceLower.includes("below")
-      ? "#c23b4b"
-      : varianceLower.includes("inline") || varianceLower.includes("in line") || varianceLower.includes("flat")
-        ? "#a56b00"
-        : "#12805c";
-    return (
-    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:10px;background:#f7f8fa;border:1px solid #e3e5ea;border-radius:11px;">` +
-    `<tr><td colspan="3" style="padding:13px 14px 8px;font-size:13px;line-height:18px;color:#0b0d12;font-weight:800;">${escapeHtml(item.metric)} <span style="font-size:10px;color:#63697a;font-weight:600;">&nbsp;&middot;&nbsp; ${escapeHtml(item.period)} &nbsp;&middot;&nbsp; ${escapeHtml(item.estimate_as_of)}</span></td></tr>` +
-    `<tr><td class="comparison-cell" width="34%" valign="top" style="padding:5px 14px 13px;"><div style="font-size:9px;color:#63697a;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Reported / guide</div><div style="padding-top:4px;font-size:16px;line-height:21px;font-weight:800;">${escapeHtml(item.reported)}</div></td>` +
-    `<td class="comparison-cell" width="33%" valign="top" style="padding:5px 14px 13px;border-left:1px solid #e3e5ea;"><div style="font-size:9px;color:#63697a;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Estimate</div><div style="padding-top:4px;font-size:16px;line-height:21px;font-weight:800;">${escapeHtml(item.estimate)}</div></td>` +
-    `<td class="comparison-cell" width="33%" valign="top" style="padding:5px 14px 13px;border-left:1px solid #e3e5ea;"><div style="font-size:9px;color:#63697a;font-weight:800;text-transform:uppercase;letter-spacing:.5px;">Variance</div><div style="padding-top:4px;font-size:16px;line-height:21px;color:${varianceColor};font-weight:800;">${escapeHtml(item.variance)}</div></td></tr>` +
-    `<tr><td colspan="3" style="padding:0 14px 12px;font-size:10px;line-height:15px;color:#63697a;">Source: <a href="${escapeHtml(item.source_url)}" style="color:#3454f4;text-decoration:none;font-weight:750;">${escapeHtml(item.estimate_source)}</a></td></tr></table>`
-    );
+    const isNegative = varianceLower.startsWith("-") || varianceLower.includes("miss") || varianceLower.includes("below");
+    const isNeutral = varianceLower.includes("inline") || varianceLower.includes("in line") || varianceLower.includes("flat");
+    const varianceColor = isNegative ? "#c23b4b" : isNeutral ? "#a56b00" : "#12805c";
+    const varianceSoft = isNegative ? "#fbe9ec" : isNeutral ? "#faf1de" : "#e3f5ee";
+    const divider = index < comparisons.length - 1 ? "border-bottom:1px solid #e3e5ea;" : "";
+    const period = item.period ? ` <span style="color:#63697a;font-size:10px;font-weight:700;">&nbsp;&middot;&nbsp; ${escapeHtml(item.period)}</span>` : "";
+    const estimateAsOf = item.estimate_as_of ? ` &nbsp;&middot;&nbsp; ${escapeHtml(item.estimate_as_of)}` : "";
+    return `<table class="comparison-row" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed;${divider}"><tr><td style="padding:14px 0 15px;">` +
+      `<div style="font-size:13px;line-height:18px;color:#0b0d12;font-weight:800;">${escapeHtml(item.metric)}${period}</div>` +
+      `<div style="padding-top:3px;font-size:10px;line-height:15px;color:#63697a;"><a href="${escapeHtml(item.source_url)}" style="color:#3454f4;text-decoration:none;font-weight:750;">${escapeHtml(item.estimate_source)}</a>${estimateAsOf}</div>` +
+      `<table class="comparison-values" role="presentation" width="100%" cellpadding="0" cellspacing="0" style="width:100%;table-layout:fixed;margin-top:10px;"><tr>` +
+      `<td class="comparison-cell" width="32%" valign="top" bgcolor="#f7f8fa" style="width:32%;padding:10px 11px;background:#f7f8fa;"><div style="font-size:9px;line-height:13px;color:#63697a;font-weight:800;text-transform:uppercase;letter-spacing:.45px;">Actual / guide</div><div class="comparison-number" style="padding-top:4px;font-size:16px;line-height:21px;font-weight:800;overflow-wrap:anywhere;">${emailValue(item.reported)}</div></td>` +
+      `<td class="comparison-cell" width="32%" valign="top" bgcolor="#f7f8fa" style="width:32%;padding:10px 11px;background:#f7f8fa;border-left:4px solid #fff;"><div style="font-size:9px;line-height:13px;color:#63697a;font-weight:800;text-transform:uppercase;letter-spacing:.45px;">Estimate</div><div class="comparison-number" style="padding-top:4px;font-size:16px;line-height:21px;font-weight:800;overflow-wrap:anywhere;">${emailValue(item.estimate)}</div></td>` +
+      `<td class="comparison-cell comparison-variance" width="36%" valign="top" bgcolor="${varianceSoft}" style="width:36%;padding:10px 11px;background:${varianceSoft};border-left:4px solid #fff;"><div style="font-size:9px;line-height:13px;color:#63697a;font-weight:800;text-transform:uppercase;letter-spacing:.45px;">Vs. estimate</div><div class="comparison-number" style="padding-top:4px;font-size:16px;line-height:21px;color:${varianceColor};font-weight:800;overflow-wrap:anywhere;">${emailValue(item.variance)}</div></td>` +
+      `</tr></table></td></tr></table>`;
   }).join("");
-  return sectionCard("Estimate scoreboard", rows);
+  return sectionCard("Estimate scoreboard", rows, "#3454f4", "scoreboard-pad");
 }
 
 function valuationReferenceHtml(item = {}) {
@@ -96,7 +104,7 @@ function renderHtml(item) {
   const valuationHtml = valuationReferenceHtml(item.valuationReference || {});
 
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
-  @media only screen and (max-width:620px){.email-shell{width:100%!important}.outer-pad{padding:0!important}.header-pad{padding:24px 20px 22px!important}.body-pad{padding:22px 16px 24px!important}.metric-cell,.valuation-cell{display:block!important;width:100%!important;box-sizing:border-box!important;border-left:0!important}.comparison-cell{padding-left:8px!important;padding-right:8px!important}.metric-grid{margin:0!important}.email-title{font-size:25px!important;line-height:30px!important}}
+  @media only screen and (max-width:620px){.email-shell{width:100%!important}.outer-pad{padding:0!important}.header-pad{padding:24px 20px 22px!important}.body-pad{padding:22px 16px 24px!important}.metric-cell,.valuation-cell{display:block!important;width:100%!important;box-sizing:border-box!important;border-left:0!important}.comparison-cell{padding-left:8px!important;padding-right:8px!important}.comparison-number{font-size:14px!important;line-height:18px!important}.scoreboard-pad{padding-left:14px!important;padding-right:14px!important}.metric-grid{margin:0!important}.email-title{font-size:25px!important;line-height:30px!important}}
   </style></head><body style="margin:0;padding:0;background:#f5f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;font-size:13px;color:#0b0d12;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f5f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;"><tr><td class="outer-pad" align="center" style="padding:24px 12px 32px;">
   <table class="email-shell" role="presentation" align="center" width="680" cellpadding="0" cellspacing="0" style="width:680px;max-width:680px;margin:0 auto;">
