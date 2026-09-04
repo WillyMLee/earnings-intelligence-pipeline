@@ -5,10 +5,11 @@ rest of this repo's pipeline archives to Convex — grouped by sector, with
 each report's actual-vs-consensus figures and a short "what mattered"
 summary.
 
-Built as a static site (Vite + React + Tailwind) that talks to Convex's
-HTTP query API directly — no server of its own, and no write/admin token
-is ever used or shipped to the client. Deployed as a Cloudflare Worker with
-static assets and an edge proxy for intraday index data.
+Built as a static site (Vite + React + Tailwind) backed by read-only Convex
+queries — no write/admin token is ever used or shipped to the client. In
+production, the Cloudflare Worker holds identical query responses at the edge
+for five minutes so visitors share one Convex read. The browser also deduplicates
+overlapping page requests during navigation.
 
 ## Run locally
 
@@ -25,7 +26,8 @@ npm run build
 npx wrangler deploy
 ```
 
-This deploys the SPA and its `/api/indices` edge proxy together and prints the
+This deploys the SPA, its `/api/indices` market proxy, and the cached
+`/api/convex-query` read proxy together and prints the
 `*.workers.dev` URL.
 Set `VITE_CONVEX_URL` at build time (or in `.env.production`) so production
 builds point at your Convex deployment.

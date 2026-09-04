@@ -20,6 +20,9 @@
     "binding": "ASSETS",
     "not_found_handling": "single-page-application"
   },
+  "vars": {
+    "CONVEX_URL": "https://honorable-goldfish-309.convex.cloud"
+  },
   "observability": {
     "enabled": true,
     "logs": {

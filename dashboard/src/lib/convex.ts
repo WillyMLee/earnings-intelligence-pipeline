@@ -12,6 +12,8 @@ import { isTrackedTicker, normalizeAndFilterTracked, normalizeTicker, TRACKED_TI
 const CONVEX_URL =
   (import.meta.env.VITE_CONVEX_URL as string | undefined) ||
   "https://honorable-goldfish-309.convex.cloud";
+const QUERY_CACHE_TTL_MS = 5 * 60 * 1000;
+const queryCache = new Map<string, { expiresAt: number; value?: unknown; promise?: Promise<unknown> }>();
 
 export type Bullet = { text: string; children?: string[] };
 export type Section = { heading: string; bullets: Bullet[] };
@@ -144,36 +146,76 @@ async function convexQuery<T>(path: string, args: Record<string, unknown>): Prom
       "VITE_CONVEX_URL is not set. Copy .env.example to .env.local and point it at your Convex deployment."
     );
   }
-  const response = await fetch(`${CONVEX_URL.replace(/\/$/, "")}/api/query`, {
+  const body = JSON.stringify({ path, args, format: "json" });
+  const cacheKey = `${path}:${body}`;
+  const cached = queryCache.get(cacheKey);
+  if (cached?.value !== undefined && cached.expiresAt > Date.now()) {
+    return cached.value as T;
+  }
+  if (cached?.promise) {
+    return cached.promise as Promise<T>;
+  }
+
+  const endpoint = import.meta.env.PROD
+    ? "/api/convex-query"
+    : `${CONVEX_URL.replace(/\/$/, "")}/api/query`;
+  const promise = fetch(endpoint, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ path, args, format: "json" }),
-  });
-  if (!response.ok) {
-    throw new Error(`Convex query ${path} failed: HTTP ${response.status}`);
-  }
-  const payload = await response.json();
-  if (payload.status !== "success") {
-    throw new Error(`Convex query ${path} failed: ${payload.errorMessage ?? "unknown error"}`);
-  }
-  return payload.value as T;
+    body,
+  })
+    .then(async (response) => {
+      if (!response.ok) {
+        throw new Error(`Convex query ${path} failed: HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      if (payload.status !== "success") {
+        throw new Error(`Convex query ${path} failed: ${payload.errorMessage ?? "unknown error"}`);
+      }
+      queryCache.set(cacheKey, {
+        expiresAt: Date.now() + QUERY_CACHE_TTL_MS,
+        value: payload.value,
+      });
+      return payload.value as T;
+    })
+    .catch((error) => {
+      queryCache.delete(cacheKey);
+      throw error;
+    });
+
+  queryCache.set(cacheKey, { expiresAt: 0, promise });
+  return promise;
 }
 
 export function listRecentEarnings(limit = 50, sector?: string) {
-  return convexQuery<PostEarningsSummary[]>("postEarningsSummaries:listRecent", {
-    limit,
-    ...(sector ? { sector } : {}),
-  }).then((rows) => normalizeAndFilterTracked(rows).map(normalizeSummary));
+  return convexQuery<PostEarningsSummary[]>("postEarningsSummaries:listRecent", { limit: 200 })
+    .then((rows) => normalizeAndFilterTracked(rows)
+      .map(normalizeSummary)
+      .filter((row) => !sector || row.sector === sector)
+      .slice(0, Math.max(0, Math.min(limit, 200))));
 }
 
 export function listSectors() {
-  return convexQuery<string[]>("postEarningsSummaries:listSectors", {});
+  return listRecentEarnings(200).then((rows) =>
+    [...new Set(rows.map((row) => row.sector).filter((sector): sector is string => Boolean(sector)))].sort()
+  );
 }
 
 export function listCompanies() {
-  return convexQuery<CompanyListing[]>("postEarningsSummaries:listCompanies", {}).then((rows) =>
-    normalizeAndFilterTracked(rows).map((row) => ({ ...row, company: displayCompanyName(row.ticker, row.company) }))
-  );
+  return listRecentEarnings(200).then((rows) => {
+    const latest = new Map<string, CompanyListing>();
+    for (const row of rows) {
+      if (!latest.has(row.ticker)) {
+        latest.set(row.ticker, {
+          ticker: row.ticker,
+          company: displayCompanyName(row.ticker, row.company),
+          sector: row.sector ?? null,
+          reportDate: row.reportDate,
+        });
+      }
+    }
+    return [...latest.values()];
+  });
 }
 
 export function listByTicker(ticker: string, limit = 20) {

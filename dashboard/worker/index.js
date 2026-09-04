@@ -15,6 +15,14 @@ const INDEX_SYMBOLS = [
   { symbol: "^DJI", name: "Dow Jones" },
 ];
 
+const CONVEX_QUERY_PATHS = new Set([
+  "earningsCalendar:listWindow",
+  "earningsCalendar:reportingProgress",
+  "postEarningsSummaries:listByTicker",
+  "postEarningsSummaries:listRecent",
+]);
+const CONVEX_CACHE_SECONDS = 300;
+
 function normalizeTicker(value) {
   return String(value ?? "").trim().toUpperCase().replaceAll(".", "-");
 }
@@ -60,9 +68,73 @@ async function fetchIndex({ symbol, name }) {
   return { symbol, name, price, previousClose, change, changePct, series };
 }
 
+function hexDigest(buffer) {
+  return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
+}
+
+export async function proxyConvexQuery(request, env, ctx) {
+  const contentLength = Number.parseInt(request.headers.get("content-length") ?? "0", 10);
+  if (contentLength > 32_768) {
+    return new Response(JSON.stringify({ error: "Query request is too large." }), {
+      status: 413,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const body = await request.text();
+  let query;
+  try {
+    query = JSON.parse(body);
+  } catch {
+    return new Response(JSON.stringify({ error: "Invalid JSON request." }), {
+      status: 400,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  if (!CONVEX_QUERY_PATHS.has(query?.path) || !query?.args || query?.format !== "json") {
+    return new Response(JSON.stringify({ error: "Query is not allowed." }), {
+      status: 403,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+  if (!env.CONVEX_URL) {
+    return new Response(JSON.stringify({ error: "Convex is not configured." }), {
+      status: 503,
+      headers: { "Content-Type": "application/json" },
+    });
+  }
+
+  const digest = hexDigest(await crypto.subtle.digest("SHA-256", new TextEncoder().encode(body)));
+  const cacheKey = new Request(`${new URL(request.url).origin}/__cache/convex/${digest}`);
+  const cache = caches.default;
+  const cached = await cache.match(cacheKey);
+  if (cached) {
+    const response = new Response(cached.body, cached);
+    response.headers.set("X-Earnings-Cache", "HIT");
+    return response;
+  }
+
+  const upstream = await fetch(`${env.CONVEX_URL.replace(/\/$/, "")}/api/query`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body,
+  });
+  const response = new Response(upstream.body, upstream);
+  response.headers.set("Cache-Control", `public, max-age=${CONVEX_CACHE_SECONDS}`);
+  response.headers.set("X-Earnings-Cache", "MISS");
+  if (upstream.ok) {
+    ctx.waitUntil(cache.put(cacheKey, response.clone()));
+  }
+  return response;
+}
+
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
+
+    if (url.pathname === "/api/convex-query" && request.method === "POST") {
+      return proxyConvexQuery(request, env, ctx);
+    }
 
     if (url.pathname === "/api/indices") {
       try {
