@@ -656,10 +656,15 @@ def _sort_collected(collected: List[Dict[str, str]]) -> None:
     collected.sort(key=lambda item: rank.get(item.get("provider", ""), len(rank)))
 
 
-# Exa has credits again, but per direct instruction it's being held back from
-# the cascade for now (LLMLayer is primary). Flip this back to True to
-# re-enable it -- the rest of the cascade logic doesn't need to change.
-_EXA_ENABLED = False
+# LLMLayer is primary and Exa is the normal secondary provider. Operators can
+# still disable Exa explicitly for incident response without allowing Tavily to
+# move ahead of LLMLayer.
+_EXA_ENABLED = os.environ.get("EXA_ENABLED", "true").strip().lower() not in {
+    "0",
+    "false",
+    "no",
+    "off",
+}
 
 
 def _configured_providers(kind: str) -> List[tuple[str, Any]]:
@@ -683,8 +688,8 @@ def run_research_query_cascade(
     min_results_before_tavily: int = 2,
     min_results_before_tinyfish: int = 1,
 ) -> Dict[str, Any]:
-    """Cascade: LLMLayer first (primary), Exa held back for now, Tavily only
-    if still under threshold, Tinyfish as last resort."""
+    """Cascade: LLMLayer first, Exa second, Tavily only if the combined
+    evidence is still under threshold, and TinyFish as the last resort."""
     collected: List[Dict[str, str]] = []
     errors: List[str] = []
     seen_urls: "set[str]" = set()

@@ -14,8 +14,12 @@ class EarningsOrchestrationTests(unittest.TestCase):
         for kind in ("discovery", "primary_source", "transcript"):
             self.assertEqual(provider_waterfall(kind)[0], "llmlayer")
 
-    def test_exa_opt_in_does_not_displace_llmlayer(self):
+    def test_exa_secondary_does_not_displace_llmlayer(self):
         self.assertEqual(provider_waterfall("discovery", include_exa=True)[:2], ("llmlayer", "exa"))
+
+    def test_tavily_stays_behind_exa(self):
+        providers = provider_waterfall("discovery", include_exa=True)
+        self.assertLess(providers.index("exa"), providers.index("tavily"))
 
     def test_post_plan_runs_inputs_in_parallel_then_reconciles(self):
         plan = build_earnings_research_plan("IBM", "International Business Machines", "2026-10-21", "post", "AMC")
@@ -55,6 +59,34 @@ class EarningsOrchestrationTests(unittest.TestCase):
         self.assertEqual(result["primary_provider"], "llmlayer")
         self.assertFalse(result["fallback_used"])
         self.assertFalse(result["degraded"])
+        tavily.assert_not_called()
+        tinyfish.assert_not_called()
+
+    @patch("core.research.search_tinyfish")
+    @patch("core.research.search_tavily")
+    @patch("core.research.search_exa")
+    @patch("core.research.search_llmlayer")
+    def test_exa_fills_a_weak_llmlayer_result_before_tavily(self, llmlayer, exa, tavily, tinyfish):
+        llmlayer.return_value = [
+            {"provider": "llmlayer", "title": "Primary", "url": "https://primary.test", "published_date": "2026-08-14"}
+        ]
+        exa.return_value = [
+            {"provider": "exa", "title": "Secondary", "url": "https://secondary.test", "published_date": "2026-08-13"}
+        ]
+        with patch.dict(
+            "os.environ",
+            {
+                "LLMLAYER_API_KEY": "test",
+                "EXA_API_KEY": "test",
+                "TAVILY_API_KEY": "test",
+                "TINYFISH_API_KEY": "test",
+            },
+            clear=True,
+        ):
+            result = run_research_query_cascade("test query")
+
+        self.assertEqual([attempt["provider"] for attempt in result["provider_attempts"]], ["llmlayer", "exa"])
+        exa.assert_called_once()
         tavily.assert_not_called()
         tinyfish.assert_not_called()
 

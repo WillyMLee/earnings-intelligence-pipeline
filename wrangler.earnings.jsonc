@@ -44,6 +44,7 @@
     "CONVEX_URL": "https://honorable-goldfish-309.convex.cloud",
     "DRY_RUN": "false",
     "ENVIRONMENT": "production",
+    "EXA_ENABLED": "true",
     "NATIVE_SENDS_ENABLED": "true",
     "EMAIL_PROVIDER": "agentmail",
     "TINYFISH_LANGUAGE": "en",

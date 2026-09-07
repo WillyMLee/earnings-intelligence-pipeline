@@ -14,9 +14,10 @@ from typing import Any, Dict, List, Sequence, Tuple
 SCHEMA_VERSION = "earnings-research-v1"
 
 
-# Discovery and document retrieval are different jobs.  LLMLayer is always the
-# first attempt.  TinyFish precedes Tavily for full-document work because it is
-# the stronger last-mile page fetcher; Tavily remains a graceful fallback.
+# Discovery and document retrieval are different jobs. LLMLayer is always the
+# first attempt. Exa is inserted second by the production research policy;
+# TinyFish handles last-mile page retrieval and Tavily remains the final search
+# fallback.
 _PROVIDER_WATERFALLS: Dict[str, Tuple[str, ...]] = {
     "discovery": ("llmlayer", "tavily", "tinyfish"),
     "primary_source": ("llmlayer", "tinyfish", "tavily"),
@@ -27,8 +28,8 @@ _PROVIDER_WATERFALLS: Dict[str, Tuple[str, ...]] = {
 def provider_waterfall(kind: str = "discovery", include_exa: bool = False) -> Tuple[str, ...]:
     """Return the provider order for a research job.
 
-    Exa is opt-in and, when enabled, is still placed behind LLMLayer so the
-    primary-provider contract cannot be accidentally changed by a call site.
+    When enabled, Exa is placed directly behind LLMLayer so Tavily cannot become
+    the routine second search provider.
     """
     if kind not in _PROVIDER_WATERFALLS:
         raise ValueError(f"Unknown research kind: {kind}")
