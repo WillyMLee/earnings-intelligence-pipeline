@@ -105,6 +105,27 @@ def test_unapproved_model_draft_is_replaced_by_verified_fallback():
     assert not delivery_context_issues(context)
 
 
+def test_provider_timeout_is_replaced_by_verified_fallback():
+    with patch(
+        "pipelines.run_post_earnings_deep_dive_auto.fetch_financial_snapshot", return_value={}
+    ), patch(
+        "pipelines.run_post_earnings_deep_dive_auto.fetch_pre_earnings_snapshot", return_value={}
+    ), patch(
+        "pipelines.run_post_earnings_deep_dive_auto.fetch_live_reaction_move",
+        return_value={"ah_move_pct": None},
+    ), patch(
+        "pipelines.run_post_earnings_deep_dive_auto.synthesize_earnings_brief_with_review",
+        side_effect=TimeoutError("provider stalled"),
+    ):
+        context = build_brief_context(
+            {"ticker": "ORCL", "company": "Oracle Corporation", "report_time": "After Close"},
+            date(2026, 9, 10),
+        )
+    assert context["qa_approved"] is True
+    assert context["quarter"] == "Q1 FY2027"
+    assert context["official_links"]["press_release"].startswith("https://investor.oracle.com/")
+
+
 def test_draft_renders_without_archiving_or_requiring_recipient(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("DEAL_ALERT_EMAIL_TO", raising=False)
     with patch("pipelines.run_post_earnings_deep_dive_auto.archive_post_earnings_summary") as archive:

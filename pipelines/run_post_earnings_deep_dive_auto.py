@@ -14,9 +14,11 @@ memo-style format, and sends via AgentMail.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import csv
 import json
 import os
+import signal
 import subprocess
 import sys
 from datetime import date, datetime
@@ -96,6 +98,27 @@ def ensure_calendar_csv(path: str) -> None:
 
 def _parse_date(s: str) -> date:
     return date.fromisoformat(s.split("T")[0])
+
+
+@contextmanager
+def _research_deadline(seconds: int):
+    """Bound one reporter's research so it cannot starve the rest of the batch."""
+    if seconds <= 0 or not hasattr(signal, "SIGALRM"):
+        yield
+        return
+
+    previous_handler = signal.getsignal(signal.SIGALRM)
+
+    def raise_timeout(_signum, _frame):
+        raise TimeoutError(f"earnings research exceeded {seconds} seconds")
+
+    signal.signal(signal.SIGALRM, raise_timeout)
+    signal.setitimer(signal.ITIMER_REAL, seconds)
+    try:
+        yield
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous_handler)
 
 
 def quarter_label(d: date) -> str:
@@ -216,7 +239,16 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     }
 
     print(f"[post-deep-dive] Synthesizing brief for {ticker} via web search...", flush=True)
-    brief = synthesize_earnings_brief_with_review(ticker, company, quarter, "post", facts)
+    research_timeout = max(15, int(os.environ.get("POST_EARNINGS_RESEARCH_TIMEOUT_SECONDS", "50")))
+    try:
+        with _research_deadline(research_timeout):
+            brief = synthesize_earnings_brief_with_review(ticker, company, quarter, "post", facts)
+    except Exception as exc:
+        print(
+            f"[post-deep-dive] {ticker}: primary research failed after a bounded attempt: {exc}",
+            flush=True,
+        )
+        brief = None
 
     if not brief or not brief.get("sections") or brief.get("_qa_approved") is not True:
         brief = verified_post_earnings_brief(ticker, report_date.isoformat())
