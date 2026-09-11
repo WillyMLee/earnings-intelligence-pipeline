@@ -9,7 +9,7 @@
   "containers": [
     {
       "class_name": "EarningsContainer",
-      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:ee94f297e967751c174f638186b40b0c2b38c29d",
+      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:2de22fd3890499dd39f076ba9b987988ca8f46d6",
       "instance_type": "basic",
       "max_instances": 12,
       "rollout_step_percentage": [10, 100]
@@ -52,7 +52,7 @@
     "OPENAI_WEB_SEARCH_MODEL": "gpt-4o-mini",
     "EARNINGS_TIME_ZONE": "America/New_York",
     "SCHEDULE_VERSION": "earnings-cloudflare-v3",
-    "RELEASE_TAG": "2026-09-07-provider-waterfall-v1"
+    "RELEASE_TAG": "2026-09-11-bounded-company-research-v1"
   },
   "secrets": {
     "required": [
