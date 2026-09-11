@@ -6,14 +6,17 @@ import { __test, hasVerifiedCorrection } from "../../cloudflare/verified-correct
 
 test("verified correction catalog contains substantive issuer-sourced briefs", () => {
   assert.equal(hasVerifiedCorrection("2026-09-02"), true);
+  assert.equal(hasVerifiedCorrection("2026-09-10"), true);
   assert.equal(hasVerifiedCorrection("2026-09-01"), false);
-  const batch = catalog["2026-09-02"];
-  assert.deepEqual(Object.keys(batch), ["AVGO", "HPE", "SNOW"]);
-  for (const item of Object.values(batch)) {
-    assert.ok(item.financialHighlights.length >= 3);
-    assert.ok(item.sections.some((section) => section.bullets.length));
-    assert.ok(item.keyMetrics.length >= 3);
-    assert.match(item.officialLinks.press_release, /^https:\/\//u);
+  assert.deepEqual(Object.keys(catalog["2026-09-02"]), ["AVGO", "HPE", "SNOW"]);
+  assert.deepEqual(Object.keys(catalog["2026-09-10"]), ["ORCL", "ADBE"]);
+  for (const batch of Object.values(catalog)) {
+    for (const item of Object.values(batch)) {
+      assert.ok(item.financialHighlights.length >= 3);
+      assert.ok(item.sections.some((section) => section.bullets.length));
+      assert.ok(item.keyMetrics.length >= 3);
+      assert.match(item.officialLinks.press_release, /^https:\/\//u);
+    }
   }
 });
 

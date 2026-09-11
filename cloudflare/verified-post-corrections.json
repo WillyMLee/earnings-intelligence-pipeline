@@ -277,5 +277,150 @@
         "capex_actual_usd": null
       }
     }
+  },
+  "2026-09-10": {
+    "ORCL": {
+      "ticker": "ORCL",
+      "company": "Oracle Corporation",
+      "quarter": "Q1 FY2027",
+      "reportDate": "2026-09-10",
+      "reportTime": "After Close",
+      "reactionPct": 0,
+      "reactionLine": "Market reaction is omitted from this recovery email because the verified company release is the controlling source.",
+      "intro": "Oracle reported a sharp acceleration in cloud infrastructure, with total revenue up 30%, cloud revenue up 62%, and infrastructure-as-a-service revenue up 121%. The central read-through is that AI training and inference demand is converting into both current growth and a much larger contracted backlog, while the associated capacity build keeps near-term free cash flow under pressure.",
+      "keyFigures": [
+        { "label": "Revenue", "value": "$19.3B (+30%)" },
+        { "label": "Cloud revenue", "value": "$11.6B (+62%)" },
+        { "label": "Cloud infrastructure", "value": "$7.4B (+121%)" },
+        { "label": "Non-GAAP EPS", "value": "$1.92 (+30%)" },
+        { "label": "RPO", "value": "$664B" },
+        { "label": "FY27 revenue guide", "value": "At least $90B" }
+      ],
+      "financialHighlights": [
+        { "text": "Total revenue was $19.345 billion, up 30% year over year in both reported and constant currency.", "children": [] },
+        { "text": "Cloud revenue reached $11.607 billion, up 62%, including $7.4 billion of cloud infrastructure revenue, up 121%, and $4.2 billion of cloud applications revenue, up 10%.", "children": [] },
+        { "text": "GAAP operating income was $6.728 billion, up 57%; non-GAAP operating income was $8.151 billion, up 31%.", "children": [] },
+        { "text": "GAAP diluted EPS was $1.56 and non-GAAP diluted EPS was $1.92, up 55% and 30%, respectively.", "children": [] },
+        { "text": "Operating cash flow was $23 billion, but free cash flow was negative $5 billion as Oracle continued investing in cloud infrastructure capacity.", "children": [] },
+        { "text": "Oracle added more than $30 billion of AI cloud contracts during the quarter, lifting remaining performance obligations to $664 billion.", "children": [] }
+      ],
+      "sections": [
+        {
+          "heading": "Cloud and AI demand",
+          "bullets": [
+            { "text": "Oracle delivered 850MW of additional data-center capacity in the quarter and more than 300,000 GPUs since the end of fiscal Q4.", "children": [] },
+            { "text": "Management said AI training and inference demand continues to grow faster than supply, making delivery capacity the key conversion constraint on backlog.", "children": [] }
+          ]
+        },
+        {
+          "heading": "Guidance and capital intensity",
+          "bullets": [
+            { "text": "Fiscal Q2 revenue is expected to grow 30%-34%, with cloud revenue growth of 65%-71% in U.S. dollars.", "children": [] },
+            { "text": "Oracle now expects at least $90 billion of fiscal 2027 revenue and non-GAAP EPS of $8.10.", "children": [] },
+            { "text": "The company completed a $20 billion at-the-market equity program during Q1 as part of its disclosed capital investment program.", "children": [] }
+          ]
+        },
+        {
+          "heading": "What to track next",
+          "bullets": [
+            { "text": "Track the pace at which the $664 billion RPO balance converts into recognized cloud infrastructure revenue as new capacity comes online.", "children": [] },
+            { "text": "Watch free-cash-flow recovery, financing needs, and delivery execution as infrastructure growth remains substantially more capital intensive than the legacy software mix.", "children": [] }
+          ]
+        }
+      ],
+      "keyMetrics": [
+        "Revenue: $19.345B, +30% YoY",
+        "Cloud revenue: $11.607B, +62% YoY",
+        "Cloud infrastructure revenue: $7.4B, +121% YoY",
+        "RPO: $664B after more than $30B of new AI cloud contracts",
+        "Q2 revenue growth guide: 30%-34%; cloud growth guide: 65%-71% in USD",
+        "FY27 revenue guide: at least $90B; non-GAAP EPS guide: $8.10"
+      ],
+      "officialLinks": {
+        "press_release": "https://investor.oracle.com/investor-news/news-details/2026/Oracle-Announces-Q1-Results-Driven-by-Triple-Digit-Growth-in-Cloud-Infrastructure-Revenues/default.aspx"
+      },
+      "financials": {
+        "revenue_actual_usd": 19345000000,
+        "revenue_consensus_usd": null,
+        "revenue_yoy_pct": 30,
+        "net_income_actual_usd": 4760000000,
+        "eps_actual": 1.56,
+        "eps_consensus": null,
+        "eps_surprise_pct": null,
+        "capex_actual_usd": null
+      }
+    },
+    "ADBE": {
+      "ticker": "ADBE",
+      "company": "Adobe Inc.",
+      "quarter": "Q3 FY2026",
+      "reportDate": "2026-09-10",
+      "reportTime": "After Close",
+      "reactionPct": 0,
+      "reactionLine": "Market reaction is omitted from this recovery email because the verified company release is the controlling source.",
+      "intro": "Adobe delivered record quarterly revenue and double-digit earnings growth, while AI-first annualized recurring revenue grew more than 150% year over year. The company raised full-year revenue and EPS targets, and the combination of 1 billion monthly active users, accelerating AI adoption, and higher guidance is the key operating read-through.",
+      "keyFigures": [
+        { "label": "Revenue", "value": "$6.76B (+13%)" },
+        { "label": "Total ARR", "value": "$27.50B" },
+        { "label": "AI-first ARR growth", "value": ">150% YoY" },
+        { "label": "Non-GAAP EPS", "value": "$6.13" },
+        { "label": "Operating cash flow", "value": "$2.52B" },
+        { "label": "Q4 revenue guide", "value": "$6.80-$6.85B" }
+      ],
+      "financialHighlights": [
+        { "text": "Revenue was a record $6.760 billion, up 13% year over year, or 12% in constant currency.", "children": [] },
+        { "text": "GAAP diluted EPS was $4.62 and non-GAAP diluted EPS was $6.13.", "children": [] },
+        { "text": "Total Adobe annualized recurring revenue exited the quarter at $27.50 billion, while AI-first ARR grew more than 150% year over year.", "children": [] },
+        { "text": "Subscription revenue was $6.582 billion; total customer-group subscription revenue was $6.56 billion, up 14% year over year.", "children": [] },
+        { "text": "GAAP operating income was $2.354 billion, GAAP net income was $1.827 billion, and operating cash flow reached a record $2.52 billion.", "children": [] },
+        { "text": "Remaining performance obligations were $22.16 billion at quarter-end, with current RPO representing 67%.", "children": [] }
+      ],
+      "sections": [
+        {
+          "heading": "AI adoption and customer reach",
+          "bullets": [
+            { "text": "AI-first ARR grew more than 150% year over year, providing a direct operating proof point beyond product-launch activity.", "children": [] },
+            { "text": "Adobe surpassed 1 billion monthly active users across its creativity and productivity offerings, expanding the base available for freemium conversion and agentic experiences.", "children": [] }
+          ]
+        },
+        {
+          "heading": "Guidance and mix",
+          "bullets": [
+            { "text": "Fiscal Q4 revenue is targeted at $6.80-$6.85 billion, with non-GAAP EPS of $6.30-$6.35.", "children": [] },
+            { "text": "Adobe raised fiscal 2026 revenue guidance to $26.576-$26.626 billion and non-GAAP EPS guidance to $24.45-$24.50.", "children": [] },
+            { "text": "The updated full-year plan calls for 10.2% growth in ending ARR.", "children": [] }
+          ]
+        },
+        {
+          "heading": "What to track next",
+          "bullets": [
+            { "text": "Track whether rapid AI-first ARR growth becomes large enough to accelerate total ARR growth beyond the current 10.2% full-year target.", "children": [] },
+            { "text": "Watch conversion of the 1 billion-user footprint, customer-group mix, and the durability of roughly 44%-45% targeted non-GAAP operating margins.", "children": [] }
+          ]
+        }
+      ],
+      "keyMetrics": [
+        "Revenue: $6.760B, +13% YoY",
+        "Total ARR: $27.50B exiting Q3",
+        "AI-first ARR growth: more than 150% YoY",
+        "Customer-group subscription revenue: $6.56B, +14% YoY",
+        "Q4 revenue guide: $6.80-$6.85B; non-GAAP EPS: $6.30-$6.35",
+        "FY26 revenue guide: $26.576-$26.626B; ending ARR growth: 10.2%"
+      ],
+      "officialLinks": {
+        "press_release": "https://www.adobe.com/cc-shared/assets/investor-relations/pdfs/01906202/au56y4ter.pdf",
+        "investor_deck": "https://www.adobe.com/cc-shared/assets/investor-relations/pdfs/01906202/c6yetrerew.pdf"
+      },
+      "financials": {
+        "revenue_actual_usd": 6760000000,
+        "revenue_consensus_usd": null,
+        "revenue_yoy_pct": 13,
+        "net_income_actual_usd": 1827000000,
+        "eps_actual": 4.62,
+        "eps_consensus": null,
+        "eps_surprise_pct": null,
+        "capex_actual_usd": null
+      }
+    }
   }
 }
