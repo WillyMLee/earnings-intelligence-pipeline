@@ -3,16 +3,21 @@
   "name": "surocap-earnings-orchestrator-preview",
   "main": "cloudflare/worker.mjs",
   "compatibility_date": "2026-08-20",
-  "compatibility_flags": ["nodejs_compat"],
+  "compatibility_flags": [
+    "nodejs_compat"
+  ],
   "workers_dev": true,
   "preview_urls": true,
   "containers": [
     {
       "class_name": "EarningsContainer",
-      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:coverage-fix-20261021-v7",
+      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:delivery-audit-20261021-v1",
       "instance_type": "basic",
       "max_instances": 12,
-      "rollout_step_percentage": [10, 100]
+      "rollout_step_percentage": [
+        10,
+        100
+      ]
     }
   ],
   "durable_objects": {
@@ -26,7 +31,9 @@
   "migrations": [
     {
       "tag": "earnings-container-v1",
-      "new_sqlite_classes": ["EarningsContainer"]
+      "new_sqlite_classes": [
+        "EarningsContainer"
+      ]
     }
   ],
   "workflows": [
@@ -37,7 +44,9 @@
     }
   ],
   "triggers": {
-    "crons": ["*/30 * * * *"]
+    "crons": [
+      "*/30 * * * *"
+    ]
   },
   "vars": {
     "ALPHA_VANTAGE_API_KEY": "demo",
@@ -54,7 +63,7 @@
     "POST_EARNINGS_RESEARCH_TIMEOUT_SECONDS": "120",
     "EARNINGS_TIME_ZONE": "America/New_York",
     "SCHEDULE_VERSION": "earnings-cloudflare-v3",
-    "RELEASE_TAG": "2026-10-21-coverage-empty-email-v7"
+    "RELEASE_TAG": "2026-10-21-delivery-audit-v1"
   },
   "secrets": {
     "required": [

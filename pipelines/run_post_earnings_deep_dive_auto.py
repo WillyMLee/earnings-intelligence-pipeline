@@ -454,15 +454,25 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     succeeded = 0
+    failed = []
     for reporter in reporters:
         try:
+            if not (args.draft_only or args.dashboard_only or args.correction):
+                receipt = agentmail_delivery.find_earnings_delivery(api_key=os.environ.get("AGENTMAIL_API_KEY", ""), inbox_id=os.environ.get("AGENTMAIL_INBOX_ID", ""), ticker=reporter["ticker"], report_date=today.isoformat(), mode="post", recipients=parse_recipients(os.environ.get("DEAL_ALERT_EMAIL_TO", "")))
+                if receipt:
+                    print(f"[post-deep-dive] {reporter['ticker']}: already sent (message_id={receipt.get('message_id')})", flush=True)
+                    succeeded += 1
+                    continue
             context = build_brief_context(reporter, today, correction=args.correction)
             if send_deep_dive(context, output_dir, args.draft_only or args.dashboard_only):
                 succeeded += 1
+            else:
+                failed.append(reporter["ticker"])
         except Exception as exc:
+            failed.append(reporter["ticker"])
             print(f"[post-deep-dive] {reporter['ticker']}: failed without blocking other reporters: {exc}", flush=True)
 
-    print(f"[post-deep-dive] Completed {succeeded}/{len(reporters)} reporter(s); {len(reporters) - succeeded} failed", flush=True)
+    print(f"[post-deep-dive] Completed {succeeded}/{len(reporters)} reporter(s); failed tickers: {','.join(failed) or 'none'}", flush=True)
     return 0 if succeeded == len(reporters) else 1
 
 

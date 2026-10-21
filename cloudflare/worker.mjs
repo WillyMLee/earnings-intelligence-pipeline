@@ -3,6 +3,7 @@ import { WorkflowEntrypoint } from "cloudflare:workers";
 import { NonRetryableError } from "cloudflare:workflows";
 
 import { JOB_NAMES, jobsForEasternSlot, scheduledRunId } from "./schedule.mjs";
+import { alertCoverageFailure } from "./coverage-failure-alert.mjs";
 import { deliverVerifiedCorrection, hasVerifiedCorrection } from "./verified-correction-delivery.mjs";
 
 const JOB_NAME_SET = new Set(JOB_NAMES);
@@ -158,6 +159,7 @@ export class EarningsJobWorkflow extends WorkflowEntrypoint {
       );
       if (job?.status === "succeeded") return job;
       if (job?.status === "failed") {
+        await step.do(`report missing coverage ${payload.jobName}`, { retries: { limit: 0 }, timeout: "2 minutes" }, async () => alertCoverageFailure(this.env, payload, job));
         const stderr = String(job.stderrTail || job.stdoutTail || "no diagnostics").slice(-4_000);
         throw new NonRetryableError(`${payload.jobName} failed with exit code ${job.exitCode ?? "unknown"}: ${stderr}`);
       }

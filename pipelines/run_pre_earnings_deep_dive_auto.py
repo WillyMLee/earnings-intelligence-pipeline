@@ -59,6 +59,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output-dir", default="", help="Root output directory for artifacts.")
     p.add_argument("--draft-only", action="store_true", help="Build email artifacts without sending.")
     p.add_argument("--correction", action="store_true", help="Label the delivered email as a correction.")
+    p.add_argument("--same-day", action="store_true", help="Recover missing previews for today's confirmed after-close reporters.")
     p.add_argument(
         "--dashboard-only",
         action="store_true",
@@ -339,7 +340,7 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
 def main() -> int:
     args = parse_args()
     today = _parse_date(args.for_date) if args.for_date else datetime.now(NY_TZ).date()
-    tomorrow = _next_business_day(today)
+    tomorrow = today if args.same_day else _next_business_day(today)
     if tomorrow < datetime.now(NY_TZ).date():
         print(f"[pre-deep-dive] {tomorrow} is in the past -- skipping historical preview and snapshot writes", flush=True)
         return 0
@@ -356,6 +357,11 @@ def main() -> int:
 
     ensure_calendar_csv(args.calendar_csv)
     reporters = load_coverage_reporters(args.calendar_csv, tomorrow, watchlist)
+    if args.same_day:
+        if datetime.now(NY_TZ).hour >= 16:
+            print("[pre-deep-dive] Same-day catchup window has closed -- skipping", flush=True)
+            return 0
+        reporters = [r for r in reporters if r.get("report_time", "").lower() in {"after close", "amc", "post-market"}]
     if not reporters:
         print(f"[pre-deep-dive] No coverage universe reporters on {tomorrow}", flush=True)
         return 0
@@ -367,15 +373,25 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     succeeded = 0
+    failed = []
     for reporter in reporters:
         try:
+            if not (args.draft_only or args.dashboard_only or args.correction):
+                receipt = agentmail_delivery.find_earnings_delivery(api_key=os.environ.get("AGENTMAIL_API_KEY", ""), inbox_id=os.environ.get("AGENTMAIL_INBOX_ID", ""), ticker=reporter["ticker"], report_date=tomorrow.isoformat(), mode="pre", recipients=parse_recipients(os.environ.get("DEAL_ALERT_EMAIL_TO", "")))
+                if receipt:
+                    print(f"[pre-deep-dive] {reporter['ticker']}: already sent (message_id={receipt.get('message_id')})", flush=True)
+                    succeeded += 1
+                    continue
             context = build_brief_context(reporter, tomorrow, correction=args.correction)
             if send_deep_dive(context, output_dir, args.draft_only or args.dashboard_only):
                 succeeded += 1
+            else:
+                failed.append(reporter["ticker"])
         except Exception as exc:
+            failed.append(reporter["ticker"])
             print(f"[pre-deep-dive] {reporter['ticker']}: failed without blocking other reporters: {exc}", flush=True)
 
-    print(f"[pre-deep-dive] Completed {succeeded}/{len(reporters)} reporter(s); {len(reporters) - succeeded} failed", flush=True)
+    print(f"[pre-deep-dive] Completed {succeeded}/{len(reporters)} reporter(s); failed tickers: {','.join(failed) or 'none'}", flush=True)
     return 0 if succeeded == len(reporters) else 1
 
 

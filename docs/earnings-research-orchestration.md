@@ -89,3 +89,10 @@ This mapping follows Cloudflare's [Rules of Workflows](https://developers.cloudf
 - Start in shadow mode. Compare the new claim ledger and final brief with the current Python output before enabling native sends.
 
 The current Python cron jobs can consume the same plan incrementally. The first integration points are the provider ordering in `core/research.py`, transcript caching, and the existing deterministic checks in `core/synthesis.py`.
+
+
+### Delivery recovery and verification
+
+The previous-business-day preview remains at 5 p.m. Eastern. At 9 a.m., a same-day catchup checks confirmed after-close reporters and sends only missing previews; it closes at 4 p.m. Post-close analysis runs at 6 p.m., with a recovery pass at 8 p.m. Both passes verify AgentMail sent messages for the exact ticker, report date, mode and recipient before generating another report. Archive entries and local drafts do not count as delivery. Receipt lookup failures stop that reporter rather than risk duplicate sends.
+
+Failed coverage runs send an actionable alert identifying failed tickers. Empty calendars and successful runs remain quiet. The existing empty daily, weekly and digest suppression remains enabled. Issuer-confirmed dates replace conflicting provider estimates, including META's October 21, 2026 after-close event.

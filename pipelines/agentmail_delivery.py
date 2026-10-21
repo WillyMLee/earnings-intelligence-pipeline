@@ -9,6 +9,10 @@ import base64
 import json
 import mimetypes
 import os
+import re
+import html as html_module
+import urllib.parse
+from datetime import date, timedelta
 import urllib.error
 import urllib.request
 from pathlib import Path
@@ -16,6 +20,45 @@ from typing import Any, Dict, Iterable, List, Optional
 
 
 API_BASE = "https://api.agentmail.to/v0"
+
+
+def find_earnings_delivery(*, api_key: str, inbox_id: str, ticker: str, report_date: str, mode: str, recipients: List[str]) -> Dict[str, Any]:
+    """Verify a sent message for this issuer/event before retrying research or email.
+
+    Archive rows and draft files are intentionally not delivery evidence.
+    Provider failures raise, preventing a retry from blindly duplicating email.
+    """
+    if not api_key or not inbox_id or not recipients:
+        raise ValueError("Delivery receipt verification requires credentials and recipients")
+    day = date.fromisoformat(report_date)
+    window_start = (day - timedelta(days=7)).isoformat()
+    window_end = (day + timedelta(days=3)).isoformat()
+    wanted = {value.strip().lower() for value in recipients}
+    path = f"/inboxes/{urllib.parse.quote(inbox_id, safe='')}/messages?limit=100"
+    for _ in range(5):
+        payload = _request(api_key, "GET", path)
+        for item in payload.get("messages", []) or []:
+            stamp = str(item.get("timestamp") or "")[:10]
+            if not window_start <= stamp <= window_end or "sent" not in (item.get("labels") or []):
+                continue
+            subject = str(item.get("subject") or "")
+            if not re.search(rf"\({re.escape(ticker)}\)", subject, re.I) or f"{mode}-earnings" not in subject.lower():
+                continue
+            sent_to = {str(value).strip().lower() for value in item.get("to", [])}
+            if not wanted <= sent_to:
+                continue
+            message_id = str(item.get("message_id") or "")
+            message = _request(api_key, "GET", f"/inboxes/{urllib.parse.quote(inbox_id, safe='')}/messages/{urllib.parse.quote(message_id, safe='')}")
+            content = html_module.unescape(re.sub(r"<[^>]+>", " ", str(message.get("text") or message.get("html") or item.get("preview") or "")))
+            normalized = re.sub(r"[\s,]+", " ", content).lower()
+            human_day = f"{day.strftime('%B')} {day.day} {day.year}".lower()
+            if report_date in normalized or human_day in normalized:
+                return item
+        cursor = payload.get("next_page_token")
+        if not cursor:
+            break
+        path = f"/inboxes/{urllib.parse.quote(inbox_id, safe='')}/messages?limit=100&page_token={urllib.parse.quote(str(cursor), safe='')}"
+    return {}
 
 
 def _request(

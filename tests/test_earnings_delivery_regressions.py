@@ -5,10 +5,11 @@ from unittest.mock import Mock
 import pytest
 
 from core.earnings_universe import EMAIL_DEEP_DIVE_TICKERS
-from core.official_earnings_calendar import parse_announcement, reconcile_official_events, VERIFIED_EVENTS
+from core.official_earnings_calendar import parse_announcement, reconcile_official_events, VERIFIED_EVENTS as ALL_VERIFIED_EVENTS
 from pipelines import run_post_earnings_digest as digest
 from pipelines import run_weekly_earnings_workflow as radar
 from pipelines.run_pre_earnings_deep_dive_auto import load_coverage_reporters
+VERIFIED_EVENTS = [event for event in ALL_VERIFIED_EVENTS if event["Report Date"] == "2026-10-20"]
 
 
 def test_confirmed_date_replaces_estimate_and_restores_missing_reporter(tmp_path):
@@ -186,3 +187,9 @@ def test_empty_radar_preserves_archive_without_email(monkeypatch, tmp_path, dail
     assert result["delivery"]["reason"] == "no_covered_earnings"
     send.assert_not_called()
     archive.assert_called_once()
+
+
+def test_meta_passive_announcement_uses_confirmed_date():
+    event = parse_announcement("META", "https://issuer.example/announcement", "September 22, 2026. Meta financial results will be released after market close on Wednesday, October 21, 2026.")
+    assert event["Report Date"] == "2026-10-21"
+    assert event["Report Time"] == "After Close"
