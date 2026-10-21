@@ -181,6 +181,28 @@ async function resolveInbox(env) {
 
 async function archiveSummary(env, item) {
   if (!env.CONVEX_URL || !env.EARNINGS_ARCHIVE_TOKEN) throw new Error("Convex archive credentials are not configured");
+  // Recovery must not retain a current estimate accidentally captured under
+  // an already-reported quarter. Preserve its timestamp as an audit record.
+  const snapshotResponse = await fetch(`${String(env.CONVEX_URL).replace(/\/$/u, "")}/api/query`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ path: "preEarningsSnapshots:getSnapshot", args: { ticker: item.ticker, reportDate: item.reportDate } }),
+  });
+  const snapshotPayload = await snapshotResponse.json();
+  if (!snapshotResponse.ok || snapshotPayload.status === "error") throw new Error("Pre-report snapshot recovery lookup failed");
+  const snapshot = snapshotPayload.value;
+  if (snapshot && String(snapshot.capturedAt || "").slice(0, 10) > item.reportDate) {
+    const quarantine = await fetch(`${String(env.CONVEX_URL).replace(/\/$/u, "")}/api/mutation`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: "preEarningsSnapshots:upsertSnapshot", args: {
+        adminToken: env.EARNINGS_ARCHIVE_TOKEN, ticker: item.ticker, reportDate: item.reportDate,
+        capturedAt: snapshot.capturedAt, consensusSource: "Late snapshot quarantined; excluded from pre-report comparisons",
+        revenueConsensusUsd: null, revenueConsensusYoyPct: null, fyRevenueConsensusUsd: null,
+        fyRevenueConsensusYoyPct: null, epsConsensus: null,
+      } }),
+    });
+    const outcome = await quarantine.json();
+    if (!quarantine.ok || outcome.status === "error") throw new Error("Late snapshot quarantine failed");
+  }
   const financials = item.financials || {};
   const args = {
     adminToken: env.EARNINGS_ARCHIVE_TOKEN,

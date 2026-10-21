@@ -217,13 +217,13 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "last_q_period_end": snap.get("last_q_period_end"),
         "last_q_yoy_pct": snap.get("last_q_yoy_pct"),
         "gross_margin_pct": snap.get("gross_margin_pct"),
-        "next_q_revenue_consensus": dated_consensus.get("revenueConsensusUsd") or snap.get("next_q_revenue_consensus"),
-        "next_q_yoy_pct": dated_consensus.get("revenueConsensusYoyPct") or snap.get("next_q_yoy_pct"),
+        "next_q_revenue_consensus": dated_consensus.get("revenueConsensusUsd"),
+        "next_q_yoy_pct": dated_consensus.get("revenueConsensusYoyPct"),
         "next_q_expected_period_end": snap.get("next_q_expected_period_end"),
         "fy_revenue_consensus": dated_consensus.get("fyRevenueConsensusUsd") or snap.get("fy_revenue_consensus"),
         "fy_yoy_pct": dated_consensus.get("fyRevenueConsensusYoyPct") or snap.get("fy_yoy_pct"),
         "eps_consensus": dated_consensus.get("epsConsensus"),
-        "consensus_source": dated_consensus.get("consensusSource") or "live market-data consensus",
+        "consensus_source": dated_consensus.get("consensusSource") or "Pre-report snapshot unavailable; research a dated estimate for this reporting period",
         "consensus_captured_at": dated_consensus.get("capturedAt") or "",
         "price": snap.get("price"),
         "market_cap_b": snap.get("market_cap_b"),
@@ -462,7 +462,8 @@ def main() -> int:
         except Exception as exc:
             print(f"[post-deep-dive] {reporter['ticker']}: failed without blocking other reporters: {exc}", flush=True)
 
-    return 0 if succeeded else 1
+    print(f"[post-deep-dive] Completed {succeeded}/{len(reporters)} reporter(s); {len(reporters) - succeeded} failed", flush=True)
+    return 0 if succeeded == len(reporters) else 1
 
 
 if __name__ == "__main__":

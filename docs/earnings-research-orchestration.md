@@ -1,5 +1,33 @@
 # Earnings research orchestration
 
+## Calendar and delivery safeguards
+
+The Alpha Vantage calendar supplies baseline dates. `core/official_earnings_calendar.py`
+refreshes registered issuer announcements (SpaceX and Netflix), follows only issuer-hosted
+links, and parses the result-posting sentence instead of the announcement's publication date.
+Verified events supersede conflicting estimates within 42 days, including in the Convex
+calendar archive. Confirmed events remain available for 60 days for recovery and to prevent
+a displaced estimate from reappearing. Register additional issuer news indexes in `ISSUERS`.
+
+Empty post-earnings digests and daily/weekly radars skip email delivery. Radar artifacts
+and archive records still record the run and its `no_covered_earnings` delivery reason.
+Per-company QA failures remain delivery-blocking; ordinary rounding and historical CapEx
+without a claimed guidance change are explicitly accepted by the review instructions.
+
+Previews include calendar EPS consensus as context. Dated, cited consensus revisions can
+supersede undated provider values. Historical preview replays skip snapshot writes; snapshots
+and reusable artifacts captured after the report date are rejected as pre-report evidence.
+Recovery quarantines invalid late consensus without inventing historical capture times.
+
+The deployed research/review model is `gpt-5.4-mini` with low reasoning, a 12,000-token
+research output allowance, and a 120-second per-company post-research deadline. The review
+distinguishes TTM GAAP margins, quarterly non-GAAP margins, management guidance and consensus.
+Valuation proxies are labeled FY consistently in HTML and text. A partial company failure
+now fails the job visibly instead of being hidden by another company's successful delivery.
+
+Issuer-verified October 20 SpaceX and Netflix recoveries live in
+`cloudflare/verified-post-corrections.json`; recovery can archive them without emailing.
+
 `core/earnings_orchestration.py` is the provider-neutral contract for an earnings run. It answers two separate questions:
 
 1. What evidence must exist before a brief can be trusted?

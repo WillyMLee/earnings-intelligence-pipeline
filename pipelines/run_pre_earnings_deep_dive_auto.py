@@ -121,6 +121,7 @@ def load_coverage_reporters(csv_path: str, target_date: date, watchlist: set) ->
                     "ticker": ticker,
                     "company": (row.get("Company Name") or row.get("company name") or ticker).strip(),
                     "report_time": (row.get("Report Time") or "").strip() or "TBD",
+                    "eps_estimate": (row.get("EPS Estimate") or "").strip(),
                 })
     return reporters
 
@@ -182,6 +183,10 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     print(f"[pre-deep-dive] Fetching financial snapshot for {ticker}...", flush=True)
     snap = fetch_financial_snapshot(ticker)
     try:
+        eps_consensus = float(str(reporter.get("eps_estimate") or "").replace("$", "").replace(",", ""))
+    except ValueError:
+        eps_consensus = None
+    try:
         archive_result = archive_pre_earnings_snapshot(ticker=ticker, report_date=report_date.isoformat(), snap=snap)
         if archive_result.get("status") != "archived":
             print(f"[pre-deep-dive] {ticker}: consensus archive skipped ({archive_result.get('reason')})", flush=True)
@@ -195,6 +200,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "last_q_yoy_pct": snap.get("last_q_yoy_pct"),
         "gross_margin_pct": snap.get("gross_margin_pct"),
         "next_q_revenue_consensus": snap.get("next_q_revenue_consensus"),
+        "eps_consensus": eps_consensus,
         "next_q_yoy_pct": snap.get("next_q_yoy_pct"),
         "next_q_expected_period_end": snap.get("next_q_expected_period_end"),
         "fy_revenue_consensus": snap.get("fy_revenue_consensus"),
@@ -327,6 +333,9 @@ def main() -> int:
     args = parse_args()
     today = _parse_date(args.for_date) if args.for_date else datetime.now(NY_TZ).date()
     tomorrow = _next_business_day(today)
+    if tomorrow < datetime.now(NY_TZ).date():
+        print(f"[pre-deep-dive] {tomorrow} is in the past -- skipping historical preview and snapshot writes", flush=True)
+        return 0
 
     if args.dashboard_only:
         from core.coverage import dashboard_only_tickers
@@ -359,7 +368,8 @@ def main() -> int:
         except Exception as exc:
             print(f"[pre-deep-dive] {reporter['ticker']}: failed without blocking other reporters: {exc}", flush=True)
 
-    return 0 if succeeded else 1
+    print(f"[pre-deep-dive] Completed {succeeded}/{len(reporters)} reporter(s); {len(reporters) - succeeded} failed", flush=True)
+    return 0 if succeeded == len(reporters) else 1
 
 
 if __name__ == "__main__":

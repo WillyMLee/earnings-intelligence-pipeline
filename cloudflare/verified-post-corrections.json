@@ -1,4 +1,58 @@
 {
+  "2026-10-20": {
+    "NFLX": {
+      "ticker": "NFLX", "company": "Netflix", "quarter": "Q3 FY2026", "reportDate": "2026-10-20", "reportTime": "After Close",
+      "intro": "Netflix's profit improved, while its reduced advertising outlook and fourth-quarter expense timing qualified the growth picture.",
+      "financialHighlights": [
+        {"text": "Revenue: $12.874 billion, increasing 11.8% year over year and approximately matching the $12.87 billion FactSet consensus.", "children": []},
+        {"text": "Diluted EPS: $0.87 versus $0.82 FactSet consensus; net income reached $3.664 billion.", "children": []},
+        {"text": "Operating margin: 34.6%; operating cash flow totaled $3.162 billion and free cash flow was $2.884 billion.", "children": []},
+        {"text": "Fourth-quarter forecast: revenue of $13.442 billion, diluted EPS of $0.67 and operating margin of 26.0%.", "children": []}
+      ],
+      "sections": [
+        {"heading": "Advertising outlook", "bullets": [
+          {"text": "Management reduced its 2026 advertising revenue expectation to approximately $2.7 billion from $3 billion, citing slower product rollout.", "children": []},
+          {"text": "Full-year guidance calls for $51.1 billion revenue and 31.5% operating margin.", "children": []}
+        ]},
+        {"heading": "Expense timing", "bullets": [
+          {"text": "Third-quarter operating profitability exceeded management's forecast partly because expenses shifted between periods.", "children": []},
+          {"text": "Fourth-quarter margin guidance includes approximately 120 basis points of costs associated with workforce reductions.", "children": []}
+        ]}
+      ],
+      "keyMetrics": ["Revenue: $12.874B (+11.8% YoY)", "Diluted EPS: $0.87", "Free cash flow: $2.884B", "2026 advertising outlook: approximately $2.7B"],
+      "estimateComparisons": [
+        {"metric": "Revenue", "reported": "$12.874B", "estimate": "$12.87B", "variance": "Approximately in line", "period": "Q3 FY2026", "estimate_source": "FactSet, reported by AP", "estimate_as_of": "2026-10-20 (pre-release consensus reported after results)", "source_url": "https://apnews.com/article/332fc9ae36c9ecc788cb163a70e655ed"},
+        {"metric": "Diluted EPS", "reported": "$0.87", "estimate": "$0.82", "variance": "+$0.05 (+6.1%)", "period": "Q3 FY2026", "estimate_source": "FactSet, reported by AP", "estimate_as_of": "2026-10-20 (pre-release consensus reported after results)", "source_url": "https://apnews.com/article/332fc9ae36c9ecc788cb163a70e655ed"}
+      ],
+      "officialLinks": {"press_release": "https://ir.netflix.net/files/doc_financials/2026/q3/FINAL-Q3-26-Shareholder-Letter.pdf"},
+      "financials": {"revenue_actual_usd": 12874000000, "revenue_consensus_usd": 12870000000, "revenue_yoy_pct": 11.8, "eps_actual": 0.87, "eps_consensus": 0.82, "net_income_actual_usd": 3664000000},
+      "verification": "Compared with the October 20 issuer shareholder letter and named FactSet consensus reported by AP. No reconstructed pre-report snapshot or unsourced valuation."
+    },
+    "SPCX": {
+      "ticker": "SPCX", "company": "SpaceX", "quarter": "Q3 FY2026", "reportDate": "2026-10-20", "reportTime": "After Close",
+      "intro": "SpaceX's reported growth was concentrated in Super Intelligence and Connectivity, alongside a substantial increase in capital spending.",
+      "financialHighlights": [
+        {"text": "Revenue: $14.575 billion, increasing approximately 161% year over year from $5.576 billion.", "children": []},
+        {"text": "Profitability: operating income of $2.791 billion, net income of $4.404 billion and diluted EPS of $0.35.", "children": []},
+        {"text": "Adjusted EBITDA: $8.809 billion; capital expenditures totaled $19.593 billion, compared with $6.880 billion a year earlier.", "children": []},
+        {"text": "Segment revenue: Super Intelligence $7.560 billion, Connectivity $5.248 billion and Space $1.767 billion.", "children": []}
+      ],
+      "sections": [
+        {"heading": "Super Intelligence", "bullets": [
+          {"text": "The segment generated $431 million operating income, compared with an operating loss in the prior quarter.", "children": []},
+          {"text": "Its $16.444 billion capital spending represented approximately 84% of consolidated expenditures.", "children": []}
+        ]},
+        {"heading": "Connectivity and Space", "bullets": [
+          {"text": "Connectivity produced $2.367 billion operating income, while Space recorded a $7 million operating loss.", "children": []},
+          {"text": "Net profit also benefited from $1.025 billion other income, $873 million interest income and a $390 million tax benefit.", "children": []}
+        ]}
+      ],
+      "keyMetrics": ["Revenue: $14.575B", "Operating income: $2.791B", "Diluted EPS: $0.35", "Capital expenditures: $19.593B"],
+      "officialLinks": {"press_release": "https://www.sec.gov/Archives/edgar/data/1181412/000162828026066482/spaceexplorationtechnologi.htm"},
+      "financials": {"revenue_actual_usd": 14575000000, "revenue_yoy_pct": 161.4, "eps_actual": 0.35, "net_income_actual_usd": 4404000000, "capex_actual_usd": 19593000000},
+      "verification": "Compared with the issuer's October 20 SEC Exhibit 99.1, including its segment and Capex tables. Consensus and valuation omitted because no sufficiently verified inputs were retained."
+    }
+  },
   "2026-09-02": {
     "AVGO": {
       "ticker": "AVGO",

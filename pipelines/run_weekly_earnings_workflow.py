@@ -371,10 +371,15 @@ def run_workflow(args: argparse.Namespace) -> Dict[str, Any]:
         "provider": email_settings["delivery_provider"],
     }
 
-    if args.send_email and not recipients:
+    has_coverage = any(section.get("events") for section in context.get("notable_by_weekday", []))
+    if not has_coverage:
+        delivery["reason"] = "no_covered_earnings"
+        print("[workflow] No covered earnings -- skipping email", flush=True)
+
+    if args.send_email and has_coverage and not recipients:
         raise ValueError("--send-email requires recipients via --email-to or WEEKLY_BRIEFING_EMAIL_TO.")
 
-    if recipients:
+    if recipients and has_coverage:
         message = create_email_message(
             subject=subject,
             html_body=html_body,

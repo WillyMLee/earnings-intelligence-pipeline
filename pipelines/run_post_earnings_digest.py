@@ -269,6 +269,10 @@ def main() -> int:
         items += amc_items
         print(f"[digest] {len(amc_items)} AMC/TBD reporter(s) from {prior_day} (via Convex)", flush=True)
 
+    if not items:
+        print(f"[digest] No covered earnings for {today} ({args.session}) -- skipping email", flush=True)
+        return 0
+
     context = {
         "generated_at": datetime.now(NY_TZ),
         "items": items,

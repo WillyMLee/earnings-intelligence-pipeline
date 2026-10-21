@@ -1,5 +1,5 @@
 import json
-from datetime import date
+from datetime import date, timedelta
 
 from cloudflare import container_server
 from cloudflare.container_server import job_commands
@@ -163,7 +163,7 @@ def test_pre_snapshot_archives_reusable_daily_card_fields(monkeypatch):
     monkeypatch.setattr(earnings_archive, "_convex_request", lambda **kwargs: calls.append(kwargs) or {"ok": True})
     earnings_archive.archive_pre_earnings_snapshot(
         ticker="NVDA",
-        report_date="2026-08-26",
+        report_date=(date.today() + timedelta(days=1)).isoformat(),
         snap={
             "price": 210.56,
             "market_cap_b": 5099.97,

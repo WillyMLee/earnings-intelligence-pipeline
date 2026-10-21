@@ -257,13 +257,19 @@ def _estimate_scoreboard_html(items: List[Dict[str, Any]]) -> str:
     return _section_card("Estimate scoreboard", "".join(rows), BRAND, "scoreboard-pad")
 
 
+def _valuation_period_label(item: Dict[str, Any]) -> str:
+    basis = str(item.get("basis", "")) + " " + str(item.get("cy_revenue", ""))
+    return "FY" if "proxy" in basis.lower() and re.search(r"\bFY\s*20\d{2}|fiscal.year", basis, re.I) else "CY"
+
+
 def _valuation_reference_html(item: Dict[str, Any]) -> str:
     if not isinstance(item, dict) or not item.get("ev_cy_revenue"):
         return ""
+    period = _valuation_period_label(item)
     fields = [
         ("Enterprise value", item.get("enterprise_value", "")),
-        ("CY revenue estimate", item.get("cy_revenue", "")),
-        ("EV / CY revenue", item.get("ev_cy_revenue", "")),
+        (f"{period} revenue estimate", item.get("cy_revenue", "")),
+        (f"EV / {period} revenue", item.get("ev_cy_revenue", "")),
     ]
     cells = "".join(
         f'<td class="valuation-cell" width="33.33%" valign="top" style="padding:0 6px 10px 6px;">'
@@ -494,11 +500,12 @@ def render_markdown_summary(context: Dict[str, Any]) -> str:
         lines.append("")
     valuation = context.get("valuation_reference") or {}
     if isinstance(valuation, dict) and valuation.get("ev_cy_revenue"):
+        period = _valuation_period_label(valuation)
         lines.append("## Valuation reference")
         lines.append(
             f"- Enterprise value: {valuation.get('enterprise_value', '')}\n"
-            f"- CY revenue estimate: {valuation.get('cy_revenue', '')}\n"
-            f"- EV / CY revenue: {valuation.get('ev_cy_revenue', '')}\n"
+            f"- {period} revenue estimate: {valuation.get('cy_revenue', '')}\n"
+            f"- EV / {period} revenue: {valuation.get('ev_cy_revenue', '')}\n"
             f"- Basis: {valuation.get('basis', '')}\n"
             f"- As of: {valuation.get('as_of', '')}; source: {valuation.get('source', '')}"
         )

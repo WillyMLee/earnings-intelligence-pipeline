@@ -2,7 +2,29 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import catalog from "../../cloudflare/verified-post-corrections.json" with { type: "json" };
-import { __test, hasVerifiedCorrection } from "../../cloudflare/verified-correction-delivery.mjs";
+import { __test, hasVerifiedCorrection, deliverVerifiedCorrection } from "../../cloudflare/verified-correction-delivery.mjs";
+
+test("recovery archives both missed reports and quarantines late consensus without sending", async () => {
+  const original = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url, body: JSON.parse(init.body) });
+    const body = JSON.parse(init.body);
+    const value = body.path === "preEarningsSnapshots:getSnapshot" && body.args.ticker === "NFLX"
+      ? { capturedAt: "2026-10-21T10:00:00", revenueConsensusUsd: 13_400_000_000 } : null;
+    return Response.json({ status: "success", value });
+  };
+  try {
+    const step = { do: async (...args) => args.at(-1)() };
+    const result = await deliverVerifiedCorrection({ CONVEX_URL: "https://example.convex.cloud", EARNINGS_ARCHIVE_TOKEN: "test" }, step, "2026-10-20", "NFLX,SPCX", false);
+    assert.deepEqual(result.archived, ["NFLX", "SPCX"]);
+    assert.deepEqual(result.delivered, []);
+    const quarantine = requests.find((request) => request.body.path === "preEarningsSnapshots:upsertSnapshot");
+    assert.equal(quarantine.body.args.revenueConsensusUsd, null);
+    assert.equal(quarantine.body.args.capturedAt, "2026-10-21T10:00:00");
+    assert.ok(requests.every((request) => !request.url.includes("agentmail")));
+  } finally { globalThis.fetch = original; }
+});
 
 test("verified correction catalog contains substantive issuer-sourced briefs", () => {
   assert.equal(hasVerifiedCorrection("2026-09-02"), true);

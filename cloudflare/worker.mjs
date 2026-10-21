@@ -53,6 +53,8 @@ function containerEnvironment(env) {
     TINYFISH_LANGUAGE: env.TINYFISH_LANGUAGE,
     TINYFISH_LOCATION: env.TINYFISH_LOCATION,
     OPENAI_WEB_SEARCH_MODEL: env.OPENAI_WEB_SEARCH_MODEL,
+    OPENAI_REVIEW_MODEL: env.OPENAI_REVIEW_MODEL,
+    POST_EARNINGS_RESEARCH_TIMEOUT_SECONDS: env.POST_EARNINGS_RESEARCH_TIMEOUT_SECONDS,
     EARNINGS_TIME_ZONE: env.EARNINGS_TIME_ZONE,
     ENVIRONMENT: env.ENVIRONMENT,
     NATIVE_SENDS_ENABLED: env.NATIVE_SENDS_ENABLED,
@@ -122,7 +124,10 @@ async function jobStatus(env, jobName, runId) {
   const response = await containerRequest(env, jobName, `/internal/job?runId=${encodeURIComponent(runId)}`);
   const body = await response.json();
   if (!response.ok) throw new Error(`Container status failed: ${response.status}`);
-  return body.job || null;
+  const job = body.job || null;
+  // Workflow API truncates long string outputs. Keep the end, where the
+  // actual per-company delivery/QA failure is logged, visible in status.
+  return job ? { ...job, stdoutTail: String(job.stdoutTail || "").slice(-600), stderrTail: String(job.stderrTail || "").slice(-600) } : null;
 }
 
 export class EarningsJobWorkflow extends WorkflowEntrypoint {
@@ -153,7 +158,7 @@ export class EarningsJobWorkflow extends WorkflowEntrypoint {
       );
       if (job?.status === "succeeded") return job;
       if (job?.status === "failed") {
-        const stderr = String(job.stderrTail || "no stderr").slice(-4_000);
+        const stderr = String(job.stderrTail || job.stdoutTail || "no diagnostics").slice(-4_000);
         throw new NonRetryableError(`${payload.jobName} failed with exit code ${job.exitCode ?? "unknown"}: ${stderr}`);
       }
     }
