@@ -55,3 +55,21 @@ def test_catchup_container_command_preserves_target_date_and_watchlist():
     assert command[command.index("--for-date")+1] == "2026-10-21"
     assert command[command.index("--watchlist")+1] == "META"
     assert "--draft-only" in command
+
+
+def test_transcript_qa_survives_email_and_markdown_rendering():
+    from pipelines.run_post_earnings_deep_dive_auto import analysis_sections
+    from pipelines.render_pre_earnings_deep_dive_email import render_deep_dive_email, render_markdown_summary
+    sections=analysis_sections({"sections": [{"heading": "Operating performance", "bullets": [{"text": "Revenue increased", "children": []}]}], "qa_highlights": [{"analyst_question": "Analyst asked about AI capacity", "answer_summary": "Management described capacity constraints"}, {"analyst_question": "Incomplete", "answer_summary": ""}]})
+    assert len(sections) == 2
+    assert len(sections[-1]["bullets"]) == 1
+    context={"ticker": "META", "company": "Meta", "quarter": "Q3 FY2026", "sections": sections}
+    for rendered in (render_deep_dive_email(context), render_markdown_summary(context)):
+        assert "Earnings call Q&amp;A" in rendered or "Earnings call Q&A" in rendered
+        assert "Analyst asked about AI capacity" in rendered
+        assert "Management described capacity constraints" in rendered
+
+
+def test_unavailable_transcript_does_not_invent_qa():
+    from pipelines.run_post_earnings_deep_dive_auto import analysis_sections
+    assert analysis_sections({"sections": []}) == []

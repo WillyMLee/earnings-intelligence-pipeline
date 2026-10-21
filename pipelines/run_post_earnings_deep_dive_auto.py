@@ -292,7 +292,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "reaction_pct": move.get("ah_move_pct"),
         "intro": brief.get("intro", ""),
         "financial_highlights": brief.get("financial_highlights", []),
-        "sections": brief.get("sections", []),
+        "sections": analysis_sections(brief),
         "key_metrics": brief.get("key_metrics", []),
         "key_figures": brief.get("key_figures", []),
         "estimate_comparisons": brief.get("estimate_comparisons", []),
@@ -306,6 +306,22 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     if issues:
         raise ValueError("delivery blocked: " + "; ".join(issues))
     return context
+
+
+def analysis_sections(brief: dict) -> list[dict]:
+    """Carry sourced analyst Q&A through to the HTML, Markdown and archive."""
+    sections = list(brief.get("sections") or [])
+    bullets = []
+    for item in (brief.get("qa_highlights") or [])[:4]:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("analyst_question") or "").strip()
+        answer = str(item.get("answer_summary") or "").strip()
+        if question and answer:
+            bullets.append({"text": question, "children": [answer]})
+    if bullets:
+        sections.append({"heading": "Earnings call Q&A", "bullets": bullets})
+    return sections
 
 
 def delivery_context_issues(context: dict) -> list[str]:
