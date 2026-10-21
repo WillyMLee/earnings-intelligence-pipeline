@@ -25,6 +25,11 @@ distinguishes TTM GAAP margins, quarterly non-GAAP margins, management guidance 
 Valuation proxies are labeled FY consistently in HTML and text. A partial company failure
 now fails the job visibly instead of being hidden by another company's successful delivery.
 
+When a pre-earnings narrative fails review, `core/pre_earnings_data_preview.py` can provide a
+clearly labeled, deterministic data preview using captured provider estimates and financial
+fields. It requires a forward estimate and at least three supported fields, reuses no rejected
+prose, invents no fiscal-quarter label, and passes the deterministic pre-delivery checks.
+
 Issuer-verified October 20 SpaceX and Netflix recoveries live in
 `cloudflare/verified-post-corrections.json`; recovery can archive them without emailing.
 

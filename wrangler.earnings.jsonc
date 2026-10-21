@@ -9,7 +9,7 @@
   "containers": [
     {
       "class_name": "EarningsContainer",
-      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:coverage-fix-20261021-v6",
+      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:coverage-fix-20261021-v7",
       "instance_type": "basic",
       "max_instances": 12,
       "rollout_step_percentage": [10, 100]
@@ -54,7 +54,7 @@
     "POST_EARNINGS_RESEARCH_TIMEOUT_SECONDS": "120",
     "EARNINGS_TIME_ZONE": "America/New_York",
     "SCHEDULE_VERSION": "earnings-cloudflare-v3",
-    "RELEASE_TAG": "2026-10-21-coverage-empty-email-v6"
+    "RELEASE_TAG": "2026-10-21-coverage-empty-email-v7"
   },
   "secrets": {
     "required": [

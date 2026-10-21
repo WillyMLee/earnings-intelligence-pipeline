@@ -32,6 +32,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from core.stock_data import fetch_financial_snapshot  # noqa: E402
+from core.pre_earnings_data_preview import build_data_preview  # noqa: E402
 from core.research import run_research_query_cascade  # noqa: E402
 from core.synthesis import (  # noqa: E402
     earnings_brief_delivery_issues,
@@ -248,7 +249,13 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
 
     if brief.get("_qa_approved") is False:
         issues = brief.get("_qa_issues") or ["unresolved factual review"]
-        raise RuntimeError(f"delivery blocked by earnings QA: {'; '.join(str(issue) for issue in issues[:5])}")
+        preview = build_data_preview(ticker, company, report_date.isoformat(), snap, eps_consensus)
+        preview_issues = earnings_brief_delivery_issues(preview, "pre", facts) if preview else ["insufficient captured data"]
+        if preview and not preview_issues:
+            brief = preview
+            print(f"[pre-deep-dive] {ticker}: narrative failed review; using sourced data preview", flush=True)
+        else:
+            raise RuntimeError(f"delivery blocked by earnings QA: {'; '.join(str(issue) for issue in issues[:5])}")
 
     report_time_label = reporter.get("report_time", "TBD")
 
@@ -264,7 +271,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "ticker": ticker,
         "company": company,
         "quarter": display_quarter,
-        "brief_label": "Correction: Pre-Earnings Summary" if correction else "Pre-Earnings Summary",
+        "brief_label": "Correction: Pre-Earnings Summary" if correction else ("Pre-Earnings Data Preview" if brief.get("_data_preview") else "Pre-Earnings Summary"),
         "report_date_label": f"Reports {report_date.isoformat()} -- {report_time_label}",
         "intro": brief.get("intro", ""),
         "financial_highlights": brief.get("financial_highlights", []),

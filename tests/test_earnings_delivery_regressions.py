@@ -118,6 +118,27 @@ def test_fiscal_year_proxy_is_labeled_consistently_in_email():
     assert "EV / CY revenue" not in rendered
 
 
+def test_rejected_narrative_becomes_sourced_data_preview(monkeypatch):
+    from pipelines import run_pre_earnings_deep_dive_auto as pre
+    monkeypatch.setattr(pre, "fetch_financial_snapshot", Mock(return_value={"next_q_revenue_consensus": 4_500_000_000, "last_q_revenue": 3_747_000_000, "gross_margin_pct": 48.9, "price": 200.0}))
+    monkeypatch.setattr(pre, "archive_pre_earnings_snapshot", Mock(return_value={"status": "skipped"}))
+    monkeypatch.setattr(pre, "synthesize_earnings_brief_with_review", Mock(return_value={"sections": [{"heading": "Untrusted", "bullets": [{"text": "Rejected claim"}]}], "_qa_approved": False, "_qa_issues": ["Unverified claim"]}))
+    context = pre.build_brief_context({"ticker": "WDC", "company": "Western Digital", "eps_estimate": "3.97", "report_time": "After Close"}, date(2026, 10, 22))
+    assert context["brief_label"] == "Pre-Earnings Data Preview"
+    assert context["quarter"] == "Upcoming report"
+    assert len(context["financial_highlights"]) >= 3
+    assert "Rejected claim" not in str(context)
+    assert "4.50 billion" in str(context)
+    assert "$3.97" in str(context)
+    assert "finance.yahoo.com" in str(context)
+
+
+def test_data_preview_requires_actual_captured_inputs():
+    from core.pre_earnings_data_preview import build_data_preview
+    assert build_data_preview("NFLX", "Netflix", "2027-01-20", {}) == {}
+    assert build_data_preview("NFLX", "Netflix", "2027-01-20", {"next_q_revenue_consensus": float("nan"), "price": float("inf")}) == {}
+
+
 @pytest.mark.parametrize("session", ["bmo", "amc", "all"])
 def test_empty_digest_does_not_render_or_send(monkeypatch, session):
     monkeypatch.setattr(sys, "argv", ["digest", "--calendar-csv", "unused.csv", "--for-date", "2026-10-21", "--session", session])
