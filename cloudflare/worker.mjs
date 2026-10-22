@@ -159,7 +159,7 @@ export class EarningsJobWorkflow extends WorkflowEntrypoint {
       );
       if (job?.status === "succeeded") return job;
       if (job?.status === "failed") {
-        await step.do(`report missing coverage ${payload.jobName}`, { retries: { limit: 0 }, timeout: "2 minutes" }, async () => alertCoverageFailure(this.env, payload, job));
+        await step.do(`report missing coverage ${payload.jobName}`, { retries: { limit: 0, delay: "1 second", backoff: "constant" }, timeout: "2 minutes" }, async () => alertCoverageFailure(this.env, payload, job));
         const stderr = String(job.stderrTail || job.stdoutTail || "no diagnostics").slice(-4_000);
         throw new NonRetryableError(`${payload.jobName} failed with exit code ${job.exitCode ?? "unknown"}: ${stderr}`);
       }

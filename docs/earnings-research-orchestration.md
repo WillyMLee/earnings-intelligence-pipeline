@@ -98,3 +98,5 @@ The previous-business-day preview remains at 5 p.m. Eastern. At 9 a.m., a same-d
 Failed coverage runs send an actionable alert identifying failed tickers. Empty calendars and successful runs remain quiet. The existing empty daily, weekly and digest suppression remains enabled. Issuer-confirmed dates replace conflicting provider estimates, including META's October 21, 2026 after-close event.
 
 Post-earnings email analysis preserves the synthesis output’s sourced analyst Q&A as an explicit Earnings call Q&A section in both HTML and Markdown. Empty or incomplete Q&A entries are omitted. For the October 21 META delivery, the temporary verifier requires current-quarter management commentary and analyst Q&A; a release-only email requires a separate transcript follow-up before completion.
+
+Transcript discovery and cache reads require a call/transcript identity, participant or Q&A structure, and the report date near the document header. Previews, generic company pages and wrong-period calls are excluded before synthesis. Workflow failure-alert steps specify a complete retry configuration, including a delay even when retry limit is zero.

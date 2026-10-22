@@ -433,6 +433,32 @@ def _convex_artifact_request(kind: str, path: str, args: Dict[str, Any]) -> Any:
     return payload.get("value")
 
 
+def _is_report_transcript(item: dict, report_date: str) -> bool:
+    """Reject previews and generic company pages masquerading as call text."""
+    title_url = str(item.get("title") or "") + " " + str(item.get("url") or "")
+    text = str(item.get("text") or item.get("raw_content") or "")
+    if not re.search(r"transcript|earnings[- /]call|conference[- /]call", title_url, re.I):
+        return False
+    if re.search(r"ahead[- ]of[- ]earnings|earnings[- ]preview|to[- ]announce|scheduled|not yet reported", str(item.get("title") or ""), re.I):
+        return False
+    # Call participants or a Q&A boundary are required; an article mentioning
+    # a transcript elsewhere is not an actual transcript.
+    if not (_QA_SECTION_RE.search(text) or re.search(r"(?:^|\n)\s*(?:Operator|Presentation|Call participants)\s*[:\n]", text, re.I)):
+        return False
+    if report_date:
+        try:
+            event = datetime.strptime(report_date, "%Y-%m-%d")
+        except ValueError:
+            return False
+        header = title_url + " " + text[:1800]
+        # The date must identify this call, not a future date buried in old guidance.
+        aliases = [event.strftime("%b") + f" {event.day}, {event.year}", event.strftime("%b") + f" {event.day} {event.year}", report_date, event.strftime("%B") + f" {event.day}, {event.year}", event.strftime("%B") + f" {event.day} {event.year}", f"{event.month}/{event.day}/{event.year}"]
+        normalized = re.sub(r"\s+", " ", header).lower()
+        if not any(value.lower() in normalized for value in aliases):
+            return False
+    return True
+
+
 def _load_cached_transcript(ticker: str, report_date: str, max_chars: int) -> Dict[str, str]:
     if not report_date:
         return {}
@@ -442,7 +468,7 @@ def _load_cached_transcript(ticker: str, report_date: str, max_chars: int) -> Di
     except Exception as exc:
         print(f"[research] Transcript cache read failed for {ticker} (non-fatal): {exc}", flush=True)
         return {}
-    if not isinstance(cached, dict) or not cached.get("text"):
+    if not isinstance(cached, dict) or not cached.get("text") or not _is_report_transcript(cached, report_date):
         return {}
     return {"url": str(cached.get("url") or ""), "title": str(cached.get("title") or ""), "text": str(cached.get("text") or "")[:max_chars], "qa_text": str(cached_qa.get("text") or "") if isinstance(cached_qa, dict) else "", "provider": str(cached.get("provider") or "cache"), "cache_hit": "true"}
 
@@ -554,7 +580,7 @@ def fetch_transcript_excerpt(
         results = filter_results_for_entity(results, company, ticker)
         for item in results:
             raw = item.get("raw_content", "")
-            if len(raw) > best_len and _mentions_entity(raw):
+            if len(raw) > best_len and _mentions_entity(raw) and _is_report_transcript(item, report_date):
                 sections = _extract_transcript_sections(raw, max_total=max_chars)
                 best = {
                     "url": item.get("url", ""),

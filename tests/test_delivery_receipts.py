@@ -73,3 +73,18 @@ def test_transcript_qa_survives_email_and_markdown_rendering():
 def test_unavailable_transcript_does_not_invent_qa():
     from pipelines.run_post_earnings_deep_dive_auto import analysis_sections
     assert analysis_sections({"sections": []}) == []
+
+
+def test_transcript_discovery_rejects_preview_generic_and_wrong_period():
+    from core.research import _is_report_transcript
+    good={"title": "META Q3 2026 Earnings Call Transcript", "url": "https://issuer.example/transcript", "text": "October 21, 2026\nOperator: Welcome to Meta earnings.\nQuestion and answer session\nAnalyst: What about spending?"}
+    assert _is_report_transcript(good, "2026-10-21")
+    assert not _is_report_transcript({**good, "text": good["text"].replace("October 21, 2026", "July 29, 2026")}, "2026-10-21")
+    assert not _is_report_transcript({"title": "StoneX reiterates Hold ahead of earnings", "url": "https://example.com/analyst-ratings", "text": "October 21, 2026 revenue estimates"}, "2026-10-21")
+    assert not _is_report_transcript({"title": "Meta Platforms - Wikipedia", "url": "https://en.wikipedia.org/wiki/Meta_Platforms", "text": good["text"]}, "2026-10-21")
+
+
+def test_old_preview_cache_is_ignored(monkeypatch):
+    from core import research
+    monkeypatch.setattr(research, "_convex_artifact_request", lambda *args: {"title": "StoneX reiterates Hold ahead of earnings", "url": "https://example.com/analyst-ratings", "text": "Meta reports tomorrow October 21, 2026"})
+    assert research._load_cached_transcript("META", "2026-10-21", 8000) == {}
