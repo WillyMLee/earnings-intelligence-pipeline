@@ -186,6 +186,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
 
     print(f"[pre-deep-dive] Fetching financial snapshot for {ticker}...", flush=True)
     snap = fetch_financial_snapshot(ticker)
+    snap = (snap.get("currency_normalization") or {}).get("native_snapshot") or snap
     from core.reporting_currency import financial_currency
     snap["financial_currency"] = financial_currency(ticker, snap)
     try:
@@ -193,7 +194,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     except ValueError:
         eps_consensus = None
     try:
-        archive_result = archive_pre_earnings_snapshot(ticker=ticker, report_date=report_date.isoformat(), snap=snap)
+        archive_result = archive_pre_earnings_snapshot(ticker=ticker, report_date=report_date.isoformat(), snap=snap, eps_consensus=eps_consensus)
         if archive_result.get("status") != "archived":
             print(f"[pre-deep-dive] {ticker}: consensus archive skipped ({archive_result.get('reason')})", flush=True)
     except Exception as exc:
@@ -201,6 +202,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
 
     facts = {
         "reporting_currency": financial_currency(ticker, snap),
+        "quote_currency": snap.get("quote_currency", "USD"),
         "last_q_revenue": snap.get("last_q_revenue"),
         "last_q_revenue_label": snap.get("last_q_label"),
         "last_q_period_end": snap.get("last_q_period_end"),
@@ -271,6 +273,9 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     # (fiscal year ends in June). Using the wrong label in the title/prompt
     # anchor was observed live to confuse the synthesis into writing an
     # entirely retrospective brief instead of a forward-looking one.
+    from core.reporting_currency import normalize_brief, normalize_snapshot
+    brief = normalize_brief(ticker, brief, financial_currency(ticker, snap), report_date.isoformat())
+    display_snap = normalize_snapshot(ticker, snap, report_date.isoformat())
     display_quarter = str(brief.get("fiscal_quarter_label") or "").strip() or quarter
 
     return {
@@ -284,7 +289,8 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "sections": brief.get("sections", []),
         "key_metrics": brief.get("key_metrics", []),
         "official_links": brief.get("official_links", {}),
-        "key_figures": _build_key_figures(snap, brief),
+        "key_figures": _build_key_figures(display_snap, brief),
+        "currency_normalization": brief.get("currency_normalization"),
         "estimate_comparisons": brief.get("estimate_comparisons", []),
         "valuation_reference": brief.get("valuation_reference", {}),
     }

@@ -65,3 +65,28 @@ test("correction renderer includes analysis rather than an empty shell", () => {
   assert.match(text, /Correction: Post-Earnings Summary/u);
   assert.match(text, /EV \/ CY revenue: 17\.8x close/u);
 });
+
+test("Spotify USD archive retains native financials and dated FX provenance", async () => {
+  const original = globalThis.fetch;
+  const requests = [];
+  globalThis.fetch = async (url, init) => {
+    requests.push({ url, body: JSON.parse(init.body) });
+    return Response.json({ status: "success", value: null });
+  };
+  try {
+    const step = { do: async (...args) => args.at(-1)() };
+    await deliverVerifiedCorrection({ CONVEX_URL: "https://example.convex.cloud", EARNINGS_ARCHIVE_TOKEN: "test" }, step, "2026-10-22", "SPOT", false);
+    const summary = requests.find((r) => r.body.path === "postEarningsSummaries:upsertSummary");
+    assert.equal(summary.body.args.revenueActualUsd, 5567764500);
+    const artifact = requests.find((r) => r.body.args.kind === "currency_normalization_v1");
+    const evidence = JSON.parse(artifact.body.args.text);
+    assert.equal(evidence.source_currency, "EUR");
+    assert.equal(evidence.usd_per_unit, 1.1205);
+    assert.equal(evidence.native_financials.revenue_actual_usd, 4969000000);
+    assert.ok(requests.every((r) => !r.url.includes("agentmail")));
+    for (const rendered of [__test.renderHtml(catalog["2026-10-22"].SPOT), __test.renderText(catalog["2026-10-22"].SPOT)]) {
+      assert.match(rendered, /Currency normalization/u);
+      assert.match(rendered, /1 EUR = \$1\.1205/u);
+    }
+  } finally { globalThis.fetch = original; }
+});

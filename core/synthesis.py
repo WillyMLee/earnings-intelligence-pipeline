@@ -830,7 +830,7 @@ def synthesize_earnings_brief_with_web_search(
         key_metrics_instruction=key_metrics_instruction,
     )
     if facts.get("reporting_currency") and facts["reporting_currency"] != "USD":
-        prompt += "\nIssuer financial reporting currency: " + str(facts["reporting_currency"]) + ". State financial results, guidance and EPS in that currency. Stock quotes may be USD. Do not compare USD valuation with native-currency revenue. Leave all financials fields null because the archive lacks a currency field; do not relabel native amounts as USD.\n"
+        prompt += "\nIssuer financial reporting currency: " + str(facts["reporting_currency"]) + ". RESEARCH STAGE: retain native financial amounts and explicit currency symbols/codes in every amount, including ranges and EPS. Override legacy _usd field names: supply native reporting-currency numbers in financials for this stage. Do not calculate FX or silently use issuer convenience USD figures. A deterministic post-review step converts both prose and structured figures to USD and retains the native originals. Quote currency is " + str(facts.get("quote_currency") or "USD") + ". Do not calculate cross-currency valuation multiples. Do not write a blanket currency declaration in the intro.\n"
     if fact_lines:
         prompt += "\nKnown facts (incorporate these, don't contradict them):\n" + "\n".join(fact_lines)
         prompt += (

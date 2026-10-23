@@ -102,8 +102,16 @@ Post-earnings email analysis preserves the synthesis output’s sourced analyst Q&
 Transcript discovery and cache reads require a call/transcript identity, participant or Q&A structure, and the report date near the document header. Previews, generic company pages and wrong-period calls are excluded before synthesis. Workflow failure-alert steps specify a complete retry configuration, including a delay even when retry limit is zero.
 
 
-Spotify is part of the tracked and dedicated-email universes. Its issuer-confirmed October 22, 2026 before-open report is retained for recovery. Spotify financial results and guidance are EUR; its listed share quote is USD. Native-currency data must not enter USD archive columns without conversion. Previews carry issuer currency, preserve USD stock quotes separately, and omit incompatible structured USD fields.
+Spotify is part of the tracked and dedicated-email universes. Its issuer-confirmed October 22, 2026 before-open report is retained for recovery. Spotify financial results and guidance are EUR; its listed share quote is USD. Native-currency data must not enter USD archive columns without conversion. Reports lead with converted USD financials, retain native amounts and dated FX evidence, and preserve USD stock quotes separately. Structured USD archive columns contain converted amounts.
 
 The container records dashboard-only research failures as `dashboardWarning` while maintaining the separate email-stage result. These failures do not claim a dedicated email was missed. Successful production dashboard post reports archive without sending; true drafts do neither. Plain-text digests include financial bullets even when no price reaction is available.
 
 Dedicated-report receipt checks require the issuer to appear before the pre/post-earnings label. A digest that mentions a ticker does not satisfy delivery of that company’s full analysis. This was verified against the recovered Spotify analysis and separate summary.
+
+## USD normalization
+
+Financial snapshots, pre/post reports, structured archives and digest metrics use USD. Research and QA first verify native issuer values. A deterministic translation step then converts explicit native amounts, ranges, EPS and monetary structured fields using a dated FX rate, retaining native amounts beside displayed USD equivalents. Percentages and reported growth remain on their original basis. EPS keeps the issuer's share basis; FX does not adjust ADR/GDR ratios.
+
+Use the latest available ECB daily reference on or before the report date (or capture date for a future preview). KRW/USD is USD/EUR divided by KRW/EUR. Currencies outside the ECB feed use attributed Frankfurter daily reference data. No future or more-than-seven-day-old FX rate may be used. Missing rates fail normalization rather than relabeling native amounts as dollars. This is an explicitly labeled convenience translation, not an accounting restatement.
+
+Listed-share quote currency is independent of reporting currency: Spotify's USD quote stays unchanged while EUR financials convert; a Korean listing's KRW price and market cap convert separately. Saved consensus retains native values and its original FX evidence, so the post report compares actuals and consensus at the same report-date FX rate. Full FX inputs and source amounts are persisted in financial-snapshot artifacts and currency_normalization_v1 post-report artifacts. Structured USD fields now contain converted numbers rather than native values or omitted data.

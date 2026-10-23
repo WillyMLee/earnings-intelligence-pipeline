@@ -185,6 +185,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
 
     print(f"[post-deep-dive] Fetching financial snapshot for {ticker}...", flush=True)
     snap = fetch_financial_snapshot(ticker)
+    snap = (snap.get("currency_normalization") or {}).get("native_snapshot") or snap
     dated_consensus = fetch_pre_earnings_snapshot(ticker, report_date.isoformat())
     if dated_consensus:
         print(
@@ -212,8 +213,15 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         reaction_line = f"Shares are {direction} {abs(pct):.1f}% {session_label} following the print."
 
     from core.reporting_currency import financial_currency
+    if financial_currency(ticker, snap) != "USD":
+        dated_consensus = dict(dated_consensus)
+        native = dated_consensus.get("_native_consensus") or {}
+        dated_consensus["revenueConsensusUsd"] = native.get("revenue")
+        dated_consensus["fyRevenueConsensusUsd"] = native.get("fy_revenue")
+        dated_consensus["epsConsensus"] = native.get("eps")
     facts = {
         "reporting_currency": financial_currency(ticker, snap),
+        "quote_currency": snap.get("quote_currency", "USD"),
         "last_q_revenue": snap.get("last_q_revenue"),
         "last_q_revenue_label": snap.get("last_q_label"),
         "last_q_period_end": snap.get("last_q_period_end"),
@@ -282,8 +290,8 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     # calendar-based guess -- see run_pre_earnings_deep_dive_auto.py for why.
     display_quarter = str(brief.get("fiscal_quarter_label") or "").strip() or quarter
 
-    if financial_currency(ticker, snap) != "USD":
-        brief["financials"] = {}
+    from core.reporting_currency import normalize_brief
+    brief = normalize_brief(ticker, brief, financial_currency(ticker, snap), report_date.isoformat())
 
     context = {
         "ticker": ticker,
@@ -304,6 +312,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "valuation_reference": brief.get("valuation_reference", {}),
         "official_links": brief.get("official_links", {}),
         "financials": brief.get("financials", {}),
+        "currency_normalization": brief.get("currency_normalization"),
         "qa_approved": brief.get("_qa_approved") is True,
         "qa_issues": brief.get("_qa_issues", []),
     }
@@ -401,6 +410,9 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool, *, archive
             financials=context.get("financials"),
         )
         archive_ok = archive_result.get("status") == "archived"
+        if archive_ok and context.get("currency_normalization"):
+            from earnings_archive import archive_currency_normalization
+            archive_currency_normalization(context["ticker"], context["report_date"], context["currency_normalization"])
         if not archive_ok:
             print(f"[post-deep-dive] {context['ticker']}: Convex archive skipped ({archive_result.get('reason')})", flush=True)
     except Exception as exc:

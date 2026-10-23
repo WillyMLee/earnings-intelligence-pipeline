@@ -292,6 +292,20 @@ def _valuation_reference_html(item: Dict[str, Any]) -> str:
     return _section_card("Valuation reference", body, NEUTRAL)
 
 
+def _visible_sections(context: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Keep required call/FX disclosures even after three narrative sections."""
+    result = []
+    narrative_count = 0
+    for section in context.get("sections", []) or []:
+        heading = str(section.get("heading") or "").lower()
+        required = "q&a" in heading or heading == "currency normalization"
+        if required or narrative_count < 3:
+            result.append(section)
+            if not required:
+                narrative_count += 1
+    return result
+
+
 def render_deep_dive_email(context: Dict[str, Any]) -> str:
     company = esc(context.get("company", ""))
     ticker = esc(context.get("ticker", ""))
@@ -311,7 +325,7 @@ def render_deep_dive_email(context: Dict[str, Any]) -> str:
     highlights_html = _bullet_list(highlights, limit=6)
 
     sections_html = ""
-    for section in context.get("sections", [])[:3]:
+    for section in _visible_sections(context):
         heading = str(section.get("heading", "") or "").strip()
         bullets, sec_sources = strip_citations_nested(section.get("bullets", []))
         all_sources.extend(sec_sources)
@@ -517,7 +531,7 @@ def render_markdown_summary(context: Dict[str, Any]) -> str:
     lines.append("## Financial highlights")
     lines.extend(_markdown_bullets(highlights[:6]))
     lines.append("")
-    for section in context.get("sections", [])[:3]:
+    for section in _visible_sections(context):
         bullets, sec_sources = strip_citations_nested(section.get("bullets", []))
         all_sources.extend(sec_sources)
         lines.append(f"## {section.get('heading', '')}")

@@ -83,7 +83,7 @@ function renderHtml(item) {
     while (row.length < 3) row.push('<td width="33%"></td>');
     figureRows.push(`<tr>${row.join("")}</tr>`);
   }
-  const sections = item.sections.slice(0, 3).map((section) => (
+  const sections = item.sections.filter((section, index) => index < 3 || /q&a|currency normalization/i.test(section.heading)).map((section) => (
     `<div style="height:14px;line-height:14px;">&nbsp;</div>${sectionCard(section.heading, bulletHtml(section.bullets, 4))}`
   )).join("");
   const links = Object.entries(item.officialLinks).map(([key, url]) => {
@@ -127,7 +127,7 @@ function renderText(item) {
     "## Financial highlights",
     ...item.financialHighlights.map((row) => `- ${row.text}`),
   ];
-  for (const section of item.sections.slice(0, 3)) {
+  for (const section of item.sections.filter((section, index) => index < 3 || /q&a|currency normalization/i.test(section.heading))) {
     lines.push("", `## ${section.heading}`, ...section.bullets.slice(0, 4).map((row) => `- ${row.text}`));
   }
   if ((item.estimateComparisons || []).length) {
@@ -230,6 +230,19 @@ async function archiveSummary(env, item) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.status === "error") throw new Error(`Convex correction archive failed: ${response.status} ${JSON.stringify(payload).slice(0, 500)}`);
+  if (item.currencyNormalization) {
+    const metadata = item.currencyNormalization;
+    const fxResponse = await fetch(`${String(env.CONVEX_URL).replace(/\/$/u, "")}/api/mutation`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: "researchArtifacts:upsertArtifact", args: {
+        adminToken: env.EARNINGS_ARCHIVE_TOKEN, kind: "currency_normalization_v1",
+        ticker: item.ticker, reportDate: item.reportDate, title: "USD normalization inputs and original values",
+        text: JSON.stringify(metadata), url: metadata.source_url || "", provider: metadata.source || "",
+      } }),
+    });
+    const fxPayload = await fxResponse.json();
+    if (!fxResponse.ok || fxPayload.status === "error") throw new Error("FX provenance archive failed");
+  }
   return payload;
 }
 

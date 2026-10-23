@@ -238,7 +238,9 @@ def fetch_financial_snapshot(ticker: str) -> Dict[str, Any]:
 
         try:
             info = t.info or {}
-            result["financial_currency"] = info.get("financialCurrency") or ("EUR" if ticker.upper() == "SPOT" else "USD")
+            from core.reporting_currency import financial_currency
+            result["financial_currency"] = info.get("financialCurrency") or financial_currency(ticker)
+            result["quote_currency"] = info.get("currency") or ("KRW" if ticker.upper().endswith((".KS", ".KQ")) else "USD")
             result["price"] = info.get("currentPrice") or info.get("regularMarketPrice")
             market_cap = info.get("marketCap")
             if result.get("price") is None or not market_cap:
@@ -364,7 +366,9 @@ def fetch_financial_snapshot(ticker: str) -> Dict[str, Any]:
             pass
     except Exception as exc:
         print(f"[stock_data] Financial snapshot fetch failed for {ticker}: {exc}", flush=True)
-    return result
+    from core.reporting_currency import normalize_snapshot
+    from zoneinfo import ZoneInfo
+    return normalize_snapshot(ticker, result, datetime.now(ZoneInfo("America/New_York")).date().isoformat())
 
 
 def fmt_revenue_b(value: Optional[float]) -> str:

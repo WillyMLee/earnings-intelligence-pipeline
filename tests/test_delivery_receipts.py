@@ -132,9 +132,10 @@ def test_text_digest_contains_financial_summary_without_a_price_reaction():
 def test_spotify_recovery_preserves_euro_currency_and_issuer_comparisons():
     from core.verified_post_earnings import verified_post_earnings_brief
     brief=verified_post_earnings_brief("SPOT","2026-10-22")
-    assert brief["financials"] == {}
+    assert brief["financials"]["revenue_actual_usd"] == pytest.approx(5_567_764_500)
+    assert brief["currency_normalization"]["source_currency"] == "EUR"
     assert "issuer guidance" in brief["intro"]
-    assert any("€4.969" in metric for metric in brief["key_metrics"])
+    assert any("$5.57B" in metric and "€4.969" in metric for metric in brief["key_metrics"])
     assert any(section["heading"] == "Analyst Q&A" for section in brief["sections"])
 
 
@@ -145,14 +146,16 @@ def test_spotify_preview_uses_euros_and_keeps_quote_in_dollars():
     preview=build_data_preview("SPOT","Spotify","2027-02-01",snap,2.48)
     assert "\u20ac5.20" in str(preview["financial_highlights"])
     assert "$583.66" in str(preview["financial_highlights"])
-    assert preview["financials"] == {}
+    assert preview["financials"]["revenue_consensus_usd"] == 5_200_000_000
     figures=_build_key_figures(snap,preview)
     assert figures[0]["value"].startswith("\u20ac")
 
 
-def test_native_currency_consensus_cannot_be_archived_as_usd(monkeypatch):
+def test_snapshot_without_archive_credentials_does_not_mutate_archive(monkeypatch):
     from unittest.mock import Mock
     from pipelines import earnings_archive
+    monkeypatch.delenv("CONVEX_URL", raising=False)
+    monkeypatch.delenv("EARNINGS_ARCHIVE_TOKEN", raising=False)
     request=Mock();monkeypatch.setattr(earnings_archive,"_convex_request",request)
     result=earnings_archive.archive_pre_earnings_snapshot(ticker="SPOT",report_date="2027-02-01",snap={"next_q_revenue_consensus":5_200_000_000})
     assert result["status"] == "skipped"

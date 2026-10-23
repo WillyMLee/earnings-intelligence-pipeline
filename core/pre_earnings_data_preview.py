@@ -46,7 +46,7 @@ def build_data_preview(ticker: str, company: str, report_date: str, snap: dict, 
         add(f"Trailing-twelve-month GAAP gross margin: {margin:.1f}% (not quarterly non-GAAP margin).", quote_url + "key-statistics/", "finance.yahoo.com")
     price = _number(snap.get("price"))
     if price is not None and price > 0:
-        add(f"Snapshot share price: ${price:,.2f}; captured {captured}.", quote_url, "finance.yahoo.com")
+        add(f"Snapshot share price: {financial_symbol(str(snap.get("quote_currency") or "USD"))}{price:,.2f}; captured {captured}.", quote_url, "finance.yahoo.com")
     if len(highlights) < 3:
         return {}
     return {
@@ -55,7 +55,7 @@ def build_data_preview(ticker: str, company: str, report_date: str, snap: dict, 
         "financial_highlights": highlights[:5],
         "sections": [{"heading": "Report setup", "bullets": highlights[:2]}],
         "key_metrics": metrics[:5],
-        "financials": {"revenue_consensus_usd": revenue, "eps_consensus": eps} if currency == "USD" else {},
+        "financials": {"revenue_consensus_usd": revenue, "eps_consensus": eps},
         "official_links": {},
         "estimate_comparisons": [], "valuation_reference": {},
         "_qa_approved": True, "_qa_issues": [], "_data_preview": True,

@@ -362,10 +362,6 @@ _UNSET = object()
 
 
 def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = None, eps_consensus: Any = _UNSET, consensus_source: str = "", captured_at: str = "") -> Dict[str, Any]:
-    from core.reporting_currency import financial_currency
-    if financial_currency(ticker, snap if isinstance(snap, dict) else {}) != "USD":
-        return {"status": "skipped", "reason": "non-USD financials require a currency-aware snapshot schema"}
-
     """Persist the reusable pre-earnings market snapshot before providers roll
     forward. Daily/weekly radar reads this first so a transient live-data miss
     does not turn a previously captured figure back into N/A."""
@@ -376,6 +372,17 @@ def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = 
     archive_token = os.environ.get("EARNINGS_ARCHIVE_TOKEN", "").strip() or os.environ.get("ADMIN_TOKEN", "").strip()
     if not convex_url or not archive_token:
         return {"status": "skipped", "reason": "Convex archive credentials not configured"}
+    from core.reporting_currency import normalize_snapshot, financial_currency, get_usd_rate
+    native_snap = dict(((snap or {}).get("currency_normalization") or {}).get("native_snapshot") or snap or {})
+    currency = financial_currency(ticker, native_snap)
+    fx = get_usd_rate(currency, capture_time[:10])
+    native_eps = eps_consensus
+    if snap is not None:
+        snap = normalize_snapshot(ticker, native_snap, capture_time[:10])
+    if eps_consensus is not _UNSET and isinstance(eps_consensus, (int, float)):
+        eps_consensus *= fx["usd_per_unit"]
+    if currency != "USD":
+        consensus_source = (consensus_source + "; " if consensus_source else "") + f"USD-normalized; 1 {currency} = USD {fx['usd_per_unit']:.10g}, {fx['rate_date']}; {fx['source']}"
     args: Dict[str, Any] = {"adminToken": archive_token, "ticker": ticker, "reportDate": report_date}
     if snap is not None:
         args.update({
@@ -393,6 +400,8 @@ def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = 
     if snap is not None:
         artifact_payload = dict(snap)
         artifact_payload["_captured_at"] = args["capturedAt"]
+        if currency != "USD":
+            artifact_payload["_native_consensus"] = {"currency": currency, "revenue": native_snap.get("next_q_revenue_consensus"), "fy_revenue": native_snap.get("fy_revenue_consensus"), "eps": native_eps if native_eps is not _UNSET else None}
         artifact_result = _convex_request(
             convex_url=convex_url,
             kind="mutation",
@@ -463,7 +472,19 @@ def fetch_pre_earnings_snapshot(ticker: str, report_date: str) -> Dict[str, Any]
     if isinstance(result, dict) and str(result.get("capturedAt") or "")[:10] > report_date:
         print(f"[earnings-archive] Ignoring late-captured consensus for {normalized}/{report_date}", flush=True)
         return {}
+    if isinstance(result, dict) and "USD-normalized;" in str(result.get("consensusSource") or ""):
+        artifact = load_financial_snapshot_artifact(ticker=ticker, report_date=report_date)
+        result["_native_consensus"] = artifact.get("_native_consensus") or {}
     return result if isinstance(result, dict) else {}
+
+
+def archive_currency_normalization(ticker: str, report_date: str, metadata: dict) -> dict:
+    convex_url = os.environ.get("CONVEX_URL", "").strip()
+    token = os.environ.get("EARNINGS_ARCHIVE_TOKEN", "").strip() or os.environ.get("ADMIN_TOKEN", "").strip()
+    if not metadata or not convex_url or not token:
+        return {"status": "skipped"}
+    result = _convex_request(convex_url=convex_url, kind="mutation", path="researchArtifacts:upsertArtifact", args={"adminToken": token, "kind": "currency_normalization_v1", "ticker": ticker, "reportDate": report_date, "title": "USD normalization inputs and original values", "text": json.dumps(metadata), "url": metadata.get("source_url", ""), "provider": metadata.get("source", "")})
+    return {"status": "archived", "result": result}
 
 
 def archive_weekly_brief(
