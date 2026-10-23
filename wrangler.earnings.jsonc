@@ -11,7 +11,7 @@
   "containers": [
     {
       "class_name": "EarningsContainer",
-      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:spotify-coverage-20261023-v2",
+      "image": "registry.cloudflare.com/438315c143db6c8a694dfb38757616c9/surocap-earnings-runtime:spotify-coverage-20261023-v3",
       "instance_type": "basic",
       "max_instances": 12,
       "rollout_step_percentage": [
@@ -63,7 +63,7 @@
     "POST_EARNINGS_RESEARCH_TIMEOUT_SECONDS": "120",
     "EARNINGS_TIME_ZONE": "America/New_York",
     "SCHEDULE_VERSION": "earnings-cloudflare-v3",
-    "RELEASE_TAG": "2026-10-23-spotify-coverage-v2"
+    "RELEASE_TAG": "2026-10-23-spotify-coverage-v3"
   },
   "secrets": {
     "required": [

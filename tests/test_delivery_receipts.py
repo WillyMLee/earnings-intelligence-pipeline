@@ -175,3 +175,15 @@ def test_publisher_transcript_url_identifies_report_date():
     item={"title":"Spotify Q3 2026 Earnings Call Transcript","url":"https://www.fool.com/earnings/call-transcripts/2026/10/22/spotify-spot-q3-2026-earnings-call-transcript/","raw_content":"Operator: Welcome\nQuestion and answer session"}
     assert _is_report_transcript(item,"2026-10-22")
     assert not _is_report_transcript(item,"2026-07-22")
+
+
+def test_digest_cannot_satisfy_a_dedicated_analysis_receipt(monkeypatch):
+    from pipelines import agentmail_delivery as delivery
+    messages=[{"labels":["sent"],"timestamp":"2026-10-23T13:50:00Z","to":["user@example.com"],"subject":"Recovered post-earnings summary: 2026-10-22 | Spotify (SPOT)","message_id":"digest"},{"labels":["sent"],"timestamp":"2026-10-23T13:47:00Z","to":["user@example.com"],"subject":"Spotify (SPOT) Q3 FY2026 | Post-Earnings Analysis (Recovered Delivery)","message_id":"analysis"}]
+    def request(key,method,path,payload=None):
+        if path.endswith("limit=100"):return {"messages":messages}
+        assert path.endswith("analysis")
+        return {"text":"Reported October 22, 2026 before open"}
+    monkeypatch.setattr(delivery,"_request",request)
+    receipt=delivery.find_earnings_delivery(api_key="test",inbox_id="test",ticker="SPOT",report_date="2026-10-22",mode="post",recipients=["user@example.com"])
+    assert receipt["message_id"] == "analysis"

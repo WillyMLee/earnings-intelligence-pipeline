@@ -105,3 +105,5 @@ Transcript discovery and cache reads require a call/transcript identity, partici
 Spotify is part of the tracked and dedicated-email universes. Its issuer-confirmed October 22, 2026 before-open report is retained for recovery. Spotify financial results and guidance are EUR; its listed share quote is USD. Native-currency data must not enter USD archive columns without conversion. Previews carry issuer currency, preserve USD stock quotes separately, and omit incompatible structured USD fields.
 
 The container records dashboard-only research failures as `dashboardWarning` while maintaining the separate email-stage result. These failures do not claim a dedicated email was missed. Successful production dashboard post reports archive without sending; true drafts do neither. Plain-text digests include financial bullets even when no price reaction is available.
+
+Dedicated-report receipt checks require the issuer to appear before the pre/post-earnings label. A digest that mentions a ticker does not satisfy delivery of that company’s full analysis. This was verified against the recovered Spotify analysis and separate summary.

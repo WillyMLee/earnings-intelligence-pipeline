@@ -42,7 +42,11 @@ def find_earnings_delivery(*, api_key: str, inbox_id: str, ticker: str, report_d
             if not window_start <= stamp <= window_end or "sent" not in (item.get("labels") or []):
                 continue
             subject = str(item.get("subject") or "")
-            if not re.search(rf"\({re.escape(ticker)}\)", subject, re.I) or f"{mode}-earnings" not in subject.lower():
+            issuer = re.search(rf"\({re.escape(ticker)}\)", subject, re.I)
+            stage = subject.lower().find(f"{mode}-earnings")
+            # Dedicated reports put issuer before the report label. Digests
+            # can mention a ticker later, but are not proof of a deep dive.
+            if not issuer or stage < 0 or issuer.start() > stage:
                 continue
             sent_to = {str(value).strip().lower() for value in item.get("to", [])}
             if not wanted <= sent_to:
