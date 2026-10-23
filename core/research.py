@@ -452,7 +452,7 @@ def _is_report_transcript(item: dict, report_date: str) -> bool:
             return False
         header = title_url + " " + text[:1800]
         # The date must identify this call, not a future date buried in old guidance.
-        aliases = [event.strftime("%b") + f" {event.day}, {event.year}", event.strftime("%b") + f" {event.day} {event.year}", report_date, event.strftime("%B") + f" {event.day}, {event.year}", event.strftime("%B") + f" {event.day} {event.year}", f"{event.month}/{event.day}/{event.year}"]
+        aliases = [event.strftime("%Y/%m/%d"), event.strftime("%b.") + f" {event.day}, {event.year}", event.strftime("%b") + f" {event.day}, {event.year}", event.strftime("%b") + f" {event.day} {event.year}", report_date, event.strftime("%B") + f" {event.day}, {event.year}", event.strftime("%B") + f" {event.day} {event.year}", f"{event.month}/{event.day}/{event.year}"]
         normalized = re.sub(r"\s+", " ", header).lower()
         if not any(value.lower() in normalized for value in aliases):
             return False

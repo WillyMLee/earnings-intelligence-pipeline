@@ -88,3 +88,90 @@ def test_old_preview_cache_is_ignored(monkeypatch):
     from core import research
     monkeypatch.setattr(research, "_convex_artifact_request", lambda *args: {"title": "StoneX reiterates Hold ahead of earnings", "url": "https://example.com/analyst-ratings", "text": "Meta reports tomorrow October 21, 2026"})
     assert research._load_cached_transcript("META", "2026-10-21", 8000) == {}
+
+
+@pytest.mark.parametrize("dashboard_only,expected_status", [(True, "succeeded"), (False, "failed")])
+def test_dashboard_failure_is_explicit_without_claiming_missing_email(monkeypatch, dashboard_only, expected_status):
+    import io
+    from unittest.mock import Mock
+    from cloudflare import container_server as runtime
+    process=Mock(stdout=io.StringIO("failed tickers: AXP\n"),stderr=io.StringIO(""))
+    process.wait.return_value=1
+    monkeypatch.setattr(runtime.subprocess,"Popen",Mock(return_value=process))
+    monkeypatch.setattr(runtime,"_schedule_idle_shutdown",lambda:None)
+    job=runtime.Job("test","post-bmo","running","now")
+    command=["python","post"]+(["--dashboard-only"] if dashboard_only else [])
+    runtime._run_job(job,[command])
+    assert job.status == expected_status
+    assert bool(job.dashboardWarning) == dashboard_only
+    assert job.exitCode == (0 if dashboard_only else 1)
+
+
+def test_dashboard_post_report_archives_without_email(monkeypatch,tmp_path):
+    from unittest.mock import Mock
+    from pipelines import run_post_earnings_deep_dive_auto as post
+    monkeypatch.setattr(post,"delivery_context_issues",lambda _:[])
+    monkeypatch.setattr(post,"render_deep_dive_email",lambda _:"html")
+    monkeypatch.setattr(post,"render_markdown_summary",lambda _:"text")
+    archive=Mock(return_value={"status":"archived"});send=Mock()
+    monkeypatch.setattr(post,"archive_post_earnings_summary",archive)
+    monkeypatch.setattr(post.agentmail_delivery,"send_message",send)
+    monkeypatch.delenv("DEAL_ALERT_EMAIL_TO",raising=False)
+    assert post.send_deep_dive({"ticker":"AXP","company":"American Express"},tmp_path,False,archive_only=True)
+    archive.assert_called_once();send.assert_not_called()
+
+
+def test_text_digest_contains_financial_summary_without_a_price_reaction():
+    from pipelines.run_post_earnings_digest import build_digest_text
+    text=build_digest_text("Recovered summary: 2026-10-22",[{"ticker":"SPOT","company":"Spotify","reaction_pct":None,"key_metrics":["Revenue EUR 4.969B","Gross margin 33.0%"]}])
+    assert "Revenue EUR 4.969B" in text
+    assert "Gross margin 33.0%" in text
+    assert "N/A" not in text
+
+
+def test_spotify_recovery_preserves_euro_currency_and_issuer_comparisons():
+    from core.verified_post_earnings import verified_post_earnings_brief
+    brief=verified_post_earnings_brief("SPOT","2026-10-22")
+    assert brief["financials"] == {}
+    assert "issuer guidance" in brief["intro"]
+    assert any("€4.969" in metric for metric in brief["key_metrics"])
+    assert any(section["heading"] == "Analyst Q&A" for section in brief["sections"])
+
+
+def test_spotify_preview_uses_euros_and_keeps_quote_in_dollars():
+    from core.pre_earnings_data_preview import build_data_preview
+    from pipelines.run_pre_earnings_deep_dive_auto import _build_key_figures
+    snap={"financial_currency":"EUR","next_q_revenue_consensus":5_200_000_000,"last_q_revenue":4_969_000_000,"price":583.66}
+    preview=build_data_preview("SPOT","Spotify","2027-02-01",snap,2.48)
+    assert "\u20ac5.20" in str(preview["financial_highlights"])
+    assert "$583.66" in str(preview["financial_highlights"])
+    assert preview["financials"] == {}
+    figures=_build_key_figures(snap,preview)
+    assert figures[0]["value"].startswith("\u20ac")
+
+
+def test_native_currency_consensus_cannot_be_archived_as_usd(monkeypatch):
+    from unittest.mock import Mock
+    from pipelines import earnings_archive
+    request=Mock();monkeypatch.setattr(earnings_archive,"_convex_request",request)
+    result=earnings_archive.archive_pre_earnings_snapshot(ticker="SPOT",report_date="2027-02-01",snap={"next_q_revenue_consensus":5_200_000_000})
+    assert result["status"] == "skipped"
+    request.assert_not_called()
+
+
+def test_dashboard_draft_still_does_not_mutate_archive(monkeypatch,tmp_path):
+    from unittest.mock import Mock
+    from pipelines import run_post_earnings_deep_dive_auto as post
+    monkeypatch.setattr(post,"delivery_context_issues",lambda _:[])
+    monkeypatch.setattr(post,"render_deep_dive_email",lambda _:"html")
+    monkeypatch.setattr(post,"render_markdown_summary",lambda _:"text")
+    archive=Mock();monkeypatch.setattr(post,"archive_post_earnings_summary",archive)
+    assert post.send_deep_dive({"ticker":"AXP","company":"American Express"},tmp_path,True,archive_only=True)
+    archive.assert_not_called()
+
+
+def test_publisher_transcript_url_identifies_report_date():
+    from core.research import _is_report_transcript
+    item={"title":"Spotify Q3 2026 Earnings Call Transcript","url":"https://www.fool.com/earnings/call-transcripts/2026/10/22/spotify-spot-q3-2026-earnings-call-transcript/","raw_content":"Operator: Welcome\nQuestion and answer session"}
+    assert _is_report_transcript(item,"2026-10-22")
+    assert not _is_report_transcript(item,"2026-07-22")

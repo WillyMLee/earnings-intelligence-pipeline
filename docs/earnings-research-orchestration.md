@@ -100,3 +100,8 @@ Failed coverage runs send an actionable alert identifying failed tickers. Empty 
 Post-earnings email analysis preserves the synthesis output’s sourced analyst Q&A as an explicit Earnings call Q&A section in both HTML and Markdown. Empty or incomplete Q&A entries are omitted. For the October 21 META delivery, the temporary verifier requires current-quarter management commentary and analyst Q&A; a release-only email requires a separate transcript follow-up before completion.
 
 Transcript discovery and cache reads require a call/transcript identity, participant or Q&A structure, and the report date near the document header. Previews, generic company pages and wrong-period calls are excluded before synthesis. Workflow failure-alert steps specify a complete retry configuration, including a delay even when retry limit is zero.
+
+
+Spotify is part of the tracked and dedicated-email universes. Its issuer-confirmed October 22, 2026 before-open report is retained for recovery. Spotify financial results and guidance are EUR; its listed share quote is USD. Native-currency data must not enter USD archive columns without conversion. Previews carry issuer currency, preserve USD stock quotes separately, and omit incompatible structured USD fields.
+
+The container records dashboard-only research failures as `dashboardWarning` while maintaining the separate email-stage result. These failures do not claim a dedicated email was missed. Successful production dashboard post reports archive without sending; true drafts do neither. Plain-text digests include financial bullets even when no price reaction is available.

@@ -36,6 +36,7 @@ class Job:
     exitCode: int | None = None
     stdoutTail: str = ""
     stderrTail: str = ""
+    dashboardWarning: str = ""
 
 
 LOCK = threading.Lock()
@@ -187,6 +188,10 @@ def _run_job(job: Job, commands: list[list[str]]) -> None:
         return_code = process.wait()
         for reader in readers:
             reader.join()
+        if return_code != 0 and "--dashboard-only" in command:
+            job.dashboardWarning = f"Dashboard-only research failed with exit code {return_code}; email delivery stage completed separately"
+            job.stdoutTail = _tail(job.stdoutTail, "\n[runtime] " + job.dashboardWarning + "\n")
+            continue
         if return_code != 0:
             exit_code = return_code
             break

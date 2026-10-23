@@ -15,11 +15,13 @@ from datetime import date, timedelta
 
 
 ISSUERS = {
+    "SPOT": {"company": "Spotify", "index": "https://investors.spotify.com/news/default.aspx"},
     "META": {"company": "Meta Platforms", "index": "https://investor.atmeta.com/investor-news/default.aspx"},
     "SPCX": {"company": "SpaceX", "index": "https://ir.spacex.com/updates/default.aspx"},
     "NFLX": {"company": "Netflix", "index": "https://ir.netflix.net/investor-news-and-events/financial-releases/default.aspx"},
 }
 VERIFIED_EVENTS = [
+    {"Ticker": "SPOT", "Company Name": "Spotify", "Report Date": "2026-10-22", "Report Time": "Before Open", "Source URL": "https://investors.spotify.com/files/content_files/Q3-2026-Shareholder-Deck-FINAL.pdf"},
     {"Ticker": "META", "Company Name": "Meta Platforms", "Report Date": "2026-10-21", "Report Time": "After Close", "Source URL": "https://investor.atmeta.com/investor-news/press-release-details/2026/Meta-to-Announce-Third-Quarter-2026-Results/default.aspx"},
     {"Ticker": "SPCX", "Company Name": "SpaceX", "Report Date": "2026-10-20", "Report Time": "After Close", "Source URL": "https://ir.spacex.com/updates/releases-details/2026/SpaceX-to-Post-Third-Quarter-2026-Results-and-Host-Webcast-on-October-20-2026-2026-QssQGye3im/default.aspx"},
     {"Ticker": "NFLX", "Company Name": "Netflix", "Report Date": "2026-10-20", "Report Time": "After Close", "Source URL": "https://ir.netflix.net/investor-news-and-events/financial-releases/press-release-details/2026/Netflix-to-Announce-Third-Quarter-2026-Financial-Results/default.aspx"},

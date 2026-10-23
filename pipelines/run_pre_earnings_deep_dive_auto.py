@@ -152,16 +152,18 @@ def _fmt_pct(value: object) -> str:
 
 
 def _build_key_figures(snap: dict, brief: dict) -> list[dict]:
+    from core.reporting_currency import financial_currency, financial_symbol
+    symbol = financial_symbol(financial_currency("", snap))
     financials = brief.get("financials") or {}
     consensus = financials.get("revenue_consensus_usd") or snap.get("next_q_revenue_consensus")
     eps_consensus = financials.get("eps_consensus")
     prior_growth = _fmt_pct(snap.get("last_q_yoy_pct"))
     figures = [
-        {"label": "Street revenue", "value": _fmt_billions(consensus)},
-        {"label": "Street EPS", "value": f"${eps_consensus:.2f}" if isinstance(eps_consensus, (int, float)) else ""},
+        {"label": "Street revenue", "value": _fmt_billions(consensus).replace("$", symbol)},
+        {"label": "Street EPS", "value": f"{symbol}{eps_consensus:.2f}" if isinstance(eps_consensus, (int, float)) else ""},
         {
             "label": "Prior qtr revenue",
-            "value": " ".join(filter(None, [_fmt_billions(snap.get("last_q_revenue")), f"({prior_growth} YoY)" if prior_growth else ""])),
+            "value": " ".join(filter(None, [_fmt_billions(snap.get("last_q_revenue")).replace("$", symbol), f"({prior_growth} YoY)" if prior_growth else ""])),
         },
         {"label": "TTM gross margin", "value": f"{snap['gross_margin_pct']:.1f}%" if isinstance(snap.get("gross_margin_pct"), (int, float)) else ""},
         {"label": "Price", "value": f"${snap['price']:,.2f}" if isinstance(snap.get("price"), (int, float)) else ""},
@@ -184,6 +186,8 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
 
     print(f"[pre-deep-dive] Fetching financial snapshot for {ticker}...", flush=True)
     snap = fetch_financial_snapshot(ticker)
+    from core.reporting_currency import financial_currency
+    snap["financial_currency"] = financial_currency(ticker, snap)
     try:
         eps_consensus = float(str(reporter.get("eps_estimate") or "").replace("$", "").replace(",", ""))
     except ValueError:
@@ -196,6 +200,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         print(f"[pre-deep-dive] {ticker}: consensus archive failed: {exc}", flush=True)
 
     facts = {
+        "reporting_currency": financial_currency(ticker, snap),
         "last_q_revenue": snap.get("last_q_revenue"),
         "last_q_revenue_label": snap.get("last_q_label"),
         "last_q_period_end": snap.get("last_q_period_end"),

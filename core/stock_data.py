@@ -238,6 +238,7 @@ def fetch_financial_snapshot(ticker: str) -> Dict[str, Any]:
 
         try:
             info = t.info or {}
+            result["financial_currency"] = info.get("financialCurrency") or ("EUR" if ticker.upper() == "SPOT" else "USD")
             result["price"] = info.get("currentPrice") or info.get("regularMarketPrice")
             market_cap = info.get("marketCap")
             if result.get("price") is None or not market_cap:

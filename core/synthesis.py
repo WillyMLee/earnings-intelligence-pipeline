@@ -829,6 +829,8 @@ def synthesize_earnings_brief_with_web_search(
         next_test_focus=next_test_focus,
         key_metrics_instruction=key_metrics_instruction,
     )
+    if facts.get("reporting_currency") and facts["reporting_currency"] != "USD":
+        prompt += "\nIssuer financial reporting currency: " + str(facts["reporting_currency"]) + ". State financial results, guidance and EPS in that currency. Stock quotes may be USD. Do not compare USD valuation with native-currency revenue. Leave all financials fields null because the archive lacks a currency field; do not relabel native amounts as USD.\n"
     if fact_lines:
         prompt += "\nKnown facts (incorporate these, don't contradict them):\n" + "\n".join(fact_lines)
         prompt += (

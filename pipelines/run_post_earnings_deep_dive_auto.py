@@ -211,7 +211,9 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         }.get(move.get("source", ""), "following the print")
         reaction_line = f"Shares are {direction} {abs(pct):.1f}% {session_label} following the print."
 
+    from core.reporting_currency import financial_currency
     facts = {
+        "reporting_currency": financial_currency(ticker, snap),
         "last_q_revenue": snap.get("last_q_revenue"),
         "last_q_revenue_label": snap.get("last_q_label"),
         "last_q_period_end": snap.get("last_q_period_end"),
@@ -280,6 +282,9 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     # calendar-based guess -- see run_pre_earnings_deep_dive_auto.py for why.
     display_quarter = str(brief.get("fiscal_quarter_label") or "").strip() or quarter
 
+    if financial_currency(ticker, snap) != "USD":
+        brief["financials"] = {}
+
     context = {
         "ticker": ticker,
         "company": company,
@@ -342,7 +347,7 @@ def delivery_context_issues(context: dict) -> list[str]:
     return issues
 
 
-def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
+def send_deep_dive(context: dict, output_dir: Path, draft_only: bool, *, archive_only: bool = False) -> bool:
     issues = delivery_context_issues(context)
     if issues:
         raise ValueError("delivery blocked: " + "; ".join(issues))
@@ -376,11 +381,6 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
         print(f"[post-deep-dive] {context['ticker']}: drafted only", flush=True)
         return True
 
-    recipient = os.environ.get("DEAL_ALERT_EMAIL_TO", "").strip()
-    if not recipient:
-        print(f"[post-deep-dive] {context['ticker']}: no DEAL_ALERT_EMAIL_TO set -- skipping send", flush=True)
-        return False
-
     # Also archive to Convex -- separate Cloudflare job containers do not
     # share local disk, so the digest cannot read the file above in production.
     # No-ops quietly if Convex isn't configured. Drafts intentionally stop
@@ -405,6 +405,14 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
             print(f"[post-deep-dive] {context['ticker']}: Convex archive skipped ({archive_result.get('reason')})", flush=True)
     except Exception as exc:
         print(f"[post-deep-dive] {context['ticker']}: Convex archive failed: {exc}", flush=True)
+
+    if archive_only:
+        print(f"[post-deep-dive] {context['ticker']}: dashboard archive only ({'archived' if archive_ok else 'failed'})", flush=True)
+        return archive_ok
+    recipient = os.environ.get("DEAL_ALERT_EMAIL_TO", "").strip()
+    if not recipient:
+        print(f"[post-deep-dive] {context['ticker']}: no DEAL_ALERT_EMAIL_TO set -- skipping send", flush=True)
+        return False
 
     subject = build_email_subject(context["company"], context["ticker"], context["quarter"], context["brief_label"])
     recipients = parse_recipients(recipient)
@@ -480,7 +488,7 @@ def main() -> int:
                     succeeded += 1
                     continue
             context = build_brief_context(reporter, today, correction=args.correction)
-            if send_deep_dive(context, output_dir, args.draft_only or args.dashboard_only):
+            if send_deep_dive(context, output_dir, args.draft_only, archive_only=args.dashboard_only):
                 succeeded += 1
             else:
                 failed.append(reporter["ticker"])

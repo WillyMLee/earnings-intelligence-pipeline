@@ -362,6 +362,10 @@ _UNSET = object()
 
 
 def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = None, eps_consensus: Any = _UNSET, consensus_source: str = "", captured_at: str = "") -> Dict[str, Any]:
+    from core.reporting_currency import financial_currency
+    if financial_currency(ticker, snap if isinstance(snap, dict) else {}) != "USD":
+        return {"status": "skipped", "reason": "non-USD financials require a currency-aware snapshot schema"}
+
     """Persist the reusable pre-earnings market snapshot before providers roll
     forward. Daily/weekly radar reads this first so a transient live-data miss
     does not turn a previously captured figure back into N/A."""
