@@ -6,6 +6,8 @@ import { JOB_NAMES, jobsForEasternSlot, scheduledRunId } from "../../cloudflare/
 
 test("summer schedule maps New York business slots to isolated jobs", () => {
   assert.deepEqual(jobsForEasternSlot("2026-08-20T12:00:00Z"), ["input-prefetch"]);
+  assert.deepEqual(jobsForEasternSlot("2026-08-20T13:00:00Z"), ["pre-catchup"]);
+  assert.deepEqual(jobsForEasternSlot("2026-08-21T00:00:00Z"), ["post-amc"]);
   assert.deepEqual(jobsForEasternSlot("2026-08-20T13:30:00Z"), ["daily-radar", "post-bmo"]);
   assert.deepEqual(jobsForEasternSlot("2026-08-20T14:00:00Z"), ["post-digest-bmo"]);
   assert.deepEqual(jobsForEasternSlot("2026-08-20T21:00:00Z"), ["pre-earnings"]);
@@ -24,6 +26,7 @@ test("winter schedule stays on the same New York clock slots", () => {
 test("schedule covers every production job and deterministic IDs fit Workflow limits", () => {
   const observed = new Set([
     ...jobsForEasternSlot("2026-08-20T12:00:00Z"),
+    ...jobsForEasternSlot("2026-08-20T13:00:00Z"),
     ...jobsForEasternSlot("2026-08-20T13:30:00Z"),
     ...jobsForEasternSlot("2026-08-20T14:00:00Z"),
     ...jobsForEasternSlot("2026-08-20T21:00:00Z"),

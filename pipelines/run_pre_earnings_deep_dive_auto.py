@@ -32,6 +32,7 @@ if str(SCRIPT_DIR) not in sys.path:
     sys.path.insert(0, str(SCRIPT_DIR))
 
 from core.stock_data import fetch_financial_snapshot  # noqa: E402
+from core.pre_earnings_data_preview import build_data_preview  # noqa: E402
 from core.research import run_research_query_cascade  # noqa: E402
 from core.synthesis import (  # noqa: E402
     earnings_brief_delivery_issues,
@@ -58,6 +59,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--output-dir", default="", help="Root output directory for artifacts.")
     p.add_argument("--draft-only", action="store_true", help="Build email artifacts without sending.")
     p.add_argument("--correction", action="store_true", help="Label the delivered email as a correction.")
+    p.add_argument("--same-day", action="store_true", help="Recover missing previews for today's confirmed after-close reporters.")
     p.add_argument(
         "--dashboard-only",
         action="store_true",
@@ -121,6 +123,7 @@ def load_coverage_reporters(csv_path: str, target_date: date, watchlist: set) ->
                     "ticker": ticker,
                     "company": (row.get("Company Name") or row.get("company name") or ticker).strip(),
                     "report_time": (row.get("Report Time") or "").strip() or "TBD",
+                    "eps_estimate": (row.get("EPS Estimate") or "").strip(),
                 })
     return reporters
 
@@ -149,16 +152,18 @@ def _fmt_pct(value: object) -> str:
 
 
 def _build_key_figures(snap: dict, brief: dict) -> list[dict]:
+    from core.reporting_currency import financial_currency, financial_symbol
+    symbol = financial_symbol(financial_currency("", snap))
     financials = brief.get("financials") or {}
     consensus = financials.get("revenue_consensus_usd") or snap.get("next_q_revenue_consensus")
     eps_consensus = financials.get("eps_consensus")
     prior_growth = _fmt_pct(snap.get("last_q_yoy_pct"))
     figures = [
-        {"label": "Street revenue", "value": _fmt_billions(consensus)},
-        {"label": "Street EPS", "value": f"${eps_consensus:.2f}" if isinstance(eps_consensus, (int, float)) else ""},
+        {"label": "Street revenue", "value": _fmt_billions(consensus).replace("$", symbol)},
+        {"label": "Street EPS", "value": f"{symbol}{eps_consensus:.2f}" if isinstance(eps_consensus, (int, float)) else ""},
         {
             "label": "Prior qtr revenue",
-            "value": " ".join(filter(None, [_fmt_billions(snap.get("last_q_revenue")), f"({prior_growth} YoY)" if prior_growth else ""])),
+            "value": " ".join(filter(None, [_fmt_billions(snap.get("last_q_revenue")).replace("$", symbol), f"({prior_growth} YoY)" if prior_growth else ""])),
         },
         {"label": "TTM gross margin", "value": f"{snap['gross_margin_pct']:.1f}%" if isinstance(snap.get("gross_margin_pct"), (int, float)) else ""},
         {"label": "Price", "value": f"${snap['price']:,.2f}" if isinstance(snap.get("price"), (int, float)) else ""},
@@ -181,20 +186,30 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
 
     print(f"[pre-deep-dive] Fetching financial snapshot for {ticker}...", flush=True)
     snap = fetch_financial_snapshot(ticker)
+    snap = (snap.get("currency_normalization") or {}).get("native_snapshot") or snap
+    from core.reporting_currency import financial_currency
+    snap["financial_currency"] = financial_currency(ticker, snap)
     try:
-        archive_result = archive_pre_earnings_snapshot(ticker=ticker, report_date=report_date.isoformat(), snap=snap)
+        eps_consensus = float(str(reporter.get("eps_estimate") or "").replace("$", "").replace(",", ""))
+    except ValueError:
+        eps_consensus = None
+    try:
+        archive_result = archive_pre_earnings_snapshot(ticker=ticker, report_date=report_date.isoformat(), snap=snap, eps_consensus=eps_consensus)
         if archive_result.get("status") != "archived":
             print(f"[pre-deep-dive] {ticker}: consensus archive skipped ({archive_result.get('reason')})", flush=True)
     except Exception as exc:
         print(f"[pre-deep-dive] {ticker}: consensus archive failed: {exc}", flush=True)
 
     facts = {
+        "reporting_currency": financial_currency(ticker, snap),
+        "quote_currency": snap.get("quote_currency", "USD"),
         "last_q_revenue": snap.get("last_q_revenue"),
         "last_q_revenue_label": snap.get("last_q_label"),
         "last_q_period_end": snap.get("last_q_period_end"),
         "last_q_yoy_pct": snap.get("last_q_yoy_pct"),
         "gross_margin_pct": snap.get("gross_margin_pct"),
         "next_q_revenue_consensus": snap.get("next_q_revenue_consensus"),
+        "eps_consensus": eps_consensus,
         "next_q_yoy_pct": snap.get("next_q_yoy_pct"),
         "next_q_expected_period_end": snap.get("next_q_expected_period_end"),
         "fy_revenue_consensus": snap.get("fy_revenue_consensus"),
@@ -242,7 +257,13 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
 
     if brief.get("_qa_approved") is False:
         issues = brief.get("_qa_issues") or ["unresolved factual review"]
-        raise RuntimeError(f"delivery blocked by earnings QA: {'; '.join(str(issue) for issue in issues[:5])}")
+        preview = build_data_preview(ticker, company, report_date.isoformat(), snap, eps_consensus)
+        preview_issues = earnings_brief_delivery_issues(preview, "pre", facts) if preview else ["insufficient captured data"]
+        if preview and not preview_issues:
+            brief = preview
+            print(f"[pre-deep-dive] {ticker}: narrative failed review; using sourced data preview", flush=True)
+        else:
+            raise RuntimeError(f"delivery blocked by earnings QA: {'; '.join(str(issue) for issue in issues[:5])}")
 
     report_time_label = reporter.get("report_time", "TBD")
 
@@ -252,20 +273,24 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     # (fiscal year ends in June). Using the wrong label in the title/prompt
     # anchor was observed live to confuse the synthesis into writing an
     # entirely retrospective brief instead of a forward-looking one.
+    from core.reporting_currency import normalize_brief, normalize_snapshot
+    brief = normalize_brief(ticker, brief, financial_currency(ticker, snap), report_date.isoformat())
+    display_snap = normalize_snapshot(ticker, snap, report_date.isoformat())
     display_quarter = str(brief.get("fiscal_quarter_label") or "").strip() or quarter
 
     return {
         "ticker": ticker,
         "company": company,
         "quarter": display_quarter,
-        "brief_label": "Correction: Pre-Earnings Summary" if correction else "Pre-Earnings Summary",
+        "brief_label": "Correction: Pre-Earnings Summary" if correction else ("Pre-Earnings Data Preview" if brief.get("_data_preview") else "Pre-Earnings Summary"),
         "report_date_label": f"Reports {report_date.isoformat()} -- {report_time_label}",
         "intro": brief.get("intro", ""),
         "financial_highlights": brief.get("financial_highlights", []),
         "sections": brief.get("sections", []),
         "key_metrics": brief.get("key_metrics", []),
         "official_links": brief.get("official_links", {}),
-        "key_figures": _build_key_figures(snap, brief),
+        "key_figures": _build_key_figures(display_snap, brief),
+        "currency_normalization": brief.get("currency_normalization"),
         "estimate_comparisons": brief.get("estimate_comparisons", []),
         "valuation_reference": brief.get("valuation_reference", {}),
     }
@@ -326,7 +351,10 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
 def main() -> int:
     args = parse_args()
     today = _parse_date(args.for_date) if args.for_date else datetime.now(NY_TZ).date()
-    tomorrow = _next_business_day(today)
+    tomorrow = today if args.same_day else _next_business_day(today)
+    if tomorrow < datetime.now(NY_TZ).date():
+        print(f"[pre-deep-dive] {tomorrow} is in the past -- skipping historical preview and snapshot writes", flush=True)
+        return 0
 
     if args.dashboard_only:
         from core.coverage import dashboard_only_tickers
@@ -340,6 +368,11 @@ def main() -> int:
 
     ensure_calendar_csv(args.calendar_csv)
     reporters = load_coverage_reporters(args.calendar_csv, tomorrow, watchlist)
+    if args.same_day:
+        if datetime.now(NY_TZ).hour >= 16:
+            print("[pre-deep-dive] Same-day catchup window has closed -- skipping", flush=True)
+            return 0
+        reporters = [r for r in reporters if r.get("report_time", "").lower() in {"after close", "amc", "post-market"}]
     if not reporters:
         print(f"[pre-deep-dive] No coverage universe reporters on {tomorrow}", flush=True)
         return 0
@@ -351,15 +384,26 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     succeeded = 0
+    failed = []
     for reporter in reporters:
         try:
+            if not (args.draft_only or args.dashboard_only or args.correction):
+                receipt = agentmail_delivery.find_earnings_delivery(api_key=os.environ.get("AGENTMAIL_API_KEY", ""), inbox_id=os.environ.get("AGENTMAIL_INBOX_ID", ""), ticker=reporter["ticker"], report_date=tomorrow.isoformat(), mode="pre", recipients=parse_recipients(os.environ.get("DEAL_ALERT_EMAIL_TO", "")))
+                if receipt:
+                    print(f"[pre-deep-dive] {reporter['ticker']}: already sent (message_id={receipt.get('message_id')})", flush=True)
+                    succeeded += 1
+                    continue
             context = build_brief_context(reporter, tomorrow, correction=args.correction)
             if send_deep_dive(context, output_dir, args.draft_only or args.dashboard_only):
                 succeeded += 1
+            else:
+                failed.append(reporter["ticker"])
         except Exception as exc:
+            failed.append(reporter["ticker"])
             print(f"[pre-deep-dive] {reporter['ticker']}: failed without blocking other reporters: {exc}", flush=True)
 
-    return 0 if succeeded else 1
+    print(f"[pre-deep-dive] Completed {succeeded}/{len(reporters)} reporter(s); failed tickers: {','.join(failed) or 'none'}", flush=True)
+    return 0 if succeeded == len(reporters) else 1
 
 
 if __name__ == "__main__":

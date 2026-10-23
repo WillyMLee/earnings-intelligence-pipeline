@@ -224,6 +224,18 @@ def load_amc_items_for_date(target_day: date, watchlist: set) -> List[dict]:
     return items
 
 
+def build_digest_text(subject: str, items: list[dict]) -> str:
+    """Keep the same earnings facts available to text-only mail clients."""
+    sections = [subject]
+    for item in items:
+        heading = f"{item['ticker']} ({item.get('company') or item['ticker']})"
+        if item.get("reaction_pct") is not None:
+            heading += f": {item['reaction_pct']:+.1f}%"
+        metrics = [str(metric) for metric in item.get("key_metrics", []) if metric]
+        sections.append(heading + "\n" + "\n".join(f"- {metric}" for metric in metrics))
+    return "\n\n".join(sections)
+
+
 def main() -> int:
     args = parse_args()
     today = _parse_date(args.for_date) if args.for_date else datetime.now(NY_TZ).date()
@@ -269,6 +281,10 @@ def main() -> int:
         items += amc_items
         print(f"[digest] {len(amc_items)} AMC/TBD reporter(s) from {prior_day} (via Convex)", flush=True)
 
+    if not items:
+        print(f"[digest] No covered earnings for {today} ({args.session}) -- skipping email", flush=True)
+        return 0
+
     context = {
         "generated_at": datetime.now(NY_TZ),
         "items": items,
@@ -288,11 +304,7 @@ def main() -> int:
     recipients = parse_recipients(recipient)
     sender = os.environ.get("EARNINGS_EMAIL_FROM", "earnings-bot@localhost")
     reply_to = os.environ.get("EARNINGS_EMAIL_REPLY_TO", "")
-    text_body = f"{subject}\n\n" + "\n".join(
-        f"{item['ticker']} ({item['company']}): "
-        f"{item['reaction_pct']:+.1f}%" if item.get("reaction_pct") is not None else f"{item['ticker']}: N/A"
-        for item in items
-    )
+    text_body = build_digest_text(subject, items)
     message = create_email_message(subject, html_body, text_body, sender, recipients, reply_to)
     save_email_message(message, str(output_dir / "digest.eml"))
 

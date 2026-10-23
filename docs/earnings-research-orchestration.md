@@ -1,5 +1,38 @@
 # Earnings research orchestration
 
+## Calendar and delivery safeguards
+
+The Alpha Vantage calendar supplies baseline dates. `core/official_earnings_calendar.py`
+refreshes registered issuer announcements (SpaceX and Netflix), follows only issuer-hosted
+links, and parses the result-posting sentence instead of the announcement's publication date.
+Verified events supersede conflicting estimates within 42 days, including in the Convex
+calendar archive. Confirmed events remain available for 60 days for recovery and to prevent
+a displaced estimate from reappearing. Register additional issuer news indexes in `ISSUERS`.
+
+Empty post-earnings digests and daily/weekly radars skip email delivery. Radar artifacts
+and archive records still record the run and its `no_covered_earnings` delivery reason.
+Per-company QA failures remain delivery-blocking; ordinary rounding and historical CapEx
+without a claimed guidance change are explicitly accepted by the review instructions.
+
+Previews include calendar EPS consensus as context. Dated, cited consensus revisions can
+supersede undated provider values. Historical preview replays skip snapshot writes; snapshots
+and reusable artifacts captured after the report date are rejected as pre-report evidence.
+Recovery quarantines invalid late consensus without inventing historical capture times.
+
+The deployed research/review model is `gpt-5.4-mini` with low reasoning, a 12,000-token
+research output allowance, and a 120-second per-company post-research deadline. The review
+distinguishes TTM GAAP margins, quarterly non-GAAP margins, management guidance and consensus.
+Valuation proxies are labeled FY consistently in HTML and text. A partial company failure
+now fails the job visibly instead of being hidden by another company's successful delivery.
+
+When a pre-earnings narrative fails review, `core/pre_earnings_data_preview.py` can provide a
+clearly labeled, deterministic data preview using captured provider estimates and financial
+fields. It requires a forward estimate and at least three supported fields, reuses no rejected
+prose, invents no fiscal-quarter label, and passes the deterministic pre-delivery checks.
+
+Issuer-verified October 20 SpaceX and Netflix recoveries live in
+`cloudflare/verified-post-corrections.json`; recovery can archive them without emailing.
+
 `core/earnings_orchestration.py` is the provider-neutral contract for an earnings run. It answers two separate questions:
 
 1. What evidence must exist before a brief can be trusted?
@@ -56,3 +89,29 @@ This mapping follows Cloudflare's [Rules of Workflows](https://developers.cloudf
 - Start in shadow mode. Compare the new claim ledger and final brief with the current Python output before enabling native sends.
 
 The current Python cron jobs can consume the same plan incrementally. The first integration points are the provider ordering in `core/research.py`, transcript caching, and the existing deterministic checks in `core/synthesis.py`.
+
+
+### Delivery recovery and verification
+
+The previous-business-day preview remains at 5 p.m. Eastern. At 9 a.m., a same-day catchup checks confirmed after-close reporters and sends only missing previews; it closes at 4 p.m. Post-close analysis runs at 6 p.m., with a recovery pass at 8 p.m. Both passes verify AgentMail sent messages for the exact ticker, report date, mode and recipient before generating another report. Archive entries and local drafts do not count as delivery. Receipt lookup failures stop that reporter rather than risk duplicate sends.
+
+Failed coverage runs send an actionable alert identifying failed tickers. Empty calendars and successful runs remain quiet. The existing empty daily, weekly and digest suppression remains enabled. Issuer-confirmed dates replace conflicting provider estimates, including META's October 21, 2026 after-close event.
+
+Post-earnings email analysis preserves the synthesis output’s sourced analyst Q&A as an explicit Earnings call Q&A section in both HTML and Markdown. Empty or incomplete Q&A entries are omitted. For the October 21 META delivery, the temporary verifier requires current-quarter management commentary and analyst Q&A; a release-only email requires a separate transcript follow-up before completion.
+
+Transcript discovery and cache reads require a call/transcript identity, participant or Q&A structure, and the report date near the document header. Previews, generic company pages and wrong-period calls are excluded before synthesis. Workflow failure-alert steps specify a complete retry configuration, including a delay even when retry limit is zero.
+
+
+Spotify is part of the tracked and dedicated-email universes. Its issuer-confirmed October 22, 2026 before-open report is retained for recovery. Spotify financial results and guidance are EUR; its listed share quote is USD. Native-currency data must not enter USD archive columns without conversion. Reports lead with converted USD financials, retain native amounts and dated FX evidence, and preserve USD stock quotes separately. Structured USD archive columns contain converted amounts.
+
+The container records dashboard-only research failures as `dashboardWarning` while maintaining the separate email-stage result. These failures do not claim a dedicated email was missed. Successful production dashboard post reports archive without sending; true drafts do neither. Plain-text digests include financial bullets even when no price reaction is available.
+
+Dedicated-report receipt checks require the issuer to appear before the pre/post-earnings label. A digest that mentions a ticker does not satisfy delivery of that company’s full analysis. This was verified against the recovered Spotify analysis and separate summary.
+
+## USD normalization
+
+Financial snapshots, pre/post reports, structured archives and digest metrics use USD. Research and QA first verify native issuer values. A deterministic translation step then converts explicit native amounts, ranges, EPS and monetary structured fields using a dated FX rate, retaining native amounts beside displayed USD equivalents. Percentages and reported growth remain on their original basis. EPS keeps the issuer's share basis; FX does not adjust ADR/GDR ratios.
+
+Use the latest available ECB daily reference on or before the report date (or capture date for a future preview). KRW/USD is USD/EUR divided by KRW/EUR. Currencies outside the ECB feed use attributed Frankfurter daily reference data. No future or more-than-seven-day-old FX rate may be used. Missing rates fail normalization rather than relabeling native amounts as dollars. This is an explicitly labeled convenience translation, not an accounting restatement.
+
+Listed-share quote currency is independent of reporting currency: Spotify's USD quote stays unchanged while EUR financials convert; a Korean listing's KRW price and market cap convert separately. Saved consensus retains native values and its original FX evidence, so the post report compares actuals and consensus at the same report-date FX rate. Full FX inputs and source amounts are persisted in financial-snapshot artifacts and currency_normalization_v1 post-report artifacts. Structured USD fields now contain converted numbers rather than native values or omitted data.

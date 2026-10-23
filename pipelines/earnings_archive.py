@@ -15,6 +15,7 @@ import urllib.request
 from datetime import date, datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, Iterable, List
+from zoneinfo import ZoneInfo
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
@@ -44,6 +45,7 @@ def archive_earnings_calendar(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
     if not convex_url or not archive_token:
         return {"status": "skipped", "reason": "Convex archive credentials not configured"}
     events = []
+    confirmed_dates: Dict[str, List[date]] = {}
     for row in rows:
         ticker, report_date = normalize_ticker(row.get("Ticker", "")), str(row.get("Report Date", "")).strip()
         if ticker not in TRACKED_TICKERS or not report_date: continue
@@ -53,6 +55,8 @@ def archive_earnings_calendar(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
                 if str(row.get(source, "")).strip(): event[target] = float(str(row[source]).replace("$", "").replace(",", ""))
             except ValueError: pass
         events.append(event)
+        if row.get("Source URL"):
+            confirmed_dates.setdefault(ticker, []).append(date.fromisoformat(report_date))
     if not events: return {"status": "skipped", "reason": "No events"}
     events.sort(key=lambda event: (event["reportDate"], event["ticker"], event["reportTime"], event["company"]))
     content_hash = hashlib.sha256(
@@ -70,6 +74,9 @@ def archive_earnings_calendar(rows: Iterable[Dict[str, Any]]) -> Dict[str, Any]:
         ticker = normalize_ticker(row.get("ticker", ""))
         report_date = str(row.get("reportDate", "")).strip()
         if ticker not in TRACKED_TICKERS or not report_date:
+            continue
+        if any(0 < abs((date.fromisoformat(report_date) - confirmed).days) <= 42
+               for confirmed in confirmed_dates.get(ticker, [])):
             continue
         retained = {
             "ticker": ticker,
@@ -358,10 +365,24 @@ def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = 
     """Persist the reusable pre-earnings market snapshot before providers roll
     forward. Daily/weekly radar reads this first so a transient live-data miss
     does not turn a previously captured figure back into N/A."""
+    capture_time = captured_at or datetime.now(ZoneInfo("America/New_York")).isoformat(timespec="seconds")
+    if capture_time[:10] > report_date:
+        return {"status": "skipped", "reason": "Cannot archive a late snapshot as pre-earnings consensus"}
     convex_url = os.environ.get("CONVEX_URL", "").strip()
     archive_token = os.environ.get("EARNINGS_ARCHIVE_TOKEN", "").strip() or os.environ.get("ADMIN_TOKEN", "").strip()
     if not convex_url or not archive_token:
         return {"status": "skipped", "reason": "Convex archive credentials not configured"}
+    from core.reporting_currency import normalize_snapshot, financial_currency, get_usd_rate
+    native_snap = dict(((snap or {}).get("currency_normalization") or {}).get("native_snapshot") or snap or {})
+    currency = financial_currency(ticker, native_snap)
+    fx = get_usd_rate(currency, capture_time[:10])
+    native_eps = eps_consensus
+    if snap is not None:
+        snap = normalize_snapshot(ticker, native_snap, capture_time[:10])
+    if eps_consensus is not _UNSET and isinstance(eps_consensus, (int, float)):
+        eps_consensus *= fx["usd_per_unit"]
+    if currency != "USD":
+        consensus_source = (consensus_source + "; " if consensus_source else "") + f"USD-normalized; 1 {currency} = USD {fx['usd_per_unit']:.10g}, {fx['rate_date']}; {fx['source']}"
     args: Dict[str, Any] = {"adminToken": archive_token, "ticker": ticker, "reportDate": report_date}
     if snap is not None:
         args.update({
@@ -373,12 +394,14 @@ def archive_pre_earnings_snapshot(*, ticker: str, report_date: str, snap: Any = 
     if eps_consensus is not _UNSET:
         args["epsConsensus"] = eps_consensus
     if consensus_source: args["consensusSource"] = consensus_source
-    args["capturedAt"] = captured_at or datetime.now().isoformat(timespec="seconds")
+    args["capturedAt"] = capture_time
     result = _convex_request(convex_url=convex_url, kind="mutation", path="preEarningsSnapshots:upsertSnapshot", args=args)
     artifact_result = None
     if snap is not None:
         artifact_payload = dict(snap)
         artifact_payload["_captured_at"] = args["capturedAt"]
+        if currency != "USD":
+            artifact_payload["_native_consensus"] = {"currency": currency, "revenue": native_snap.get("next_q_revenue_consensus"), "fy_revenue": native_snap.get("fy_revenue_consensus"), "eps": native_eps if native_eps is not _UNSET else None}
         artifact_result = _convex_request(
             convex_url=convex_url,
             kind="mutation",
@@ -421,6 +444,8 @@ def load_financial_snapshot_artifact(*, ticker: str, report_date: str) -> Dict[s
     if not isinstance(payload, dict):
         return {}
     payload.setdefault("_captured_at", result.get("updatedAt", ""))
+    if str(payload.get("_captured_at") or "")[:10] > report_date:
+        return {}
     return payload
 
 
@@ -444,7 +469,22 @@ def fetch_pre_earnings_snapshot(ticker: str, report_date: str) -> Dict[str, Any]
             flush=True,
         )
         return {}
+    if isinstance(result, dict) and str(result.get("capturedAt") or "")[:10] > report_date:
+        print(f"[earnings-archive] Ignoring late-captured consensus for {normalized}/{report_date}", flush=True)
+        return {}
+    if isinstance(result, dict) and "USD-normalized;" in str(result.get("consensusSource") or ""):
+        artifact = load_financial_snapshot_artifact(ticker=ticker, report_date=report_date)
+        result["_native_consensus"] = artifact.get("_native_consensus") or {}
     return result if isinstance(result, dict) else {}
+
+
+def archive_currency_normalization(ticker: str, report_date: str, metadata: dict) -> dict:
+    convex_url = os.environ.get("CONVEX_URL", "").strip()
+    token = os.environ.get("EARNINGS_ARCHIVE_TOKEN", "").strip() or os.environ.get("ADMIN_TOKEN", "").strip()
+    if not metadata or not convex_url or not token:
+        return {"status": "skipped"}
+    result = _convex_request(convex_url=convex_url, kind="mutation", path="researchArtifacts:upsertArtifact", args={"adminToken": token, "kind": "currency_normalization_v1", "ticker": ticker, "reportDate": report_date, "title": "USD normalization inputs and original values", "text": json.dumps(metadata), "url": metadata.get("source_url", ""), "provider": metadata.get("source", "")})
+    return {"status": "archived", "result": result}
 
 
 def archive_weekly_brief(

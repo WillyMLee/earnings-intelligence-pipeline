@@ -36,6 +36,7 @@ class Job:
     exitCode: int | None = None
     stdoutTail: str = ""
     stderrTail: str = ""
+    dashboardWarning: str = ""
 
 
 LOCK = threading.Lock()
@@ -105,6 +106,7 @@ def job_commands(
         "daily-radar": [_python("pipelines/run_earnings_radar_automation.py", "--mode", "daily", *(["--today", for_date] if for_date else []), *draft_args)],
         "weekly-radar": [_python("pipelines/run_earnings_radar_automation.py", "--mode", "weekly", *(["--today", for_date] if for_date else []), *draft_args)],
         "pre-earnings": [refresh_calendar, _python("pipelines/run_pre_earnings_deep_dive_auto.py", "--calendar-csv", calendar, *date_args, *watchlist_args, *draft_args, *correction_args)],
+        "pre-catchup": [refresh_calendar, _python("pipelines/run_pre_earnings_deep_dive_auto.py", "--calendar-csv", calendar, "--same-day", *date_args, *watchlist_args, *draft_args)],
         "post-bmo": [refresh_calendar, _python("pipelines/run_post_earnings_deep_dive_auto.py", "--calendar-csv", calendar, "--session", "bmo", *date_args, *watchlist_args, *draft_args, *correction_args)],
         "post-amc": [refresh_calendar, _python("pipelines/run_post_earnings_deep_dive_auto.py", "--calendar-csv", calendar, "--session", "amc", *date_args, *watchlist_args, *draft_args, *correction_args)],
         "post-digest-bmo": [refresh_calendar, _python("pipelines/run_post_earnings_digest.py", "--calendar-csv", calendar, "--session", "bmo", *date_args, *watchlist_args, *draft_args)],
@@ -186,6 +188,10 @@ def _run_job(job: Job, commands: list[list[str]]) -> None:
         return_code = process.wait()
         for reader in readers:
             reader.join()
+        if return_code != 0 and "--dashboard-only" in command:
+            job.dashboardWarning = f"Dashboard-only research failed with exit code {return_code}; email delivery stage completed separately"
+            job.stdoutTail = _tail(job.stdoutTail, "\n[runtime] " + job.dashboardWarning + "\n")
+            continue
         if return_code != 0:
             exit_code = return_code
             break

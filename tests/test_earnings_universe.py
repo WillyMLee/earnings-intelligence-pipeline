@@ -11,9 +11,9 @@ from core.coverage import EMAIL_DEMOTED_TICKERS, dashboard_only_tickers, sector_
 
 def test_canonical_universe_is_bounded_and_complete():
     assert len(SP500_TICKERS) == 503
-    assert len(NEOSTELLAR_ADDITIONS) == 48
-    assert len(TRACKED_TICKERS) == 551
-    assert len(EMAIL_DEEP_DIVE_TICKERS) == 88
+    assert len(NEOSTELLAR_ADDITIONS) == 49
+    assert len(TRACKED_TICKERS) == 552
+    assert len(EMAIL_DEEP_DIVE_TICKERS) == 89
     assert not SP500_TICKERS.intersection(NEOSTELLAR_ADDITIONS)
     assert EMAIL_DEEP_DIVE_TICKERS <= TRACKED_TICKERS
 
@@ -56,3 +56,9 @@ def test_provider_rows_are_normalized_and_filtered():
     ]
     assert [row["Ticker"] for row in filter_tracked_rows(rows)] == ["BRK-B", "SNOW"]
     assert normalize_ticker("bf.b") == "BF-B"
+
+
+def test_spotify_is_tracked_and_receives_pre_post_and_digest_coverage():
+    assert "SPOT" in TRACKED_TICKERS
+    assert "SPOT" in EMAIL_DEEP_DIVE_TICKERS
+    assert "SPOT" not in dashboard_only_tickers()

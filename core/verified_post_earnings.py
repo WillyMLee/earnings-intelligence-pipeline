@@ -39,6 +39,7 @@ def verified_post_earnings_brief(ticker: str, report_date: str) -> Dict[str, Any
         "valuation_reference": copy.deepcopy(item.get("valuationReference") or {}),
         "official_links": dict(item["officialLinks"]),
         "financials": dict(item["financials"]),
+        "currency_normalization": copy.deepcopy(item.get("currencyNormalization")),
         "_qa_approved": True,
         "_qa_issues": [],
         "_verified_fallback": True,

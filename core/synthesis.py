@@ -28,6 +28,8 @@ _FISCAL_PERIOD_PATTERNS = (
 )
 
 _VERIFIED_RELEASE_URLS = {
+    ("NFLX", "2026-10-20"): "https://ir.netflix.net/files/doc_financials/2026/q3/FINAL-Q3-26-Shareholder-Letter.pdf",
+    ("SPCX", "2026-10-20"): "https://www.sec.gov/Archives/edgar/data/1181412/000162828026066482/spaceexplorationtechnologi.htm",
     ("WMT", "2026-08-20"): (
         "https://corporate.walmart.com/news/2026/08/20/"
         "walmart-releases-q2-fy27-earnings"
@@ -827,6 +829,8 @@ def synthesize_earnings_brief_with_web_search(
         next_test_focus=next_test_focus,
         key_metrics_instruction=key_metrics_instruction,
     )
+    if facts.get("reporting_currency") and facts["reporting_currency"] != "USD":
+        prompt += "\nIssuer financial reporting currency: " + str(facts["reporting_currency"]) + ". RESEARCH STAGE: retain native financial amounts and explicit currency symbols/codes in every amount, including ranges and EPS. Override legacy _usd field names: supply native reporting-currency numbers in financials for this stage. Do not calculate FX or silently use issuer convenience USD figures. A deterministic post-review step converts both prose and structured figures to USD and retains the native originals. Quote currency is " + str(facts.get("quote_currency") or "USD") + ". Do not calculate cross-currency valuation multiples. Do not write a blanket currency declaration in the intro.\n"
     if fact_lines:
         prompt += "\nKnown facts (incorporate these, don't contradict them):\n" + "\n".join(fact_lines)
         prompt += (
@@ -914,11 +918,13 @@ def synthesize_earnings_brief_with_web_search(
 
     try:
         client = OpenAI(api_key=api_key)
+        selected_model = model or os.environ.get("OPENAI_WEB_SEARCH_MODEL", "gpt-5.4-mini")
         response = client.responses.create(
-            model=model or os.environ.get("OPENAI_WEB_SEARCH_MODEL", "gpt-4o-mini"),
+            model=selected_model,
+            **({"reasoning": {"effort": "low"}} if selected_model.startswith("gpt-5") else {}),
             tools=[{"type": "web_search"}],
             input=prompt,
-            max_output_tokens=8000,
+            max_output_tokens=12000 if selected_model.startswith("gpt-5") else 8000,
             text={
                 "format": {
                     "type": "json_schema",
@@ -1000,6 +1006,29 @@ _REVIEW_PROMPT = """\
 You are doing a final quality gut-check on a {mode_label} earnings brief for {company} ({ticker}),
 {quarter}, before it is sent to an investment team. You are auditing the brief below against the known
 facts -- not researching from scratch.
+
+Only flag actionable factual errors or missing required evidence. Respect the precision shown:
+$12.56 billion is valid rounding of $12.559938 billion, not a contradiction. Do not demand
+more significant digits than the displayed figure. A historical CapEx actual does not imply
+a guidance change; require a before/after comparison only when a change is claimed. Clearly
+labeled unavailable or undisclosed figures are acceptable unless supplied in the known facts.
+Do not invent disclosure requirements based on company size. For pre-earnings briefs, current
+quarter actuals are not yet available; require forward estimates, not future results.
+Treat accounting basis and period explicitly: gross_margin_pct in the market-data snapshot
+is trailing-twelve-month GAAP gross margin, not last-quarter non-GAAP gross margin. A
+company's guidance and Street consensus are different measures and may legitimately differ.
+Provider quarter-end dates may be calendarized month ends; prefer an issuer's exact fiscal
+date instead of treating a nearby calendarized date as a contradiction. Annual revenue and
+quarterly revenue are different periods. Required source metadata can live in official_links,
+estimate_comparisons or valuation_reference; do not require the same fact repeated in prose.
+The valuation schema retains legacy CY field names. A clearly identified FY proxy is allowed:
+if basis explicitly says fiscal-year proxy and identifies the fiscal year, the renderer labels
+it FY revenue and EV / FY revenue. Do not reject that permitted fallback solely because the
+schema keys are named cy_revenue and ev_cy_revenue. Still reject incorrect arithmetic or an
+unlabeled fiscal-year figure presented as a true calendar-year estimate.
+Market-data snapshots and the calendar can lag consensus revisions. A newer, explicitly dated
+and cited estimate may supersede an undated provider value; require the source/as-of evidence
+and consistent arithmetic rather than forcing every estimate back to an older snapshot.
 
 Check specifically for:
 - Contradictions: does any figure (stock move %, revenue, EPS, margin, date) conflict with another
@@ -1108,10 +1137,12 @@ def review_earnings_brief(
 
     try:
         client = OpenAI(api_key=api_key)
+        selected_model = model or os.environ.get("OPENAI_REVIEW_MODEL", "gpt-5.4-mini")
         response = client.responses.create(
-            model=model or os.environ.get("OPENAI_REVIEW_MODEL", "gpt-4o-mini"),
+            model=selected_model,
+            **({"reasoning": {"effort": "low"}} if selected_model.startswith("gpt-5") else {}),
             input=prompt,
-            max_output_tokens=1500,
+            max_output_tokens=3000,
             text={
                 "format": {
                     "type": "json_schema",
@@ -1298,7 +1329,12 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
 
     official_text = str((facts or {}).get("official_release_source_text") or "")
     if official_text and financials:
-        revenue_match = re.search(r"\bRevenue\s+of\s+\$([\d,.]+)\s+billion\b", official_text, re.IGNORECASE)
+        revenue_match = None
+        for candidate in re.finditer(r"\bRevenue\s+of\s+\$([\d,.]+)\s+billion\b", official_text, re.IGNORECASE):
+            context = official_text[max(0, candidate.start() - 90):candidate.end()]
+            if not re.search(r"expect|project|forecast|guidance|outlook|target", context, re.I):
+                revenue_match = candidate
+                break
         if revenue_match and isinstance(financials.get("revenue_actual_usd"), (int, float)):
             official_revenue = float(revenue_match.group(1).replace(",", "")) * 1_000_000_000
             if abs(financials["revenue_actual_usd"] - official_revenue) / official_revenue > 0.005:
@@ -1341,8 +1377,26 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
         for metric in (str(value) for value in brief.get("key_metrics", []) or []):
             if "capex" not in metric.lower() and "capital expenditure" not in metric.lower():
                 continue
-            amount_match = re.search(r"\$([\d,.]+)\s*(?:billion|million|[BM])\b", metric, re.IGNORECASE)
-            if amount_match and amount_match.group(1).replace(",", "") not in official_text.replace(",", ""):
+            amount_match = re.search(r"\$([\d,.]+)\s*(billion|million|[BM])\b", metric, re.IGNORECASE)
+            supported = False
+            if amount_match:
+                value = amount_match[1].replace(",", "")
+                scale = 1e9 if amount_match[2].lower().startswith("b") else 1e6
+                decimals = len(value.split(".")[1]) if "." in value else 0
+                tolerance = 0.5 * 10 ** (-decimals) * scale
+                # Compare units and displayed precision, not literal strings.
+                table_scale = 1e6 if re.search(r"in millions", official_text, re.I) else 1
+                for label in re.finditer(r"capex|capital expenditures|purchases of property", official_text, re.I):
+                    excerpt = official_text[label.start():label.start() + 900]
+                    for number in re.finditer(r"(?<![\w.])([\d,]+(?:\.\d+)?)\s*(billion|million|[BM]\b)?", excerpt, re.I):
+                        unit = (number[2] or "").lower()
+                        source_scale = 1e9 if unit.startswith("b") else 1e6 if unit.startswith("m") else table_scale
+                        if abs(float(number[1].replace(",", "")) * source_scale - float(value) * scale) <= tolerance:
+                            supported = True
+                            break
+                    if supported:
+                        break
+            if amount_match and not supported:
                 issues.append(
                     f"Key metric '{metric}' states a CapEx amount that does not appear in the direct "
                     "issuer release text. Remove it or replace it with a source-supported figure."
@@ -1429,9 +1483,14 @@ def _sanity_check_brief(brief: Dict[str, Any], mode: str = "post", facts: Option
                 if not isinstance(bullet, dict):
                     continue
                 text = str(bullet.get("text", ""))
-                if "revenue" not in text.lower():
+                if "revenue" not in text.lower() or re.search(r"full.year|annual|guidance|outlook|forecast|target|next.year|by 20\d{2}", text, re.I):
                     continue
-                for value in _all_dollar_billions(text):
+                # Only test a revenue amount, not every dollar figure in a
+                # bullet that also mentions revenue (e.g. CapEx or cash).
+                if re.search(r"\bFY\s*20\d{2}\b", text, re.I) and not re.search(r"\bQ[1-4]\b|quarter", text, re.I):
+                    continue
+                revenue_values = re.findall(r"revenue\s*(?:for the quarter\s*)?(?:of|was|is|:|totaled|reached|at)?\s*\$\s*([\d,.]+)\s*(?:B|billion)\b", text, re.I)
+                for value in (float(raw.replace(",", "")) for raw in revenue_values):
                     if value > total_revenue_b * 1.05:
                         issues.append(
                             f"A bullet in section '{section.get('heading', '')}' states a revenue "

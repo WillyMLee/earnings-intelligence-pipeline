@@ -26,6 +26,7 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from core.earnings_universe import filter_tracked_rows
+from core.official_earnings_calendar import supplement_official_calendar
 from earnings_archive import archive_earnings_calendar
 
 
@@ -39,6 +40,7 @@ OUTPUT_HEADERS = [
     "Revenue Estimate",
     "Implied Move",
     "Market Cap",
+    "Source URL",
 ]
 
 
@@ -198,7 +200,7 @@ def main() -> int:
 
     payload = fetch_alpha_vantage_csv(args.alpha_vantage_api_key, horizon=args.horizon)
     provider_rows = normalize_alpha_vantage_rows(payload)
-    rows = filter_tracked_rows(provider_rows)
+    rows = supplement_official_calendar(filter_tracked_rows(provider_rows))
     write_rows(args.output, rows)
     if not args.skip_convex_archive:
         archive_earnings_calendar(rows)

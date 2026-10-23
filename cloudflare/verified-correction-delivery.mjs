@@ -83,7 +83,7 @@ function renderHtml(item) {
     while (row.length < 3) row.push('<td width="33%"></td>');
     figureRows.push(`<tr>${row.join("")}</tr>`);
   }
-  const sections = item.sections.slice(0, 3).map((section) => (
+  const sections = item.sections.filter((section, index) => index < 3 || /q&a|currency normalization/i.test(section.heading)).map((section) => (
     `<div style="height:14px;line-height:14px;">&nbsp;</div>${sectionCard(section.heading, bulletHtml(section.bullets, 4))}`
   )).join("");
   const links = Object.entries(item.officialLinks).map(([key, url]) => {
@@ -127,7 +127,7 @@ function renderText(item) {
     "## Financial highlights",
     ...item.financialHighlights.map((row) => `- ${row.text}`),
   ];
-  for (const section of item.sections.slice(0, 3)) {
+  for (const section of item.sections.filter((section, index) => index < 3 || /q&a|currency normalization/i.test(section.heading))) {
     lines.push("", `## ${section.heading}`, ...section.bullets.slice(0, 4).map((row) => `- ${row.text}`));
   }
   if ((item.estimateComparisons || []).length) {
@@ -181,6 +181,28 @@ async function resolveInbox(env) {
 
 async function archiveSummary(env, item) {
   if (!env.CONVEX_URL || !env.EARNINGS_ARCHIVE_TOKEN) throw new Error("Convex archive credentials are not configured");
+  // Recovery must not retain a current estimate accidentally captured under
+  // an already-reported quarter. Preserve its timestamp as an audit record.
+  const snapshotResponse = await fetch(`${String(env.CONVEX_URL).replace(/\/$/u, "")}/api/query`, {
+    method: "POST", headers: { "content-type": "application/json" },
+    body: JSON.stringify({ path: "preEarningsSnapshots:getSnapshot", args: { ticker: item.ticker, reportDate: item.reportDate } }),
+  });
+  const snapshotPayload = await snapshotResponse.json();
+  if (!snapshotResponse.ok || snapshotPayload.status === "error") throw new Error("Pre-report snapshot recovery lookup failed");
+  const snapshot = snapshotPayload.value;
+  if (snapshot && String(snapshot.capturedAt || "").slice(0, 10) > item.reportDate) {
+    const quarantine = await fetch(`${String(env.CONVEX_URL).replace(/\/$/u, "")}/api/mutation`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: "preEarningsSnapshots:upsertSnapshot", args: {
+        adminToken: env.EARNINGS_ARCHIVE_TOKEN, ticker: item.ticker, reportDate: item.reportDate,
+        capturedAt: snapshot.capturedAt, consensusSource: "Late snapshot quarantined; excluded from pre-report comparisons",
+        revenueConsensusUsd: null, revenueConsensusYoyPct: null, fyRevenueConsensusUsd: null,
+        fyRevenueConsensusYoyPct: null, epsConsensus: null,
+      } }),
+    });
+    const outcome = await quarantine.json();
+    if (!quarantine.ok || outcome.status === "error") throw new Error("Late snapshot quarantine failed");
+  }
   const financials = item.financials || {};
   const args = {
     adminToken: env.EARNINGS_ARCHIVE_TOKEN,
@@ -208,6 +230,19 @@ async function archiveSummary(env, item) {
   });
   const payload = await response.json().catch(() => ({}));
   if (!response.ok || payload.status === "error") throw new Error(`Convex correction archive failed: ${response.status} ${JSON.stringify(payload).slice(0, 500)}`);
+  if (item.currencyNormalization) {
+    const metadata = item.currencyNormalization;
+    const fxResponse = await fetch(`${String(env.CONVEX_URL).replace(/\/$/u, "")}/api/mutation`, {
+      method: "POST", headers: { "content-type": "application/json" },
+      body: JSON.stringify({ path: "researchArtifacts:upsertArtifact", args: {
+        adminToken: env.EARNINGS_ARCHIVE_TOKEN, kind: "currency_normalization_v1",
+        ticker: item.ticker, reportDate: item.reportDate, title: "USD normalization inputs and original values",
+        text: JSON.stringify(metadata), url: metadata.source_url || "", provider: metadata.source || "",
+      } }),
+    });
+    const fxPayload = await fxResponse.json();
+    if (!fxResponse.ok || fxPayload.status === "error") throw new Error("FX provenance archive failed");
+  }
   return payload;
 }
 

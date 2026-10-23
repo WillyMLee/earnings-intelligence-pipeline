@@ -185,6 +185,7 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
 
     print(f"[post-deep-dive] Fetching financial snapshot for {ticker}...", flush=True)
     snap = fetch_financial_snapshot(ticker)
+    snap = (snap.get("currency_normalization") or {}).get("native_snapshot") or snap
     dated_consensus = fetch_pre_earnings_snapshot(ticker, report_date.isoformat())
     if dated_consensus:
         print(
@@ -211,19 +212,28 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         }.get(move.get("source", ""), "following the print")
         reaction_line = f"Shares are {direction} {abs(pct):.1f}% {session_label} following the print."
 
+    from core.reporting_currency import financial_currency
+    if financial_currency(ticker, snap) != "USD":
+        dated_consensus = dict(dated_consensus)
+        native = dated_consensus.get("_native_consensus") or {}
+        dated_consensus["revenueConsensusUsd"] = native.get("revenue")
+        dated_consensus["fyRevenueConsensusUsd"] = native.get("fy_revenue")
+        dated_consensus["epsConsensus"] = native.get("eps")
     facts = {
+        "reporting_currency": financial_currency(ticker, snap),
+        "quote_currency": snap.get("quote_currency", "USD"),
         "last_q_revenue": snap.get("last_q_revenue"),
         "last_q_revenue_label": snap.get("last_q_label"),
         "last_q_period_end": snap.get("last_q_period_end"),
         "last_q_yoy_pct": snap.get("last_q_yoy_pct"),
         "gross_margin_pct": snap.get("gross_margin_pct"),
-        "next_q_revenue_consensus": dated_consensus.get("revenueConsensusUsd") or snap.get("next_q_revenue_consensus"),
-        "next_q_yoy_pct": dated_consensus.get("revenueConsensusYoyPct") or snap.get("next_q_yoy_pct"),
+        "next_q_revenue_consensus": dated_consensus.get("revenueConsensusUsd"),
+        "next_q_yoy_pct": dated_consensus.get("revenueConsensusYoyPct"),
         "next_q_expected_period_end": snap.get("next_q_expected_period_end"),
         "fy_revenue_consensus": dated_consensus.get("fyRevenueConsensusUsd") or snap.get("fy_revenue_consensus"),
         "fy_yoy_pct": dated_consensus.get("fyRevenueConsensusYoyPct") or snap.get("fy_yoy_pct"),
         "eps_consensus": dated_consensus.get("epsConsensus"),
-        "consensus_source": dated_consensus.get("consensusSource") or "live market-data consensus",
+        "consensus_source": dated_consensus.get("consensusSource") or "Pre-report snapshot unavailable; research a dated estimate for this reporting period",
         "consensus_captured_at": dated_consensus.get("capturedAt") or "",
         "price": snap.get("price"),
         "market_cap_b": snap.get("market_cap_b"),
@@ -280,6 +290,9 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     # calendar-based guess -- see run_pre_earnings_deep_dive_auto.py for why.
     display_quarter = str(brief.get("fiscal_quarter_label") or "").strip() or quarter
 
+    from core.reporting_currency import normalize_brief
+    brief = normalize_brief(ticker, brief, financial_currency(ticker, snap), report_date.isoformat())
+
     context = {
         "ticker": ticker,
         "company": company,
@@ -292,13 +305,14 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
         "reaction_pct": move.get("ah_move_pct"),
         "intro": brief.get("intro", ""),
         "financial_highlights": brief.get("financial_highlights", []),
-        "sections": brief.get("sections", []),
+        "sections": analysis_sections(brief),
         "key_metrics": brief.get("key_metrics", []),
         "key_figures": brief.get("key_figures", []),
         "estimate_comparisons": brief.get("estimate_comparisons", []),
         "valuation_reference": brief.get("valuation_reference", {}),
         "official_links": brief.get("official_links", {}),
         "financials": brief.get("financials", {}),
+        "currency_normalization": brief.get("currency_normalization"),
         "qa_approved": brief.get("_qa_approved") is True,
         "qa_issues": brief.get("_qa_issues", []),
     }
@@ -306,6 +320,22 @@ def build_brief_context(reporter: dict, report_date: date, correction: bool = Fa
     if issues:
         raise ValueError("delivery blocked: " + "; ".join(issues))
     return context
+
+
+def analysis_sections(brief: dict) -> list[dict]:
+    """Carry sourced analyst Q&A through to the HTML, Markdown and archive."""
+    sections = list(brief.get("sections") or [])
+    bullets = []
+    for item in (brief.get("qa_highlights") or [])[:4]:
+        if not isinstance(item, dict):
+            continue
+        question = str(item.get("analyst_question") or "").strip()
+        answer = str(item.get("answer_summary") or "").strip()
+        if question and answer:
+            bullets.append({"text": question, "children": [answer]})
+    if bullets:
+        sections.append({"heading": "Earnings call Q&A", "bullets": bullets})
+    return sections
 
 
 def delivery_context_issues(context: dict) -> list[str]:
@@ -326,7 +356,7 @@ def delivery_context_issues(context: dict) -> list[str]:
     return issues
 
 
-def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
+def send_deep_dive(context: dict, output_dir: Path, draft_only: bool, *, archive_only: bool = False) -> bool:
     issues = delivery_context_issues(context)
     if issues:
         raise ValueError("delivery blocked: " + "; ".join(issues))
@@ -360,11 +390,6 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
         print(f"[post-deep-dive] {context['ticker']}: drafted only", flush=True)
         return True
 
-    recipient = os.environ.get("DEAL_ALERT_EMAIL_TO", "").strip()
-    if not recipient:
-        print(f"[post-deep-dive] {context['ticker']}: no DEAL_ALERT_EMAIL_TO set -- skipping send", flush=True)
-        return False
-
     # Also archive to Convex -- separate Cloudflare job containers do not
     # share local disk, so the digest cannot read the file above in production.
     # No-ops quietly if Convex isn't configured. Drafts intentionally stop
@@ -385,10 +410,21 @@ def send_deep_dive(context: dict, output_dir: Path, draft_only: bool) -> bool:
             financials=context.get("financials"),
         )
         archive_ok = archive_result.get("status") == "archived"
+        if archive_ok and context.get("currency_normalization"):
+            from earnings_archive import archive_currency_normalization
+            archive_currency_normalization(context["ticker"], context["report_date"], context["currency_normalization"])
         if not archive_ok:
             print(f"[post-deep-dive] {context['ticker']}: Convex archive skipped ({archive_result.get('reason')})", flush=True)
     except Exception as exc:
         print(f"[post-deep-dive] {context['ticker']}: Convex archive failed: {exc}", flush=True)
+
+    if archive_only:
+        print(f"[post-deep-dive] {context['ticker']}: dashboard archive only ({'archived' if archive_ok else 'failed'})", flush=True)
+        return archive_ok
+    recipient = os.environ.get("DEAL_ALERT_EMAIL_TO", "").strip()
+    if not recipient:
+        print(f"[post-deep-dive] {context['ticker']}: no DEAL_ALERT_EMAIL_TO set -- skipping send", flush=True)
+        return False
 
     subject = build_email_subject(context["company"], context["ticker"], context["quarter"], context["brief_label"])
     recipients = parse_recipients(recipient)
@@ -454,15 +490,26 @@ def main() -> int:
     output_dir.mkdir(parents=True, exist_ok=True)
 
     succeeded = 0
+    failed = []
     for reporter in reporters:
         try:
+            if not (args.draft_only or args.dashboard_only or args.correction):
+                receipt = agentmail_delivery.find_earnings_delivery(api_key=os.environ.get("AGENTMAIL_API_KEY", ""), inbox_id=os.environ.get("AGENTMAIL_INBOX_ID", ""), ticker=reporter["ticker"], report_date=today.isoformat(), mode="post", recipients=parse_recipients(os.environ.get("DEAL_ALERT_EMAIL_TO", "")))
+                if receipt:
+                    print(f"[post-deep-dive] {reporter['ticker']}: already sent (message_id={receipt.get('message_id')})", flush=True)
+                    succeeded += 1
+                    continue
             context = build_brief_context(reporter, today, correction=args.correction)
-            if send_deep_dive(context, output_dir, args.draft_only or args.dashboard_only):
+            if send_deep_dive(context, output_dir, args.draft_only, archive_only=args.dashboard_only):
                 succeeded += 1
+            else:
+                failed.append(reporter["ticker"])
         except Exception as exc:
+            failed.append(reporter["ticker"])
             print(f"[post-deep-dive] {reporter['ticker']}: failed without blocking other reporters: {exc}", flush=True)
 
-    return 0 if succeeded else 1
+    print(f"[post-deep-dive] Completed {succeeded}/{len(reporters)} reporter(s); failed tickers: {','.join(failed) or 'none'}", flush=True)
+    return 0 if succeeded == len(reporters) else 1
 
 
 if __name__ == "__main__":

@@ -1,4 +1,58 @@
 {
+  "2026-10-20": {
+    "NFLX": {
+      "ticker": "NFLX", "company": "Netflix", "quarter": "Q3 FY2026", "reportDate": "2026-10-20", "reportTime": "After Close",
+      "intro": "Netflix's profit improved, while its reduced advertising outlook and fourth-quarter expense timing qualified the growth picture.",
+      "financialHighlights": [
+        {"text": "Revenue: $12.874 billion, increasing 11.8% year over year and approximately matching the $12.87 billion FactSet consensus.", "children": []},
+        {"text": "Diluted EPS: $0.87 versus $0.82 FactSet consensus; net income reached $3.664 billion.", "children": []},
+        {"text": "Operating margin: 34.6%; operating cash flow totaled $3.162 billion and free cash flow was $2.884 billion.", "children": []},
+        {"text": "Fourth-quarter forecast: revenue of $13.442 billion, diluted EPS of $0.67 and operating margin of 26.0%.", "children": []}
+      ],
+      "sections": [
+        {"heading": "Advertising outlook", "bullets": [
+          {"text": "Management reduced its 2026 advertising revenue expectation to approximately $2.7 billion from $3 billion, citing slower product rollout.", "children": []},
+          {"text": "Full-year guidance calls for $51.1 billion revenue and 31.5% operating margin.", "children": []}
+        ]},
+        {"heading": "Expense timing", "bullets": [
+          {"text": "Third-quarter operating profitability exceeded management's forecast partly because expenses shifted between periods.", "children": []},
+          {"text": "Fourth-quarter margin guidance includes approximately 120 basis points of costs associated with workforce reductions.", "children": []}
+        ]}
+      ],
+      "keyMetrics": ["Revenue: $12.874B (+11.8% YoY)", "Diluted EPS: $0.87", "Free cash flow: $2.884B", "2026 advertising outlook: approximately $2.7B"],
+      "estimateComparisons": [
+        {"metric": "Revenue", "reported": "$12.874B", "estimate": "$12.87B", "variance": "Approximately in line", "period": "Q3 FY2026", "estimate_source": "FactSet, reported by AP", "estimate_as_of": "2026-10-20 (pre-release consensus reported after results)", "source_url": "https://apnews.com/article/332fc9ae36c9ecc788cb163a70e655ed"},
+        {"metric": "Diluted EPS", "reported": "$0.87", "estimate": "$0.82", "variance": "+$0.05 (+6.1%)", "period": "Q3 FY2026", "estimate_source": "FactSet, reported by AP", "estimate_as_of": "2026-10-20 (pre-release consensus reported after results)", "source_url": "https://apnews.com/article/332fc9ae36c9ecc788cb163a70e655ed"}
+      ],
+      "officialLinks": {"press_release": "https://ir.netflix.net/files/doc_financials/2026/q3/FINAL-Q3-26-Shareholder-Letter.pdf"},
+      "financials": {"revenue_actual_usd": 12874000000, "revenue_consensus_usd": 12870000000, "revenue_yoy_pct": 11.8, "eps_actual": 0.87, "eps_consensus": 0.82, "net_income_actual_usd": 3664000000},
+      "verification": "Compared with the October 20 issuer shareholder letter and named FactSet consensus reported by AP. No reconstructed pre-report snapshot or unsourced valuation."
+    },
+    "SPCX": {
+      "ticker": "SPCX", "company": "SpaceX", "quarter": "Q3 FY2026", "reportDate": "2026-10-20", "reportTime": "After Close",
+      "intro": "SpaceX's reported growth was concentrated in Super Intelligence and Connectivity, alongside a substantial increase in capital spending.",
+      "financialHighlights": [
+        {"text": "Revenue: $14.575 billion, increasing approximately 161% year over year from $5.576 billion.", "children": []},
+        {"text": "Profitability: operating income of $2.791 billion, net income of $4.404 billion and diluted EPS of $0.35.", "children": []},
+        {"text": "Adjusted EBITDA: $8.809 billion; capital expenditures totaled $19.593 billion, compared with $6.880 billion a year earlier.", "children": []},
+        {"text": "Segment revenue: Super Intelligence $7.560 billion, Connectivity $5.248 billion and Space $1.767 billion.", "children": []}
+      ],
+      "sections": [
+        {"heading": "Super Intelligence", "bullets": [
+          {"text": "The segment generated $431 million operating income, compared with an operating loss in the prior quarter.", "children": []},
+          {"text": "Its $16.444 billion capital spending represented approximately 84% of consolidated expenditures.", "children": []}
+        ]},
+        {"heading": "Connectivity and Space", "bullets": [
+          {"text": "Connectivity produced $2.367 billion operating income, while Space recorded a $7 million operating loss.", "children": []},
+          {"text": "Net profit also benefited from $1.025 billion other income, $873 million interest income and a $390 million tax benefit.", "children": []}
+        ]}
+      ],
+      "keyMetrics": ["Revenue: $14.575B", "Operating income: $2.791B", "Diluted EPS: $0.35", "Capital expenditures: $19.593B"],
+      "officialLinks": {"press_release": "https://www.sec.gov/Archives/edgar/data/1181412/000162828026066482/spaceexplorationtechnologi.htm"},
+      "financials": {"revenue_actual_usd": 14575000000, "revenue_yoy_pct": 161.4, "eps_actual": 0.35, "net_income_actual_usd": 4404000000, "capex_actual_usd": 19593000000},
+      "verification": "Compared with the issuer's October 20 SEC Exhibit 99.1, including its segment and Capex tables. Consensus and valuation omitted because no sufficiently verified inputs were retained."
+    }
+  },
   "2026-09-02": {
     "AVGO": {
       "ticker": "AVGO",
@@ -422,5 +476,286 @@
         "capex_actual_usd": null
       }
     }
+  },
+  "2026-10-22": {
+  "SPOT": {
+    "ticker": "SPOT",
+    "company": "Spotify",
+    "quarter": "Q3 FY2026",
+    "reportDate": "2026-10-22",
+    "reportTime": "Before Open",
+    "intro": "Subscribers and profitability exceeded issuer guidance; revenue and monthly users met it. The report below recovers the missed October 22 earnings coverage and includes management commentary and analyst Q&A. Financial results are USD-normalized with the native amounts retained. No contemporaneous Street consensus snapshot was retained, so comparisons use issuer guidance.",
+    "financialHighlights": [
+      {
+        "text": "Users: 788 million MAUs (+11% YoY); 306 million Premium subscribers (+9%).",
+        "children": [
+          "MAUs matched guidance; subscribers exceeded it by 1 million."
+        ]
+      },
+      {
+        "text": "Revenue: $5.57B (€4.969 billion) (+16% reported; +14% constant currency), in line with rounded $5.60B (€5.0 billion) guidance.",
+        "children": [
+          "Premium revenue $5.03B (€4.487 billion); advertising $540.08M (€482 million)."
+        ]
+      },
+      {
+        "text": "Profitability: gross margin 33.0%, versus 32.9% guidance; operating income $752.98M (€672 million), versus $750.74M (€670 million) guided.",
+        "children": [
+          "Operating margin 13.5%; diluted EPS $2.78 (€2.48); net income $580.42M (€518 million)."
+        ]
+      },
+      {
+        "text": "Cash flow: free cash flow $823.57M (€735 million); trailing 12-month FCF $3.59B (€3.2 billion).",
+        "children": [
+          "Liquidity including cash, restricted cash and short-term investments $11.09B (€9.9 billion); quarterly CapEx $6.72M (€6 million)."
+        ]
+      }
+    ],
+    "sections": [
+      {
+        "heading": "Guidance",
+        "bullets": [
+          {
+            "text": "Q4 targets: MAUs 818 million; subscribers 316 million; revenue $5.83B (€5.2 billion).",
+            "children": [
+              "Gross margin 33.8%; operating income $918.81M (€820 million), including $6.72M (€6 million) social charges."
+            ]
+          },
+          {
+            "text": "Guidance basis: company forecasts, not analyst consensus.",
+            "children": [
+              "Expected Q4 subscriber additions: 10 million. No numerical 2027 outlook was provided."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Operating performance and management commentary",
+        "bullets": [
+          {
+            "text": "Growth: Premium expansion combines subscriber gains and pricing; advertising growth improved to 9% at constant currency.",
+            "children": [
+              "Audiobooks are expanding from 22 to more than 180 markets by year-end. Creator memberships and broader partner-program distribution extend monetization opportunities."
+            ]
+          },
+          {
+            "text": "Costs: management said operating-expense growth peaked in Q3 and should moderate.",
+            "children": [
+              "Analysis: delivery against Q4 margin guidance will test whether revenue growth translates into operating leverage while investment continues."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Analyst Q&A",
+        "bullets": [
+          {
+            "text": "Sean Diffley — Capital allocation and buybacks?",
+            "children": [
+              "Management prioritizes organic investments and selective acquisitions, then returns excess cash. It also seeks to offset employee-equity dilution while retaining strategic flexibility."
+            ]
+          },
+          {
+            "text": "Jessica Reif Ehrlich — Do third-party AI agents make Spotify a back-end supplier?",
+            "children": [
+              "Management framed agent integrations as an extension of its ubiquity strategy, using Spotify’s personalization, content and playback infrastructure."
+            ]
+          },
+          {
+            "text": "Eric Sheridan — Is advertising tracking the expected second-half recovery?",
+            "children": [
+              "Management said the rebuild is on track, supported by automation, measurement and easier access to inventory."
+            ]
+          },
+          {
+            "text": "Justin Patterson — Is AI investment generating returns?",
+            "children": [
+              "Söderström pointed to faster delivery of user features, adoption, engagement and retention. Management expects broadly similar investment levels rather than an immediate cost reduction."
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Sources",
+        "bullets": [
+          {
+            "text": "Issuer sources: Spotify newsroom results and Q3 shareholder deck.",
+            "children": [
+              "https://newsroom.spotify.com/2026-10-22/spotify-q3-2026-earnings/",
+              "https://investors.spotify.com/files/content_files/Q3-2026-Shareholder-Deck-FINAL.pdf"
+            ]
+          },
+          {
+            "text": "Call source: October 22, 2026 management remarks and analyst Q&A.",
+            "children": [
+              "https://www.fool.com/earnings/call-transcripts/2026/10/22/spotify-spot-q3-2026-earnings-call-transcript/"
+            ]
+          }
+        ]
+      },
+      {
+        "heading": "Currency normalization",
+        "bullets": [
+          {
+            "text": "USD convenience translation: 1 EUR = $1.1205, reference date 2026-10-22. Original amounts are retained in parentheses. Reported growth rates and margins are unchanged; these are not issuer-reported USD results. EPS retains the issuer's original share basis; FX conversion does not adjust ADR/GDR ratios.",
+            "children": [
+              "FX source: [European Central Bank daily reference rates](https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml)"
+            ]
+          }
+        ]
+      }
+    ],
+    "keyMetrics": [
+      "Revenue $5.57B (€4.969B) (+16% YoY; +14% FX-neutral); USD-normalized at 1 EUR=$1.1205 (2026-10-22)",
+      "Premium subscribers 306M (+9% YoY)",
+      "Gross margin 33.0%; operating income $752.98M (€672M)",
+      "FCF $823.57M (€735M); diluted EPS $2.78 (€2.48)",
+      "Q4 revenue guide $5.83B (€5.2B); gross margin 33.8%"
+    ],
+    "keyFigures": [
+      {
+        "label": "Revenue (USD)",
+        "value": "$5.57B (€4.969B)"
+      },
+      {
+        "label": "Gross margin",
+        "value": "33.0%"
+      },
+      {
+        "label": "Premium subscribers",
+        "value": "306M"
+      },
+      {
+        "label": "Operating income (USD)",
+        "value": "$752.98M (€672M)"
+      }
+    ],
+    "officialLinks": {
+      "press_release": "https://newsroom.spotify.com/2026-10-22/spotify-q3-2026-earnings/",
+      "investor_deck": "https://investors.spotify.com/files/content_files/Q3-2026-Shareholder-Deck-FINAL.pdf",
+      "transcript": "https://www.fool.com/earnings/call-transcripts/2026/10/22/spotify-spot-q3-2026-earnings-call-transcript/"
+    },
+    "financials": {
+      "revenue_actual_usd": 5567764500.0,
+      "revenue_yoy_pct": 16,
+      "net_income_actual_usd": 580419000.0,
+      "eps_actual": 2.77884,
+      "capex_actual_usd": 6723000.0
+    },
+    "reactionPct": null,
+    "reactionLine": "Market reaction omitted to avoid mixing the October 22 earnings session with today’s live quote.",
+    "verification": "Issuer Q3 financials checked in EUR; deterministic USD convenience translation at ECB October 22, 2026 reference rate 1 EUR = 1.1205 USD. All original figures, FX inputs and source retained in currencyNormalization and its research artifact. Native growth rates and margins remain unchanged.",
+    "currencyNormalization": {
+      "source_currency": "EUR",
+      "target_currency": "USD",
+      "usd_per_unit": 1.1205,
+      "rate_date": "2026-10-22",
+      "requested_date": "2026-10-22",
+      "source": "European Central Bank daily reference rates",
+      "source_url": "https://www.ecb.europa.eu/stats/eurofxref/eurofxref-hist-90d.xml",
+      "method": "single dated reference rate; convenience translation, not accounting restatement",
+      "reference_base": "EUR",
+      "usd_per_eur": 1.1205,
+      "source_units_per_eur": 1.0,
+      "native_financials": {
+        "revenue_actual_usd": 4969000000,
+        "revenue_yoy_pct": 16,
+        "net_income_actual_usd": 518000000,
+        "eps_actual": 2.48,
+        "capex_actual_usd": 6000000
+      },
+      "native_valuation_reference": {},
+      "original_amounts": [
+        {
+          "native": "€4.969 billion",
+          "usd": "$5.57B"
+        },
+        {
+          "native": "€5.0 billion",
+          "usd": "$5.60B"
+        },
+        {
+          "native": "€4.487 billion",
+          "usd": "$5.03B"
+        },
+        {
+          "native": "€482 million",
+          "usd": "$540.08M"
+        },
+        {
+          "native": "€672 million",
+          "usd": "$752.98M"
+        },
+        {
+          "native": "€670 million",
+          "usd": "$750.74M"
+        },
+        {
+          "native": "€2.48",
+          "usd": "$2.78"
+        },
+        {
+          "native": "€518 million",
+          "usd": "$580.42M"
+        },
+        {
+          "native": "€735 million",
+          "usd": "$823.57M"
+        },
+        {
+          "native": "€3.2 billion",
+          "usd": "$3.59B"
+        },
+        {
+          "native": "€9.9 billion",
+          "usd": "$11.09B"
+        },
+        {
+          "native": "€6 million",
+          "usd": "$6.72M"
+        },
+        {
+          "native": "€5.2 billion",
+          "usd": "$5.83B"
+        },
+        {
+          "native": "€820 million",
+          "usd": "$918.81M"
+        },
+        {
+          "native": "€6 million",
+          "usd": "$6.72M"
+        },
+        {
+          "native": "€4.969B",
+          "usd": "$5.57B"
+        },
+        {
+          "native": "€672M",
+          "usd": "$752.98M"
+        },
+        {
+          "native": "€735M",
+          "usd": "$823.57M"
+        },
+        {
+          "native": "€2.48",
+          "usd": "$2.78"
+        },
+        {
+          "native": "€5.2B",
+          "usd": "$5.83B"
+        },
+        {
+          "native": "€4.969B",
+          "usd": "$5.57B"
+        },
+        {
+          "native": "€672M",
+          "usd": "$752.98M"
+        }
+      ]
+    }
   }
+}
 }
